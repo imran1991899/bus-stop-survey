@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-from PIL import Image
 import os
 
 # Set up Streamlit UI
@@ -82,11 +81,11 @@ if st.button("✅ Submit Survey"):
     updated.to_csv("responses.csv", index=False)
     st.success("✔️ Your response has been recorded!")
 
-    # Preview image
+    # ✅ Updated to use_container_width instead of deprecated use_column_width
     if camera_photo:
-        st.image(camera_photo, caption="📸 Camera Photo", use_column_width=True)
+        st.image(camera_photo, caption="📸 Camera Photo", use_container_width=True)
     elif gallery_upload:
-        st.image(gallery_upload, caption="🖼 Uploaded Photo", use_column_width=True)
+        st.image(gallery_upload, caption="🖼 Uploaded Photo", use_container_width=True)
 
 # Admin Tools
 st.divider()
@@ -101,4 +100,4 @@ if st.checkbox("📋 Show all responses"):
 if st.checkbox("⬇️ Download responses as CSV"):
     if os.path.exists("responses.csv"):
         df = pd.read_csv("responses.csv")
-        st.download_button("Download CSV", df.to_csv(index=False), file_name="bus_stop_responses.csv") 
+        st.download_button("Download CSV", df.to_csv(index=False), file_name="bus_stop_responses.csv")
