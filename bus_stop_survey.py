@@ -2,122 +2,123 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import os
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseUpload
+import io
 
-# Set up Streamlit UI
+# -----------------------
+# CONFIG - Replace with your Google Sheet & Drive Folder IDs
+GSHEET_ID = "https://docs.google.com/spreadsheets/d/15CEY68rIP4cjN8Cgqn6tRtLwIzOInTxd0_YQ804NSMo/edit?gid=0#gid=0"
+GDRIVE_FOLDER_ID = "15CEY68rIP4cjN8Cgqn6tRtLwIzOInTxd0_YQ804NSMo"
+
+# -----------------------
+# Load Google Service Account credentials from Streamlit secrets
+SERVICE_ACCOUNT_INFO = st.secrets["google_service_account"]
+SCOPES = ['https://www.googleapis.com/auth/drive',
+          'https://www.googleapis.com/auth/spreadsheets']
+
+credentials = service_account.Credentials.from_service_account_info(
+    SERVICE_ACCOUNT_INFO, scopes=SCOPES)
+
+# Build the service clients
+drive_service = build('drive', 'v3', credentials=credentials)
+sheets_service = build('sheets', 'v4', credentials=credentials)
+
+# -----------------------
 st.set_page_config(page_title="🚌 Bus Stop Survey", layout="centered")
 st.title("🚌 Bus Stop Assessment Survey")
 
-# Create folders if needed
-if not os.path.exists("images"):
-    os.makedirs("images")
+# -----------------------
+# Sample static data - you can replace with your Excel load or API call
+depots = ["Depot A", "Depot B", "Depot C"]
+routes = {
+    "Depot A": ["Route 1", "Route 2"],
+    "Depot B": ["Route 3"],
+    "Depot C": ["Route 4", "Route 5"]
+}
+stops = {
+    "Route 1": ["Stop 1", "Stop 2"],
+    "Route 2": ["Stop 3"],
+    "Route 3": ["Stop 4", "Stop 5"],
+    "Route 4": ["Stop 6"],
+    "Route 5": ["Stop 7", "Stop 8"]
+}
 
-# Load depot/route/stop info from Excel
-try:
-    routes_df = pd.read_excel("bus_data.xlsx", sheet_name="routes")
-    stops_df = pd.read_excel("bus_data.xlsx", sheet_name="stops")
-except Exception as e:
-    st.error(f"❌ Failed to load Excel file: {e}")
-    st.stop()
-
-# Question 1: Select Depot
-depots = routes_df["Depot"].dropna().unique()
 selected_depot = st.selectbox("1️⃣ Select Depot", depots)
-
-# Question 2: Select Route under selected depot
-filtered_routes = routes_df[routes_df["Depot"] == selected_depot]["Route Number"].dropna().unique()
-selected_route = st.selectbox("2️⃣ Select Route Number", filtered_routes)
-
-# Question 3: Select Stop under selected route
-filtered_stops = stops_df[stops_df["Route Number"] == selected_route]["Stop Name"].dropna().unique()
-selected_stop = st.selectbox("3️⃣ Select Bus Stop", filtered_stops)
-
-# Question 4: Select Condition
+selected_route = st.selectbox("2️⃣ Select Route Number", routes[selected_depot])
+selected_stop = st.selectbox("3️⃣ Select Bus Stop", stops[selected_route])
 condition = st.selectbox("4️⃣ Bus Stop Condition", ["Pole", "Sheltered", "N/A"])
 
-# Initialize session state for photos
+# Photo upload section with multiple photos allowed (max 5)
+st.markdown("5️⃣ Take up to 5 photos (Camera only)")
+
 if "photos" not in st.session_state:
     st.session_state.photos = []
-if "last_photo" not in st.session_state:
-    st.session_state.last_photo = None
 
-# Question 5: Photo capture - up to 5 photos with camera only
-st.markdown("5️⃣ Add up to 5 Photos (Camera Only)")
+def add_photo():
+    if st.session_state.new_photo is not None and len(st.session_state.photos) < 5:
+        st.session_state.photos.append(st.session_state.new_photo)
+        st.session_state.new_photo = None
 
-if len(st.session_state.photos) < 5:
-    last_photo = st.camera_input(f"📷 Take Photo #{len(st.session_state.photos) + 1}")
-    if last_photo is not None:
-        st.session_state.last_photo = last_photo
+st.camera_input("Take a photo", key="new_photo", on_change=add_photo)
 
-# Append last snapped photo to photos list and clear last_photo to reset camera
-if st.session_state.last_photo is not None:
-    st.session_state.photos.append(st.session_state.last_photo)
-    st.session_state.last_photo = None
+# Show photos taken with option to delete each
+for i, photo in enumerate(st.session_state.photos):
+    st.image(photo, use_container_width=True, caption=f"Photo {i+1}")
+    if st.button(f"Delete Photo {i+1}", key=f"del_{i}"):
+        st.session_state.photos.pop(i)
+        st.experimental_rerun()
 
-# Show saved photos with delete buttons
-if st.session_state.photos:
-    st.subheader("📸 Saved Photos")
-    to_delete = None
-    for i, img in enumerate(st.session_state.photos):
-        col1, col2 = st.columns([4, 1])
-        with col1:
-            st.image(img, caption=f"Photo #{i + 1}", use_container_width=True)
-        with col2:
-            if st.button(f"❌ Delete Photo #{i + 1}", key=f"delete_{i}"):
-                to_delete = i
-    if to_delete is not None:
-        del st.session_state.photos[to_delete]
+if len(st.session_state.photos) == 5:
+    st.info("Maximum 5 photos reached.")
 
-# Submit Button
+# Submit button logic
 if st.button("✅ Submit Survey"):
+
     if len(st.session_state.photos) == 0:
         st.warning("Please take at least one photo before submitting.")
     else:
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        saved_filenames = []
+        responses = []
 
-        # Save photos to disk
+        # Upload photos to Google Drive
+        photo_filenames = []
         for idx, photo in enumerate(st.session_state.photos):
-            filename = f"{timestamp}_photo{idx + 1}.jpg"
-            filepath = os.path.join("images", filename)
-            with open(filepath, "wb") as f:
-                f.write(photo.getbuffer())
-            saved_filenames.append(filename)
+            photo_bytes = photo.getvalue()
+            file_name = f"{timestamp}_photo{idx+1}.jpg"
 
-        # Create record for CSV
-        response = pd.DataFrame([{
-            "Timestamp": timestamp,
-            "Depot": selected_depot,
-            "Route Number": selected_route,
-            "Bus Stop": selected_stop,
-            "Condition": condition,
-            "Photos": ";".join(saved_filenames)
-        }])
+            file_metadata = {
+                'name': file_name,
+                'parents': [GDRIVE_FOLDER_ID]
+            }
 
-        # Append or create CSV
-        if os.path.exists("responses.csv"):
-            existing = pd.read_csv("responses.csv")
-            updated = pd.concat([existing, response], ignore_index=True)
-        else:
-            updated = response
+            media = MediaIoBaseUpload(io.BytesIO(photo_bytes), mimetype='image/jpeg')
+            file = drive_service.files().create(
+                body=file_metadata,
+                media_body=media,
+                fields='id'
+            ).execute()
+            photo_filenames.append(file_name)
 
-        updated.to_csv("responses.csv", index=False)
+        # Prepare the row to append to Google Sheet
+        new_row = [
+            timestamp,
+            selected_depot,
+            selected_route,
+            selected_stop,
+            condition,
+            ", ".join(photo_filenames)
+        ]
 
-        st.success("✔️ Your response has been recorded!")
-        st.balloons()
+        # Append data to Google Sheet
+        sheets_service.spreadsheets().values().append(
+            spreadsheetId=GSHEET_ID,
+            range="Sheet1!A:F",
+            valueInputOption="USER_ENTERED",
+            body={"values": [new_row]}
+        ).execute()
 
-        # Clear photos for next submission
+        # Clear photos after submit
         st.session_state.photos = []
-
-# Admin Tools (Optional)
-st.divider()
-if st.checkbox("📋 Show all responses"):
-    if os.path.exists("responses.csv"):
-        df = pd.read_csv("responses.csv")
-        st.dataframe(df)
-    else:
-        st.info("No responses yet.")
-
-if st.checkbox("⬇️ Download responses as CSV"):
-    if os.path.exists("responses.csv"):
-        df = pd.read_csv("responses.csv")
-        st.download_button("Download CSV", df.to_csv(index=False), file_name="bus_stop_responses.csv")
+        st.success("✔️ Your response and photos have been saved successfully!")
