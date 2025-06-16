@@ -3,15 +3,15 @@ import pandas as pd
 from datetime import datetime
 import os
 
-# Set up UI
+# --- Page setup ---
 st.set_page_config(page_title="🚌 Bus Stop Survey", layout="centered")
 st.title("🚌 Bus Stop Assessment Survey")
 
-# Setup image storage
+# --- Ensure image folder exists ---
 if not os.path.exists("images"):
     os.makedirs("images")
 
-# Load Excel data
+# --- Load depot/route/stop info ---
 try:
     routes_df = pd.read_excel("bus_data.xlsx", sheet_name="routes")
     stops_df = pd.read_excel("bus_data.xlsx", sheet_name="stops")
@@ -19,7 +19,11 @@ except Exception as e:
     st.error(f"❌ Failed to load Excel file: {e}")
     st.stop()
 
-# Survey questions
+# --- Session State Init ---
+if "photos" not in st.session_state:
+    st.session_state.photos = []
+
+# --- Survey Questions ---
 depots = routes_df["Depot"].dropna().unique()
 selected_depot = st.selectbox("1️⃣ Select Depot", depots)
 
@@ -31,79 +35,69 @@ selected_stop = st.selectbox("3️⃣ Select Bus Stop", filtered_stops)
 
 condition = st.selectbox("4️⃣ Bus Stop Condition", ["Pole", "Sheltered", "N/A"])
 
-# Session state setup
-if "photos" not in st.session_state:
-    st.session_state.photos = []
-if "photo_index_to_remove" not in st.session_state:
-    st.session_state.photo_index_to_remove = None
-
-# Handle photo removal (safe method without rerun)
-if st.session_state.photo_index_to_remove is not None:
-    idx = st.session_state.photo_index_to_remove
-    if 0 <= idx < len(st.session_state.photos):
-        del st.session_state.photos[idx]
-    st.session_state.photo_index_to_remove = None
-
-# Capture new photo
-st.markdown("5️⃣ Add up to 5 Photos (camera only)")
+# --- Take Up to 5 Photos ---
+st.markdown("5️⃣ Add up to 5 Photos (Camera Only)")
 
 if len(st.session_state.photos) < 5:
-    new_photo = st.camera_input(f"📷 Take Photo #{len(st.session_state.photos)+1}", key=f"camera_{len(st.session_state.photos)}")
+    new_photo = st.camera_input(f"📷 Take Photo #{len(st.session_state.photos) + 1}")
     if new_photo:
         st.session_state.photos.append(new_photo)
 
-# Preview photos
+# --- Display and Delete Photos (no rerun) ---
 if st.session_state.photos:
     st.subheader("📸 Preview Photos")
+    to_delete = None  # Track index to delete
     for i, img in enumerate(st.session_state.photos):
         col1, col2 = st.columns([4, 1])
         with col1:
             st.image(img, caption=f"Photo #{i+1}", use_container_width=True)
         with col2:
-            if st.button(f"❌", key=f"remove_{i}"):
-                st.session_state.photo_index_to_remove = i
-                st.experimental_rerun()  # <- This is the only place we *safely* rerun after button press
+            if st.button(f"❌ Delete Photo #{i+1}", key=f"delete_{i}"):
+                to_delete = i
 
-# Submission
-submit_clicked = st.button("✅ Submit Survey", key="submit_button")
+    # Delete after loop (avoids mid-render issues)
+    if to_delete is not None:
+        del st.session_state.photos[to_delete]
 
-if submit_clicked and st.session_state.photos:
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    saved_photo_filenames = []
-
-    for idx, photo in enumerate(st.session_state.photos):
-        ext = photo.type.split("/")[-1] if hasattr(photo, 'type') else "jpg"
-        filename = f"{timestamp}_{idx+1}.{ext}"
-        path = os.path.join("images", filename)
-        with open(path, "wb") as f:
-            f.write(photo.getbuffer())
-        saved_photo_filenames.append(filename)
-
-    # Save to CSV
-    response = pd.DataFrame([{
-        "Timestamp": timestamp,
-        "Depot": selected_depot,
-        "Route Number": selected_route,
-        "Bus Stop": selected_stop,
-        "Condition": condition,
-        "Photo Filenames": ";".join(saved_photo_filenames)
-    }])
-
-    if os.path.exists("responses.csv"):
-        existing = pd.read_csv("responses.csv")
-        updated = pd.concat([existing, response], ignore_index=True)
+# --- Submit Survey ---
+if st.button("✅ Submit Survey"):
+    if not st.session_state.photos:
+        st.warning("📸 Please take at least 1 photo before submitting.")
     else:
-        updated = response
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        saved_photo_filenames = []
 
-    updated.to_csv("responses.csv", index=False)
-    st.success("✔️ Your response has been recorded!")
+        for idx, photo in enumerate(st.session_state.photos):
+            ext = photo.type.split("/")[-1] if hasattr(photo, 'type') else "jpg"
+            filename = f"{timestamp}_{idx+1}.{ext}"
+            filepath = os.path.join("images", filename)
+            with open(filepath, "wb") as f:
+                f.write(photo.getbuffer())
+            saved_photo_filenames.append(filename)
 
-    st.session_state.photos = []
+        response = pd.DataFrame([{
+            "Timestamp": timestamp,
+            "Depot": selected_depot,
+            "Route Number": selected_route,
+            "Bus Stop": selected_stop,
+            "Condition": condition,
+            "Photo Filenames": ";".join(saved_photo_filenames)
+        }])
 
-elif submit_clicked and not st.session_state.photos:
-    st.warning("📸 Please take at least 1 photo before submitting.")
+        # Append to CSV
+        if os.path.exists("responses.csv"):
+            existing = pd.read_csv("responses.csv")
+            updated = pd.concat([existing, response], ignore_index=True)
+        else:
+            updated = response
 
-# Admin tools
+        updated.to_csv("responses.csv", index=False)
+        st.success("✔️ Your response has been recorded!")
+
+        # Reset photos
+        st.session_state.photos = []
+
+# --- Admin Tools ---
 st.divider()
 
 if st.checkbox("📋 Show all responses"):
