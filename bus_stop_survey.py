@@ -17,7 +17,7 @@ except Exception as e:
     st.error(f"❌ Failed to load Excel file: {e}")
     st.stop()
 
-# Questions 1-4 (same as before)
+# Questions 1-4
 depots = routes_df["Depot"].dropna().unique()
 selected_depot = st.selectbox("1️⃣ Select Depot", depots)
 
@@ -33,19 +33,22 @@ condition = st.selectbox("4️⃣ Bus Stop Condition", ["Pole", "Sheltered", "N/
 if "photos" not in st.session_state:
     st.session_state.photos = []
 
+if "last_photo_added" not in st.session_state:
+    st.session_state.last_photo_added = False
+
 max_photos = 5
 
 st.markdown("5️⃣ Take up to 5 photos (one at a time)")
 
 if len(st.session_state.photos) < max_photos:
     photo = st.camera_input(f"Take photo #{len(st.session_state.photos)+1}")
-    if photo is not None:
-        # Save photo temporarily in session state
-        st.session_state.photos.append(photo)
-        st.success(f"Photo #{len(st.session_state.photos)} taken!")
 
-        # After a photo is taken, clear the camera input so user can take next
+    if photo is not None and not st.session_state.last_photo_added:
+        st.session_state.photos.append(photo)
+        st.session_state.last_photo_added = True
         st.experimental_rerun()
+    else:
+        st.session_state.last_photo_added = False
 else:
     st.info(f"You have taken {max_photos} photos.")
 
@@ -93,8 +96,9 @@ if st.button("✅ Submit Survey", disabled=(len(st.session_state.photos) == 0)):
 
     # Clear photos from session state for next user
     st.session_state.photos = []
+    st.experimental_rerun()
 
-# Divider and admin tools (same as before)
+# Divider and admin tools
 st.divider()
 
 if st.checkbox("📋 Show all responses"):
