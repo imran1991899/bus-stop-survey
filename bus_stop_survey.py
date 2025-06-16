@@ -3,15 +3,15 @@ import pandas as pd
 from datetime import datetime
 import os
 
-# --- Page setup ---
+# Set up Streamlit UI
 st.set_page_config(page_title="🚌 Bus Stop Survey", layout="centered")
 st.title("🚌 Bus Stop Assessment Survey")
 
-# --- Ensure image folder exists ---
+# Create folders if needed
 if not os.path.exists("images"):
     os.makedirs("images")
 
-# --- Load depot/route/stop info ---
+# Load depot/route/stop info from Excel
 try:
     routes_df = pd.read_excel("bus_data.xlsx", sheet_name="routes")
     stops_df = pd.read_excel("bus_data.xlsx", sheet_name="stops")
@@ -19,72 +19,81 @@ except Exception as e:
     st.error(f"❌ Failed to load Excel file: {e}")
     st.stop()
 
-# --- Session State Init ---
-if "photos" not in st.session_state:
-    st.session_state.photos = []
-
-# --- Survey Questions ---
+# Question 1: Select Depot
 depots = routes_df["Depot"].dropna().unique()
 selected_depot = st.selectbox("1️⃣ Select Depot", depots)
 
+# Question 2: Select Route under selected depot
 filtered_routes = routes_df[routes_df["Depot"] == selected_depot]["Route Number"].dropna().unique()
 selected_route = st.selectbox("2️⃣ Select Route Number", filtered_routes)
 
+# Question 3: Select Stop under selected route
 filtered_stops = stops_df[stops_df["Route Number"] == selected_route]["Stop Name"].dropna().unique()
 selected_stop = st.selectbox("3️⃣ Select Bus Stop", filtered_stops)
 
+# Question 4: Select Condition
 condition = st.selectbox("4️⃣ Bus Stop Condition", ["Pole", "Sheltered", "N/A"])
 
-# --- Take Up to 5 Photos ---
+# Initialize session state for photos
+if "photos" not in st.session_state:
+    st.session_state.photos = []
+if "last_photo" not in st.session_state:
+    st.session_state.last_photo = None
+
+# Question 5: Photo capture - up to 5 photos with camera only
 st.markdown("5️⃣ Add up to 5 Photos (Camera Only)")
 
 if len(st.session_state.photos) < 5:
-    new_photo = st.camera_input(f"📷 Take Photo #{len(st.session_state.photos) + 1}")
-    if new_photo:
-        st.session_state.photos.append(new_photo)
+    last_photo = st.camera_input(f"📷 Take Photo #{len(st.session_state.photos) + 1}")
+    if last_photo is not None:
+        st.session_state.last_photo = last_photo
 
-# --- Display and Delete Photos (no rerun) ---
+# Append last snapped photo to photos list and clear last_photo to reset camera
+if st.session_state.last_photo is not None:
+    st.session_state.photos.append(st.session_state.last_photo)
+    st.session_state.last_photo = None
+
+# Show saved photos with delete buttons
 if st.session_state.photos:
-    st.subheader("📸 Preview Photos")
-    to_delete = None  # Track index to delete
+    st.subheader("📸 Saved Photos")
+    to_delete = None
     for i, img in enumerate(st.session_state.photos):
         col1, col2 = st.columns([4, 1])
         with col1:
-            st.image(img, caption=f"Photo #{i+1}", use_container_width=True)
+            st.image(img, caption=f"Photo #{i + 1}", use_container_width=True)
         with col2:
-            if st.button(f"❌ Delete Photo #{i+1}", key=f"delete_{i}"):
+            if st.button(f"❌ Delete Photo #{i + 1}", key=f"delete_{i}"):
                 to_delete = i
-
-    # Delete after loop (avoids mid-render issues)
     if to_delete is not None:
         del st.session_state.photos[to_delete]
 
-# --- Submit Survey ---
+# Submit Button
 if st.button("✅ Submit Survey"):
-    if not st.session_state.photos:
-        st.warning("📸 Please take at least 1 photo before submitting.")
+    if len(st.session_state.photos) == 0:
+        st.warning("Please take at least one photo before submitting.")
     else:
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        saved_photo_filenames = []
+        saved_filenames = []
 
+        # Save photos to disk
         for idx, photo in enumerate(st.session_state.photos):
-            ext = photo.type.split("/")[-1] if hasattr(photo, 'type') else "jpg"
-            filename = f"{timestamp}_{idx+1}.{ext}"
+            filename = f"{timestamp}_photo{idx + 1}.jpg"
             filepath = os.path.join("images", filename)
             with open(filepath, "wb") as f:
                 f.write(photo.getbuffer())
-            saved_photo_filenames.append(filename)
+            saved_filenames.append(filename)
 
+        # Create record for CSV
         response = pd.DataFrame([{
             "Timestamp": timestamp,
             "Depot": selected_depot,
             "Route Number": selected_route,
             "Bus Stop": selected_stop,
             "Condition": condition,
-            "Photo Filenames": ";".join(saved_photo_filenames)
+            "Photos": ";".join(saved_filenames)
         }])
 
-        # Append to CSV
+        # Append or create CSV
         if os.path.exists("responses.csv"):
             existing = pd.read_csv("responses.csv")
             updated = pd.concat([existing, response], ignore_index=True)
@@ -92,14 +101,15 @@ if st.button("✅ Submit Survey"):
             updated = response
 
         updated.to_csv("responses.csv", index=False)
-        st.success("✔️ Your response has been recorded!")
 
-        # Reset photos
+        st.success("✔️ Your response has been recorded!")
+        st.balloons()
+
+        # Clear photos for next submission
         st.session_state.photos = []
 
-# --- Admin Tools ---
+# Admin Tools (Optional)
 st.divider()
-
 if st.checkbox("📋 Show all responses"):
     if os.path.exists("responses.csv"):
         df = pd.read_csv("responses.csv")
