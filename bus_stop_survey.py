@@ -19,6 +19,12 @@ except Exception as e:
     st.error(f"❌ Failed to load Excel file: {e}")
     st.stop()
 
+# 🆕 Staff ID (Remember using session_state)
+if "staff_id" not in st.session_state:
+    st.session_state.staff_id = ""
+
+st.text_input("👤 Staff ID", value=st.session_state.staff_id, key="staff_id")
+
 # Question 1: Select Depot
 depots = routes_df["Depot"].dropna().unique()
 selected_depot = st.selectbox("1️⃣ Select Depot", depots)
@@ -94,6 +100,8 @@ if st.session_state.photos:
 if st.button("✅ Submit Survey"):
     if len(st.session_state.photos) == 0:
         st.warning("❗ Please take at least one photo before submitting.")
+    elif not st.session_state.staff_id.strip():
+        st.warning("❗ Please enter your Staff ID.")
     else:
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         saved_filenames = []
@@ -109,6 +117,7 @@ if st.button("✅ Submit Survey"):
         # Create record for CSV
         response = pd.DataFrame([{
             "Timestamp": timestamp,
+            "Staff ID": st.session_state.staff_id,
             "Depot": selected_depot,
             "Route Number": selected_route,
             "Bus Stop": selected_stop,
@@ -128,6 +137,8 @@ if st.button("✅ Submit Survey"):
 
         st.success("✔️ Your response has been recorded!")
         st.balloons()
+
+        # Clear only photos so Staff ID remains
         st.session_state.photos = []
 
 # Admin Tools (Optional)
