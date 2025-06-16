@@ -32,7 +32,7 @@ filtered_stops = stops_df[stops_df["Route Number"] == selected_route]["Stop Name
 selected_stop = st.selectbox("3️⃣ Select Bus Stop", filtered_stops)
 
 # Question 4: Select Condition
-condition = st.selectbox("4️⃣ Bus Stop Condition", ["Pole", "Sheltered", "N/A"])
+condition = st.selectbox("4️⃣ Bus Stop Condition", ["Covered Bus Stop", "Pole Only", "Layby", "Non-Infrastructure"])
 
 # Initialize session state for photos
 if "photos" not in st.session_state:
