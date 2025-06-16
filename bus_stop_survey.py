@@ -34,21 +34,44 @@ selected_stop = st.selectbox("3️⃣ Select Bus Stop", filtered_stops)
 # Question 4: Select Condition
 condition = st.selectbox("4️⃣ Bus Stop Condition", ["Covered Bus Stop", "Pole Only", "Layby", "Non-Infrastructure"])
 
+# Question 5: Specific Conditions (multi-select)
+st.markdown("5️⃣ Specific Situational Conditions (Select all that apply)")
+specific_conditions = st.multiselect("Check all relevant reasons below:", [
+    "Infrastruktur sudah tiada/musnah",
+    "Terlindung oleh pokok",
+    "Terhalang oleh kenderaan parkir",
+    "Keadaan sekeliling tidak selamat (trafik/tiada lampu)",
+    "Tiada penumpang menunggu",
+    "Tiada isyarat daripada penumpang",
+    "Tidak berhenti/memperlahankan bas",
+    "Salah tempat menunggu",
+    "Kedudukan bus stop kurang sesuai",
+    "Bas penuh",
+    "Mengejar masa waybill (punctuality)",
+    "Kesesakan lalu lintas",
+    "Perubahan nama hentian dengan bangunan sekeliling",
+    "Kekeliruan laluan oleh pemandu baru",
+    "Terdapat laluan tutup atas sebab tertentu (baiki jalan, pokok tumbang, lawatan delegasi dari luar negara)",
+    "Hentian terlalu hampir simpang masuk, bas sukar kembali ke laluan betul",
+    "Arahan untuk tidak berhenti kerana kelewatan atau penjadualan semula",
+    "Hentian berdekatan dengan traffic light"
+])
+
 # Initialize session state for photos
 if "photos" not in st.session_state:
     st.session_state.photos = []
 if "last_photo" not in st.session_state:
     st.session_state.last_photo = None
 
-# Question 5: Photo capture - up to 5 photos with camera only
-st.markdown("5️⃣ Add up to 5 Photos (Camera Only)")
+# Question 6: Photo capture - up to 5 photos with camera only
+st.markdown("6️⃣ Add up to 5 Photos (Camera Only)")
 
 if len(st.session_state.photos) < 5:
     last_photo = st.camera_input(f"📷 Take Photo #{len(st.session_state.photos) + 1}")
     if last_photo is not None:
         st.session_state.last_photo = last_photo
 
-# Append last snapped photo to photos list and clear last_photo to reset camera
+# Append last snapped photo to photos list and reset last photo to keep camera open
 if st.session_state.last_photo is not None:
     st.session_state.photos.append(st.session_state.last_photo)
     st.session_state.last_photo = None
@@ -70,7 +93,7 @@ if st.session_state.photos:
 # Submit Button
 if st.button("✅ Submit Survey"):
     if len(st.session_state.photos) == 0:
-        st.warning("Please take at least one photo before submitting.")
+        st.warning("❗ Please take at least one photo before submitting.")
     else:
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         saved_filenames = []
@@ -90,6 +113,7 @@ if st.button("✅ Submit Survey"):
             "Route Number": selected_route,
             "Bus Stop": selected_stop,
             "Condition": condition,
+            "Specific Conditions": "; ".join(specific_conditions),
             "Photos": ";".join(saved_filenames)
         }])
 
@@ -104,8 +128,6 @@ if st.button("✅ Submit Survey"):
 
         st.success("✔️ Your response has been recorded!")
         st.balloons()
-
-        # Clear photos for next submission
         st.session_state.photos = []
 
 # Admin Tools (Optional)
