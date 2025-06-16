@@ -3,16 +3,11 @@ import pandas as pd
 from datetime import datetime
 import os
 
-# === Safe rerun check ===
-if "rerun_needed" in st.session_state and st.session_state.rerun_needed:
-    st.session_state.rerun_needed = False
-    st.experimental_rerun()
-
-# App setup
+# Set up UI
 st.set_page_config(page_title="🚌 Bus Stop Survey", layout="centered")
 st.title("🚌 Bus Stop Assessment Survey")
 
-# Create image folder if not exists
+# Setup image storage
 if not os.path.exists("images"):
     os.makedirs("images")
 
@@ -24,7 +19,7 @@ except Exception as e:
     st.error(f"❌ Failed to load Excel file: {e}")
     st.stop()
 
-# --- Survey UI ---
+# Survey questions
 depots = routes_df["Depot"].dropna().unique()
 selected_depot = st.selectbox("1️⃣ Select Depot", depots)
 
@@ -36,10 +31,20 @@ selected_stop = st.selectbox("3️⃣ Select Bus Stop", filtered_stops)
 
 condition = st.selectbox("4️⃣ Bus Stop Condition", ["Pole", "Sheltered", "N/A"])
 
-# --- Photo Upload Section ---
+# Session state setup
 if "photos" not in st.session_state:
     st.session_state.photos = []
+if "photo_index_to_remove" not in st.session_state:
+    st.session_state.photo_index_to_remove = None
 
+# Handle photo removal (safe method without rerun)
+if st.session_state.photo_index_to_remove is not None:
+    idx = st.session_state.photo_index_to_remove
+    if 0 <= idx < len(st.session_state.photos):
+        del st.session_state.photos[idx]
+    st.session_state.photo_index_to_remove = None
+
+# Capture new photo
 st.markdown("5️⃣ Add up to 5 Photos (camera only)")
 
 if len(st.session_state.photos) < 5:
@@ -47,7 +52,7 @@ if len(st.session_state.photos) < 5:
     if new_photo:
         st.session_state.photos.append(new_photo)
 
-# --- Preview Photos ---
+# Preview photos
 if st.session_state.photos:
     st.subheader("📸 Preview Photos")
     for i, img in enumerate(st.session_state.photos):
@@ -56,11 +61,10 @@ if st.session_state.photos:
             st.image(img, caption=f"Photo #{i+1}", use_container_width=True)
         with col2:
             if st.button(f"❌", key=f"remove_{i}"):
-                st.session_state.photos.pop(i)
-                st.session_state.rerun_needed = True
-                st.stop()
+                st.session_state.photo_index_to_remove = i
+                st.experimental_rerun()  # <- This is the only place we *safely* rerun after button press
 
-# --- Submission ---
+# Submission
 submit_clicked = st.button("✅ Submit Survey", key="submit_button")
 
 if submit_clicked and st.session_state.photos:
@@ -75,6 +79,7 @@ if submit_clicked and st.session_state.photos:
             f.write(photo.getbuffer())
         saved_photo_filenames.append(filename)
 
+    # Save to CSV
     response = pd.DataFrame([{
         "Timestamp": timestamp,
         "Depot": selected_depot,
@@ -94,13 +99,11 @@ if submit_clicked and st.session_state.photos:
     st.success("✔️ Your response has been recorded!")
 
     st.session_state.photos = []
-    st.session_state.rerun_needed = True
-    st.stop()
 
 elif submit_clicked and not st.session_state.photos:
     st.warning("📸 Please take at least 1 photo before submitting.")
 
-# --- Admin Panel ---
+# Admin tools
 st.divider()
 
 if st.checkbox("📋 Show all responses"):
