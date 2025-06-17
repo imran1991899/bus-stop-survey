@@ -3,11 +3,11 @@ import pandas as pd
 from datetime import datetime
 import os
 
-# Set wide layout for better visibility
+# Set wide layout
 st.set_page_config(page_title="🚌 Bus Stop Survey", layout="wide")
 st.title("🚌 Bus Stop Assessment Survey")
 
-# Create images folder if needed
+# Create images folder if not exists
 if not os.path.exists("images"):
     os.makedirs("images")
 
@@ -19,24 +19,29 @@ except Exception as e:
     st.error(f"❌ Failed to load Excel file: {e}")
     st.stop()
 
-# Staff ID with session_state
+# Staff ID input
 if "staff_id" not in st.session_state:
     st.session_state.staff_id = ""
-st.text_input("👤 Staff ID", value=st.session_state.staff_id, key="staff_id")
 
-# Question 1: Depot
+staff_id_input = st.text_input("👤 Staff ID (numbers only)", value=st.session_state.staff_id, key="staff_id")
+
+# Live warning if non-numeric
+if staff_id_input and not staff_id_input.isdigit():
+    st.warning("⚠️ Staff ID must contain numbers only.")
+
+# Depot selection
 depots = routes_df["Depot"].dropna().unique()
 selected_depot = st.selectbox("1️⃣ Select Depot", depots)
 
-# Question 2: Route
+# Route selection based on depot
 filtered_routes = routes_df[routes_df["Depot"] == selected_depot]["Route Number"].dropna().unique()
 selected_route = st.selectbox("2️⃣ Select Route Number", filtered_routes)
 
-# Question 3: Bus Stop
+# Stop selection based on route
 filtered_stops = stops_df[stops_df["Route Number"] == selected_route]["Stop Name"].dropna().unique()
 selected_stop = st.selectbox("3️⃣ Select Bus Stop", filtered_stops)
 
-# Question 4: Condition
+# Bus stop condition
 condition = st.selectbox("4️⃣ Bus Stop Condition", [
     "1. Covered Bus Stop",
     "2. Pole Only",
@@ -44,13 +49,13 @@ condition = st.selectbox("4️⃣ Bus Stop Condition", [
     "4. Non-Infrastructure"
 ])
 
-# Question 4.1: Categorizing Activities
+# Activity Category
 activity_category = st.selectbox("4️⃣➕ Categorizing Activities", [
     "1. On Board in the Bus",
     "2. On Ground Location"
 ])
 
-# Define condition options based on activity
+# Dynamic specific condition options
 onboard_options = [
     "1. Tiada penumpang menunggu",
     "2. Tiada isyarat (penumpang tidak menahan bas)",
@@ -76,16 +81,12 @@ onground_options = [
     "7. Other (Please specify below)"
 ]
 
-# Choose correct list
-if activity_category == "1. On Board in the Bus":
-    specific_conditions_options = onboard_options
-else:
-    specific_conditions_options = onground_options
+# Choose option list
+specific_conditions_options = onboard_options if activity_category == "1. On Board in the Bus" else onground_options
 
 # Question 5: Specific Situational Conditions
 st.markdown("5️⃣ Specific Situational Conditions (Select all that apply)")
 
-# Session state for selections
 if "specific_conditions" not in st.session_state:
     st.session_state.specific_conditions = set()
 
@@ -98,7 +99,7 @@ for option in specific_conditions_options:
     elif not new_checked and checked:
         st.session_state.specific_conditions.remove(option)
 
-# Show text area if "Other" selected
+# Handle 'Other' input
 other_text = ""
 other_option_label = next((opt for opt in specific_conditions_options if "Other" in opt), None)
 if other_option_label and other_option_label in st.session_state.specific_conditions:
@@ -123,7 +124,7 @@ if st.session_state.last_photo is not None:
     st.session_state.photos.append(st.session_state.last_photo)
     st.session_state.last_photo = None
 
-# Show photos and delete buttons
+# Show saved photos
 if st.session_state.photos:
     st.subheader("📸 Saved Photos")
     to_delete = None
@@ -137,12 +138,14 @@ if st.session_state.photos:
     if to_delete is not None:
         del st.session_state.photos[to_delete]
 
-# Submit
+# Submit button
 if st.button("✅ Submit Survey"):
-    if len(st.session_state.photos) == 0:
-        st.warning("❗ Please take at least one photo before submitting.")
-    elif not st.session_state.staff_id.strip():
+    if not staff_id_input.strip():
         st.warning("❗ Please enter your Staff ID.")
+    elif not staff_id_input.isdigit():
+        st.warning("❗ Staff ID must contain numbers only.")
+    elif len(st.session_state.photos) == 0:
+        st.warning("❗ Please take at least one photo before submitting.")
     elif other_option_label in st.session_state.specific_conditions and len(other_text.split()) < 2:
         st.warning("❗ 'Other' response must be at least 2 words.")
     else:
@@ -163,7 +166,7 @@ if st.button("✅ Submit Survey"):
 
         response = pd.DataFrame([{
             "Timestamp": timestamp,
-            "Staff ID": st.session_state.staff_id,
+            "Staff ID": staff_id_input,
             "Depot": selected_depot,
             "Route Number": selected_route,
             "Bus Stop": selected_stop,
@@ -183,7 +186,7 @@ if st.button("✅ Submit Survey"):
 
         st.success("✅ Done!")
 
-        # Reset all except staff_id
+        # Reset session state except staff ID
         st.session_state.photos = []
         st.session_state.last_photo = None
         st.session_state.specific_conditions = set()
