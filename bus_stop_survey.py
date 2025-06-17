@@ -3,19 +3,11 @@ import pandas as pd
 from datetime import datetime
 import os
 
-# ========== Trigger a clean rerun ==========
-if "trigger_rerun" in st.session_state and st.session_state.trigger_rerun:
-    st.session_state.trigger_rerun = False
-    for key in list(st.session_state.keys()):
-        if key not in ("staff_id", "selected_depot", "selected_route"):
-            del st.session_state[key]
-    st.rerun()  # <-- fixed from experimental_rerun
-
 # ========== Page Setup ==========
 st.set_page_config(page_title="🚌 Bus Stop Survey", layout="wide")
 st.title("🚌 Bus Stop Assessment Survey")
 
-# Create folder for images
+# ========== Create image folder ==========
 if not os.path.exists("images"):
     os.makedirs("images")
 
@@ -27,28 +19,29 @@ except Exception as e:
     st.error(f"❌ Failed to load Excel file: {e}")
     st.stop()
 
-# ========== Staff ID ==========
+# ========== State Initialization ==========
 if "staff_id" not in st.session_state:
     st.session_state.staff_id = ""
+if "selected_depot" not in st.session_state:
+    st.session_state.selected_depot = ""
+if "selected_route" not in st.session_state:
+    st.session_state.selected_route = ""
+if "selected_stop" not in st.session_state:
+    st.session_state.selected_stop = ""
 
+# ========== Staff ID ==========
 staff_id_input = st.text_input("👤 Staff ID (numbers only)", value=st.session_state.staff_id)
 if staff_id_input and not staff_id_input.isdigit():
     st.warning("⚠️ Staff ID must contain numbers only.")
 st.session_state.staff_id = staff_id_input
 
 # ========== Depot Selection ==========
-if "selected_depot" not in st.session_state:
-    st.session_state.selected_depot = ""
-
 depots = routes_df["Depot"].dropna().unique()
 selected_depot = st.selectbox("1️⃣ Select Depot", depots, index=list(depots).index(st.session_state.selected_depot) if st.session_state.selected_depot in depots else 0)
 st.session_state.selected_depot = selected_depot
 
 # ========== Route Number Selection ==========
 filtered_routes = routes_df[routes_df["Depot"] == selected_depot]["Route Number"].dropna().unique()
-if "selected_route" not in st.session_state:
-    st.session_state.selected_route = ""
-
 selected_route = st.selectbox("2️⃣ Select Route Number", filtered_routes, index=list(filtered_routes).index(st.session_state.selected_route) if st.session_state.selected_route in filtered_routes else 0)
 st.session_state.selected_route = selected_route
 
@@ -59,7 +52,12 @@ filtered_stops = (
     .sort_values("Order")["Stop Name"]
     .tolist()
 )
-selected_stop = st.selectbox("3️⃣ Select Bus Stop", filtered_stops)
+
+if st.session_state.selected_stop not in filtered_stops:
+    st.session_state.selected_stop = filtered_stops[0]
+
+selected_stop = st.selectbox("3️⃣ Select Bus Stop", filtered_stops, index=filtered_stops.index(st.session_state.selected_stop))
+st.session_state.selected_stop = selected_stop
 
 # ========== Condition ==========
 condition = st.selectbox("4️⃣ Bus Stop Condition", [
@@ -126,9 +124,6 @@ if other_option_label and other_option_label in st.session_state.specific_condit
 if "photos" not in st.session_state:
     st.session_state.photos = []
 
-if "last_photo" not in st.session_state:
-    st.session_state.last_photo = None
-
 st.markdown("6️⃣ Add up to 5 Photos (Camera Only)")
 if len(st.session_state.photos) < 5:
     photo = st.camera_input(f"📷 Take Photo #{len(st.session_state.photos)+1}")
@@ -194,4 +189,11 @@ if st.button("✅ Submit Survey"):
         updated.to_csv("responses.csv", index=False)
 
         st.success("✅ Submission complete! Thank you.")
-        st.session_state.trigger_rerun = True
+
+        # Auto-reset all answers except key selections
+        keys_to_keep = ("staff_id", "selected_depot", "selected_route", "selected_stop")
+        for key in list(st.session_state.keys()):
+            if key not in keys_to_keep:
+                del st.session_state[key]
+
+        st.rerun()
