@@ -3,11 +3,11 @@ import pandas as pd
 from datetime import datetime
 import os
 
-# Set wide layout for better dropdown width
+# Set wide layout for better visibility
 st.set_page_config(page_title="🚌 Bus Stop Survey", layout="wide")
 st.title("🚌 Bus Stop Assessment Survey")
 
-# Create folders if needed
+# Create images folder if needed
 if not os.path.exists("images"):
     os.makedirs("images")
 
@@ -19,7 +19,7 @@ except Exception as e:
     st.error(f"❌ Failed to load Excel file: {e}")
     st.stop()
 
-# Staff ID input with session_state
+# Staff ID with session_state
 if "staff_id" not in st.session_state:
     st.session_state.staff_id = ""
 
@@ -45,7 +45,9 @@ condition = st.selectbox("4️⃣ Bus Stop Condition", [
     "4. Non-Infrastructure"
 ])
 
-# Question 5: Specific Situational Conditions with manual line breaks on long texts
+# Question 5: Specific Situational Conditions as checkboxes (multi-select)
+st.markdown("5️⃣ Specific Situational Conditions (Select all that apply)")
+
 specific_conditions_options = [
     "1. Infrastruktur sudah tiada/musnah",
     "2. Terlindung oleh pokok",
@@ -61,15 +63,25 @@ specific_conditions_options = [
     "12. Kesesakan lalu lintas",
     "13. Perubahan nama hentian dengan bangunan sekeliling",
     "14. Kekeliruan laluan oleh pemandu baru",
-    # Manually split with \n for line break:
-    "15. Terdapat laluan tutup atas sebab tertentu (baiki jalan,\npokok tumbang, lawatan delegasi dari luar negara)",
-    "16. Hentian terlalu hampir simpang masuk,\nbas sukar kembali ke laluan betul",
+    "15. Terdapat laluan tutup atas sebab tertentu (baiki jalan, pokok tumbang, lawatan delegasi dari luar negara)",
+    "16. Hentian terlalu hampir simpang masuk, bas sukar kembali ke laluan betul",
     "17. Arahan untuk tidak berhenti kerana kelewatan atau penjadualan semula",
     "18. Hentian berdekatan dengan traffic light"
 ]
 
-st.markdown("5️⃣ Specific Situational Conditions (Select all that apply)")
-specific_conditions = st.multiselect("✔️ Select all relevant reasons:", specific_conditions_options)
+# Store selected conditions in session state
+if "specific_conditions" not in st.session_state:
+    st.session_state.specific_conditions = set()
+
+for option in specific_conditions_options:
+    checked = option in st.session_state.specific_conditions
+    new_checked = st.checkbox(option, value=checked)
+    if new_checked and not checked:
+        st.session_state.specific_conditions.add(option)
+    elif not new_checked and checked:
+        st.session_state.specific_conditions.remove(option)
+
+specific_conditions = list(st.session_state.specific_conditions)
 
 # Initialize photos state
 if "photos" not in st.session_state:
@@ -141,7 +153,9 @@ if st.button("✅ Submit Survey"):
         st.success("✔️ Your response has been recorded!")
         st.balloons()
 
+        # Clear photos and specific conditions, keep staff id and other inputs
         st.session_state.photos = []
+        st.session_state.specific_conditions = set()
 
 # Admin tools
 st.divider()
