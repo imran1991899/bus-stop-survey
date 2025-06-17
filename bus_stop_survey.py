@@ -189,8 +189,14 @@ if st.button("✅ Submit Survey"):
         st.session_state.last_photo = None
         st.session_state.specific_conditions = set()
 
-# Admin section
+# =============================
+# 🚫 HIDDEN ADMIN TOOLS SECTION
+# To enable, uncomment this block.
+# =============================
+
+"""
 st.divider()
+st.subheader("🔒 Admin Tools")
 
 if st.checkbox("📋 Show all responses"):
     if os.path.exists("responses.csv"):
@@ -203,3 +209,4 @@ if st.checkbox("⬇️ Download responses as CSV"):
     if os.path.exists("responses.csv"):
         df = pd.read_csv("responses.csv")
         st.download_button("Download CSV", df.to_csv(index=False), file_name="bus_stop_responses.csv")
+"""
