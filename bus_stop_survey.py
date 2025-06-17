@@ -53,7 +53,7 @@ specific_conditions_options = [
     "3. Terhalang oleh kenderaan parkir",
     "4. Keadaan sekeliling tidak selamat tiada lampu",
     "5. Tiada penumpang menunggu",
-    "6. Tiada isyarat daripada penumpang",
+    "6. Tiada isyarat (penumpang tidak menahan bas)",
     "7. Tidak berhenti/memperlahankan bas",
     "8. Salah tempat menunggu",
     "9. Kedudukan bus stop kurang sesuai",
@@ -63,10 +63,9 @@ specific_conditions_options = [
     "13. Perubahan nama hentian dengan bangunan sekeliling",
     "14. Kekeliruan laluan oleh pemandu baru",
     "15. Terdapat laluan tutup atas sebab tertentu (baiki jalan, pokok tumbang, lawatan delegasi dari luar negara)",
-    "16. Hentian terlalu hampir simpang masuk, bas sukar kembali ke laluan betul",
-    "17. Arahan untuk tidak berhenti kerana kelewatan atau penjadualan semula",
-    "18. Hentian berdekatan dengan traffic light",
-    "19. Other (Please specify below)"
+    "16. Hentian terlalu hampir simpang masuk, bas sukar kembali ke laluan asal",
+    "17. Hentian berdekatan dengan traffic light",
+    "18. Other (Please specify below)"
 ]
 
 # Session state for selections
