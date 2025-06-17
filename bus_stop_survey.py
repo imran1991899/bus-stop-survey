@@ -5,15 +5,15 @@ import os
 
 
 def main():
-    # Set layout
+    # Set page layout
     st.set_page_config(page_title="🚌 Bus Stop Survey", layout="wide")
     st.title("🚌 Bus Stop Assessment Survey")
 
-    # Create folder for images
+    # Ensure images folder exists
     if not os.path.exists("images"):
         os.makedirs("images")
 
-    # Load data
+    # Load Excel data
     try:
         routes_df = pd.read_excel("bus_data.xlsx", sheet_name="routes")
         stops_df = pd.read_excel("bus_data.xlsx", sheet_name="stops")
@@ -21,7 +21,7 @@ def main():
         st.error(f"❌ Failed to load Excel file: {e}")
         st.stop()
 
-    # Session defaults
+    # Initialize session state variables
     if "staff_id" not in st.session_state:
         st.session_state.staff_id = ""
     if "specific_conditions" not in st.session_state:
@@ -33,35 +33,32 @@ def main():
 
     depots = routes_df["Depot"].dropna().unique()
 
-    # Reset form
+    # Reset fields if triggered
     if st.session_state.reset_form:
-        st.session_state.selected_depot = depots[0] if len(depots) else ""
-        filtered_routes = routes_df[routes_df["Depot"] == st.session_state.selected_depot]["Route Number"].dropna().unique()
-        st.session_state.selected_route = filtered_routes[0] if len(filtered_routes) else ""
-        filtered_stops = stops_df[stops_df["Route Number"] == st.session_state.selected_route]["Stop Name"].dropna().unique()
-        st.session_state.selected_stop = filtered_stops[0] if len(filtered_stops) else ""
+        st.session_state.selected_depot = None
+        st.session_state.selected_route = None
+        st.session_state.selected_stop = None
         st.session_state.condition = "1. Covered Bus Stop"
         st.session_state.specific_conditions = set()
         st.session_state.photos = []
-        st.session_state.camera_input = None
         st.session_state.reset_form = False
-        st.experimental_rerun()
+        st.rerun()  # ✅ Safe rerun with current Streamlit
 
-    # Staff ID
+    # Staff ID input
     st.text_input("👤 Staff ID", value=st.session_state.staff_id, key="staff_id")
 
-    # Question 1: Depot
+    # Depot
     selected_depot = st.selectbox("1️⃣ Select Depot", depots, key="selected_depot")
 
-    # Question 2: Route
+    # Route
     filtered_routes = routes_df[routes_df["Depot"] == selected_depot]["Route Number"].dropna().unique()
     selected_route = st.selectbox("2️⃣ Select Route Number", filtered_routes, key="selected_route")
 
-    # Question 3: Stop
+    # Stop
     filtered_stops = stops_df[stops_df["Route Number"] == selected_route]["Stop Name"].dropna().unique()
     selected_stop = st.selectbox("3️⃣ Select Bus Stop", filtered_stops, key="selected_stop")
 
-    # Question 4: Condition
+    # Condition
     condition = st.selectbox("4️⃣ Bus Stop Condition", [
         "1. Covered Bus Stop",
         "2. Pole Only",
@@ -69,7 +66,7 @@ def main():
         "4. Non-Infrastructure"
     ], key="condition")
 
-    # Question 5: Specific Situational Conditions
+    # Specific conditions
     st.markdown("5️⃣ Specific Situational Conditions (Select all that apply)")
     specific_conditions_options = [
         "1. Infrastruktur sudah tiada/musnah",
@@ -99,14 +96,14 @@ def main():
         else:
             st.session_state.specific_conditions.discard(option)
 
-    # Question 6: Photos
+    # Photo input
     st.markdown("6️⃣ Add up to 5 Photos (Camera Only)")
     if len(st.session_state.photos) < 5:
         photo = st.camera_input(f"📷 Take Photo #{len(st.session_state.photos) + 1}", key="camera_input")
         if photo:
             st.session_state.photos.append(photo)
 
-    # Photo display
+    # Display photos
     if st.session_state.photos:
         st.subheader("📸 Saved Photos")
         to_delete = None
@@ -120,7 +117,7 @@ def main():
         if to_delete is not None:
             del st.session_state.photos[to_delete]
 
-    # Submit
+    # Submit button
     if st.button("✅ Submit Survey"):
         if not st.session_state.staff_id.strip():
             st.warning("❗ Please enter your Staff ID.")
@@ -129,6 +126,7 @@ def main():
         else:
             timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
             saved_filenames = []
+
             for idx, photo in enumerate(st.session_state.photos):
                 filename = f"{timestamp}_photo{idx + 1}.jpg"
                 filepath = os.path.join("images", filename)
@@ -152,17 +150,18 @@ def main():
                 updated = pd.concat([existing, response], ignore_index=True)
             else:
                 updated = response
+
             updated.to_csv("responses.csv", index=False)
 
             st.success("✔️ Your response has been recorded!")
             st.balloons()
 
+            # Reset form except Staff ID
             st.session_state.reset_form = True
-            st.experimental_rerun()
+            st.rerun()
 
-    # Admin tools
+    # Admin section
     st.divider()
-
     if st.checkbox("📋 Show all responses"):
         if os.path.exists("responses.csv"):
             df = pd.read_csv("responses.csv")
@@ -176,6 +175,6 @@ def main():
             st.download_button("Download CSV", df.to_csv(index=False), file_name="bus_stop_responses.csv")
 
 
-# Run the main function
+# Start the app
 if __name__ == "__main__":
     main()
