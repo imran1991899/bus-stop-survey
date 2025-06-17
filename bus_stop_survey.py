@@ -19,23 +19,31 @@ except Exception as e:
     st.error(f"❌ Failed to load Excel file: {e}")
     st.stop()
 
-# Staff ID input
+# Session defaults
 if "staff_id" not in st.session_state:
     st.session_state.staff_id = ""
 
-staff_id_input = st.text_input("👤 Staff ID (numbers only)", value=st.session_state.staff_id, key="staff_id")
+if "selected_depot" not in st.session_state:
+    st.session_state.selected_depot = ""
 
-# Live warning if non-numeric
+if "selected_route" not in st.session_state:
+    st.session_state.selected_route = ""
+
+# Staff ID input
+staff_id_input = st.text_input("👤 Staff ID (numbers only)", value=st.session_state.staff_id)
 if staff_id_input and not staff_id_input.isdigit():
     st.warning("⚠️ Staff ID must contain numbers only.")
+st.session_state.staff_id = staff_id_input
 
 # Depot selection
 depots = routes_df["Depot"].dropna().unique()
-selected_depot = st.selectbox("1️⃣ Select Depot", depots)
+selected_depot = st.selectbox("1️⃣ Select Depot", depots, index=list(depots).index(st.session_state.selected_depot) if st.session_state.selected_depot in depots else 0)
+st.session_state.selected_depot = selected_depot
 
 # Route selection based on depot
 filtered_routes = routes_df[routes_df["Depot"] == selected_depot]["Route Number"].dropna().unique()
-selected_route = st.selectbox("2️⃣ Select Route Number", filtered_routes)
+selected_route = st.selectbox("2️⃣ Select Route Number", filtered_routes, index=list(filtered_routes).index(st.session_state.selected_route) if st.session_state.selected_route in filtered_routes else 0)
+st.session_state.selected_route = selected_route
 
 # Stop selection based on route
 filtered_stops = stops_df[stops_df["Route Number"] == selected_route]["Stop Name"].dropna().unique()
@@ -84,7 +92,7 @@ onground_options = [
 # Choose option list
 specific_conditions_options = onboard_options if activity_category == "1. On Board in the Bus" else onground_options
 
-# Question 5: Specific Situational Conditions
+# Specific Situational Conditions
 st.markdown("5️⃣ Specific Situational Conditions (Select all that apply)")
 if "specific_conditions" not in st.session_state:
     st.session_state.specific_conditions = set()
@@ -182,9 +190,12 @@ if st.button("✅ Submit Survey"):
             updated = response
 
         updated.to_csv("responses.csv", index=False)
-        st.success("✅ Done!")
+        st.success("✅ Submission complete!")
 
-        # Reset session state except staff ID
+        # Clear all except Staff ID, Depot, Route
         st.session_state.photos = []
         st.session_state.last_photo = None
         st.session_state.specific_conditions = set()
+
+        # Force rerun to clear widgets
+        st.experimental_rerun()
