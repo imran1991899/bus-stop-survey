@@ -44,7 +44,7 @@ condition = st.selectbox("4️⃣ Bus Stop Condition", [
     "4. Non-Infrastructure"
 ])
 
-# Question 5: Specific Situational Conditions as checkboxes (multi-select)
+# Question 5: Specific Situational Conditions
 st.markdown("5️⃣ Specific Situational Conditions (Select all that apply)")
 
 specific_conditions_options = [
@@ -69,10 +69,11 @@ specific_conditions_options = [
     "19. Other (Please specify below)"
 ]
 
-# Store selected conditions in session state
+# Session state for selections
 if "specific_conditions" not in st.session_state:
     st.session_state.specific_conditions = set()
 
+# Display checkboxes
 for option in specific_conditions_options:
     checked = option in st.session_state.specific_conditions
     new_checked = st.checkbox(option, value=checked, key=option)
@@ -81,22 +82,20 @@ for option in specific_conditions_options:
     elif not new_checked and checked:
         st.session_state.specific_conditions.remove(option)
 
-# Show "Other" textbox if selected
+# Show text area if "Other" selected
 other_text = ""
 if "19. Other (Please specify below)" in st.session_state.specific_conditions:
-    other_text = st.text_area("📝 Please describe the 'Other' condition (at least 2 words)", height=200)
+    other_text = st.text_area("📝 Please describe the 'Other' condition (at least 2 words)", height=150)
     word_count = len(other_text.split())
     if word_count < 2:
-        st.warning(f"🚨 You have written {word_count} words. Please write at least 2 words.")
+        st.warning(f"🚨 You have written {word_count} word(s). Please write at least 2 words.")
 
-# Initialize photos state
+# Photos
 if "photos" not in st.session_state:
     st.session_state.photos = []
-
 if "last_photo" not in st.session_state:
     st.session_state.last_photo = None
 
-# Question 6: Photos (max 5)
 st.markdown("6️⃣ Add up to 5 Photos (Camera Only)")
 if len(st.session_state.photos) < 5:
     last_photo = st.camera_input(f"📷 Take Photo #{len(st.session_state.photos) + 1}")
@@ -107,7 +106,7 @@ if st.session_state.last_photo is not None:
     st.session_state.photos.append(st.session_state.last_photo)
     st.session_state.last_photo = None
 
-# Display photos with delete buttons
+# Show photos and delete buttons
 if st.session_state.photos:
     st.subheader("📸 Saved Photos")
     to_delete = None
@@ -121,7 +120,7 @@ if st.session_state.photos:
     if to_delete is not None:
         del st.session_state.photos[to_delete]
 
-# Submit button
+# Submit
 if st.button("✅ Submit Survey"):
     if len(st.session_state.photos) == 0:
         st.warning("❗ Please take at least one photo before submitting.")
@@ -164,15 +163,14 @@ if st.button("✅ Submit Survey"):
 
         updated.to_csv("responses.csv", index=False)
 
-        st.success("✔️ Your response has been recorded!")
-        st.balloons()
+        st.success("✅ Done!")
 
-        # Reset form except staff_id
-        st.session_state.specific_conditions = set()
+        # Reset all except staff_id
         st.session_state.photos = []
         st.session_state.last_photo = None
+        st.session_state.specific_conditions = set()
 
-# Admin tools
+# Admin section
 st.divider()
 if st.checkbox("📋 Show all responses"):
     if os.path.exists("responses.csv"):
