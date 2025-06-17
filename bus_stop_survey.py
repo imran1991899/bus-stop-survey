@@ -26,15 +26,15 @@ st.text_input("👤 Staff ID", value=st.session_state.staff_id, key="staff_id")
 
 # Question 1: Depot
 depots = routes_df["Depot"].dropna().unique()
-selected_depot = st.selectbox("1️⃣ Select Depot", depots)
+selected_depot = st.selectbox("1️⃣ Select Depot", depots, key="selected_depot")
 
 # Question 2: Route
 filtered_routes = routes_df[routes_df["Depot"] == selected_depot]["Route Number"].dropna().unique()
-selected_route = st.selectbox("2️⃣ Select Route Number", filtered_routes)
+selected_route = st.selectbox("2️⃣ Select Route Number", filtered_routes, key="selected_route")
 
 # Question 3: Bus Stop
 filtered_stops = stops_df[stops_df["Route Number"] == selected_route]["Stop Name"].dropna().unique()
-selected_stop = st.selectbox("3️⃣ Select Bus Stop", filtered_stops)
+selected_stop = st.selectbox("3️⃣ Select Bus Stop", filtered_stops, key="selected_stop")
 
 # Question 4: Condition
 condition = st.selectbox("4️⃣ Bus Stop Condition", [
@@ -42,7 +42,7 @@ condition = st.selectbox("4️⃣ Bus Stop Condition", [
     "2. Pole Only",
     "3. Layby",
     "4. Non-Infrastructure"
-])
+], key="condition")
 
 # Question 5: Specific Situational Conditions as checkboxes (multi-select)
 st.markdown("5️⃣ Specific Situational Conditions (Select all that apply)")
@@ -67,13 +67,13 @@ specific_conditions_options = [
     "18. Hentian berdekatan dengan traffic light"
 ]
 
-# Store selected conditions in session state
+# Initialize specific_conditions in session state if not exist
 if "specific_conditions" not in st.session_state:
     st.session_state.specific_conditions = set()
 
 for option in specific_conditions_options:
     checked = option in st.session_state.specific_conditions
-    new_checked = st.checkbox(option, value=checked)
+    new_checked = st.checkbox(option, value=checked, key=f"specific_{option}")
     if new_checked and not checked:
         st.session_state.specific_conditions.add(option)
     elif not new_checked and checked:
@@ -89,7 +89,7 @@ if "last_photo" not in st.session_state:
 # Question 6: Photos (max 5)
 st.markdown("6️⃣ Add up to 5 Photos (Camera Only)")
 if len(st.session_state.photos) < 5:
-    last_photo = st.camera_input(f"📷 Take Photo #{len(st.session_state.photos) + 1}")
+    last_photo = st.camera_input(f"📷 Take Photo #{len(st.session_state.photos) + 1}", key="camera_input")
     if last_photo is not None:
         st.session_state.last_photo = last_photo
 
@@ -112,7 +112,7 @@ if st.session_state.photos:
         del st.session_state.photos[to_delete]
 
 # Submit button
-if st.button("✅ Submit Survey"):
+if st.button("✅ Submit Survey", key="submit_button"):
     if len(st.session_state.photos) == 0:
         st.warning("❗ Please take at least one photo before submitting.")
     elif not st.session_state.staff_id.strip():
@@ -126,31 +126,36 @@ if st.button("✅ Submit Survey"):
             with open(filepath, "wb") as f:
                 f.write(photo.getbuffer())
             saved_filenames.append(filename)
-        
+
         response = pd.DataFrame([{
             "Timestamp": timestamp,
             "Staff ID": st.session_state.staff_id,
-            "Depot": selected_depot,
-            "Route Number": selected_route,
-            "Bus Stop": selected_stop,
-            "Condition": condition,
+            "Depot": st.session_state.selected_depot,
+            "Route Number": st.session_state.selected_route,
+            "Bus Stop": st.session_state.selected_stop,
+            "Condition": st.session_state.condition,
             "Specific Conditions": "; ".join(specific_conditions),
             "Photos": ";".join(saved_filenames)
         }])
-        
+
         if os.path.exists("responses.csv"):
             existing = pd.read_csv("responses.csv")
             updated = pd.concat([existing, response], ignore_index=True)
         else:
             updated = response
-        
+
         updated.to_csv("responses.csv", index=False)
         st.success("✔️ Your response has been recorded!")
         st.balloons()
-        
-        # Clear photos and specific conditions, keep staff id and other inputs
-        st.session_state.photos = []
-        st.session_state.specific_conditions = set()
+
+        # Clear all session state except staff_id
+        keys_to_keep = ["staff_id"]
+        for key in list(st.session_state.keys()):
+            if key not in keys_to_keep:
+                del st.session_state[key]
+
+        # Rerun app to refresh UI with cleared inputs
+        st.experimental_rerun()
 
 # Admin tools
 st.divider()
