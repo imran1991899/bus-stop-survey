@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import os
+import time  # <-- Added for delay
 
 # ========== Page Setup ==========
 st.set_page_config(page_title="🚌 Bus Stop Survey", layout="wide")
@@ -189,6 +190,9 @@ if st.button("✅ Submit Survey"):
         updated.to_csv("responses.csv", index=False)
 
         st.success("✅ Submission complete! Thank you.")
+
+        # Wait 4 seconds to keep the message visible
+        time.sleep(4)
 
         # Auto-reset all answers except key selections
         keys_to_keep = ("staff_id", "selected_depot", "selected_route", "selected_stop")
