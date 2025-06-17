@@ -3,15 +3,15 @@ import pandas as pd
 from datetime import datetime
 import os
 
-# Set wide layout for better visibility
+# Set layout
 st.set_page_config(page_title="🚌 Bus Stop Survey", layout="wide")
 st.title("🚌 Bus Stop Assessment Survey")
 
-# Create images folder if needed
+# Create images folder if not exists
 if not os.path.exists("images"):
     os.makedirs("images")
 
-# Load depot/route/stop info from Excel
+# Load Excel data
 try:
     routes_df = pd.read_excel("bus_data.xlsx", sheet_name="routes")
     stops_df = pd.read_excel("bus_data.xlsx", sheet_name="stops")
@@ -19,24 +19,23 @@ except Exception as e:
     st.error(f"❌ Failed to load Excel file: {e}")
     st.stop()
 
-# Staff ID with session_state
+# Ensure staff_id is tracked
 if "staff_id" not in st.session_state:
     st.session_state.staff_id = ""
+
 st.text_input("👤 Staff ID", value=st.session_state.staff_id, key="staff_id")
 
-# Question 1: Depot
+# Load depots, routes, stops
 depots = routes_df["Depot"].dropna().unique()
 selected_depot = st.selectbox("1️⃣ Select Depot", depots, key="selected_depot")
 
-# Question 2: Route
 filtered_routes = routes_df[routes_df["Depot"] == selected_depot]["Route Number"].dropna().unique()
 selected_route = st.selectbox("2️⃣ Select Route Number", filtered_routes, key="selected_route")
 
-# Question 3: Bus Stop
 filtered_stops = stops_df[stops_df["Route Number"] == selected_route]["Stop Name"].dropna().unique()
 selected_stop = st.selectbox("3️⃣ Select Bus Stop", filtered_stops, key="selected_stop")
 
-# Question 4: Condition
+# Bus Stop Condition
 condition = st.selectbox("4️⃣ Bus Stop Condition", [
     "1. Covered Bus Stop",
     "2. Pole Only",
@@ -44,7 +43,7 @@ condition = st.selectbox("4️⃣ Bus Stop Condition", [
     "4. Non-Infrastructure"
 ], key="condition")
 
-# Question 5: Specific Situational Conditions as checkboxes (multi-select)
+# Specific Situational Conditions
 st.markdown("5️⃣ Specific Situational Conditions (Select all that apply)")
 specific_conditions_options = [
     "1. Infrastruktur sudah tiada/musnah",
@@ -67,7 +66,7 @@ specific_conditions_options = [
     "18. Hentian berdekatan dengan traffic light"
 ]
 
-# Initialize specific_conditions in session state if not exist
+# Track selected conditions
 if "specific_conditions" not in st.session_state:
     st.session_state.specific_conditions = set()
 
@@ -78,26 +77,20 @@ for option in specific_conditions_options:
         st.session_state.specific_conditions.add(option)
     elif not new_checked and checked:
         st.session_state.specific_conditions.remove(option)
-specific_conditions = list(st.session_state.specific_conditions)
 
-# Initialize photos state
+# Photo section
 if "photos" not in st.session_state:
     st.session_state.photos = []
 if "last_photo" not in st.session_state:
     st.session_state.last_photo = None
 
-# Question 6: Photos (max 5)
 st.markdown("6️⃣ Add up to 5 Photos (Camera Only)")
 if len(st.session_state.photos) < 5:
-    last_photo = st.camera_input(f"📷 Take Photo #{len(st.session_state.photos) + 1}", key="camera_input")
-    if last_photo is not None:
-        st.session_state.last_photo = last_photo
+    photo = st.camera_input(f"📷 Take Photo #{len(st.session_state.photos) + 1}", key="camera_input")
+    if photo:
+        st.session_state.photos.append(photo)
 
-if st.session_state.last_photo is not None:
-    st.session_state.photos.append(st.session_state.last_photo)
-    st.session_state.last_photo = None
-
-# Display photos with delete buttons
+# Show saved photos with delete buttons
 if st.session_state.photos:
     st.subheader("📸 Saved Photos")
     to_delete = None
@@ -113,13 +106,15 @@ if st.session_state.photos:
 
 # Submit button
 if st.button("✅ Submit Survey", key="submit_button"):
-    if len(st.session_state.photos) == 0:
-        st.warning("❗ Please take at least one photo before submitting.")
-    elif not st.session_state.staff_id.strip():
+    if not st.session_state.staff_id.strip():
         st.warning("❗ Please enter your Staff ID.")
+    elif len(st.session_state.photos) == 0:
+        st.warning("❗ Please take at least one photo before submitting.")
     else:
+        # Save response
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         saved_filenames = []
+
         for idx, photo in enumerate(st.session_state.photos):
             filename = f"{timestamp}_photo{idx + 1}.jpg"
             filepath = os.path.join("images", filename)
@@ -134,7 +129,7 @@ if st.button("✅ Submit Survey", key="submit_button"):
             "Route Number": st.session_state.selected_route,
             "Bus Stop": st.session_state.selected_stop,
             "Condition": st.session_state.condition,
-            "Specific Conditions": "; ".join(specific_conditions),
+            "Specific Conditions": "; ".join(st.session_state.specific_conditions),
             "Photos": ";".join(saved_filenames)
         }])
 
@@ -148,17 +143,17 @@ if st.button("✅ Submit Survey", key="submit_button"):
         st.success("✔️ Your response has been recorded!")
         st.balloons()
 
-        # Reset everything except staff_id explicitly
-        st.session_state.selected_depot = None
-        st.session_state.selected_route = None
-        st.session_state.selected_stop = None
-        st.session_state.condition = None
+        # Reset state EXCEPT staff_id
+        st.session_state.selected_depot = depots[0] if len(depots) > 0 else ""
+        st.session_state.selected_route = filtered_routes[0] if len(filtered_routes) > 0 else ""
+        st.session_state.selected_stop = filtered_stops[0] if len(filtered_stops) > 0 else ""
+        st.session_state.condition = "1. Covered Bus Stop"
         st.session_state.specific_conditions = set()
         st.session_state.photos = []
         st.session_state.last_photo = None
         st.session_state.camera_input = None
 
-        # Rerun app to refresh UI with cleared inputs
+        # Force rerun
         st.experimental_rerun()
 
 # Admin tools
