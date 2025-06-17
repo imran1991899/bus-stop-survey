@@ -148,11 +148,15 @@ if st.button("✅ Submit Survey", key="submit_button"):
         st.success("✔️ Your response has been recorded!")
         st.balloons()
 
-        # Clear all session state except staff_id
-        keys_to_keep = ["staff_id"]
-        for key in list(st.session_state.keys()):
-            if key not in keys_to_keep:
-                del st.session_state[key]
+        # Reset everything except staff_id explicitly
+        st.session_state.selected_depot = None
+        st.session_state.selected_route = None
+        st.session_state.selected_stop = None
+        st.session_state.condition = None
+        st.session_state.specific_conditions = set()
+        st.session_state.photos = []
+        st.session_state.last_photo = None
+        st.session_state.camera_input = None
 
         # Rerun app to refresh UI with cleared inputs
         st.experimental_rerun()
