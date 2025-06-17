@@ -51,7 +51,7 @@ specific_conditions_options = [
     "1. Infrastruktur sudah tiada/musnah",
     "2. Terlindung oleh pokok",
     "3. Terhalang oleh kenderaan parkir",
-    "4. Keadaan sekeliling tidak selamat (trafik/tiada lampu)",
+    "4. Keadaan sekeliling tidak selamat tiada lampu",
     "5. Tiada penumpang menunggu",
     "6. Tiada isyarat daripada penumpang",
     "7. Tidak berhenti/memperlahankan bas",
