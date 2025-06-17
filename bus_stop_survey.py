@@ -3,6 +3,11 @@ import pandas as pd
 from datetime import datetime
 import os
 
+# === TRIGGER SAFE RERUN ===
+if st.session_state.get("trigger_rerun"):
+    st.session_state.trigger_rerun = False
+    st.experimental_rerun()
+
 # Set wide layout
 st.set_page_config(page_title="🚌 Bus Stop Survey", layout="wide")
 st.title("🚌 Bus Stop Assessment Survey")
@@ -45,7 +50,7 @@ filtered_routes = routes_df[routes_df["Depot"] == selected_depot]["Route Number"
 selected_route = st.selectbox("2️⃣ Select Route Number", filtered_routes, index=list(filtered_routes).index(st.session_state.selected_route) if st.session_state.selected_route in filtered_routes else 0)
 st.session_state.selected_route = selected_route
 
-# Stop selection based on route
+# Stop selection
 filtered_stops = stops_df[stops_df["Route Number"] == selected_route]["Stop Name"].dropna().unique()
 selected_stop = st.selectbox("3️⃣ Select Bus Stop", filtered_stops)
 
@@ -63,7 +68,7 @@ activity_category = st.selectbox("4️⃣➕ Categorizing Activities", [
     "2. On Ground Location"
 ])
 
-# Dynamic specific condition options
+# Specific condition options
 onboard_options = [
     "1. Tiada penumpang menunggu",
     "2. Tiada isyarat (penumpang tidak menahan bas)",
@@ -89,7 +94,6 @@ onground_options = [
     "7. Other (Please specify below)"
 ]
 
-# Choose option list
 specific_conditions_options = onboard_options if activity_category == "1. On Board in the Bus" else onground_options
 
 # Specific Situational Conditions
@@ -146,7 +150,7 @@ if st.session_state.photos:
     if to_delete is not None:
         del st.session_state.photos[to_delete]
 
-# Submit button
+# Submit
 if st.button("✅ Submit Survey"):
     if not staff_id_input.strip():
         st.warning("❗ Please enter your Staff ID.")
@@ -192,10 +196,8 @@ if st.button("✅ Submit Survey"):
         updated.to_csv("responses.csv", index=False)
         st.success("✅ Submission complete!")
 
-        # Clear all except Staff ID, Depot, Route
+        # Clear everything else, keep depot/route/staff
         st.session_state.photos = []
         st.session_state.last_photo = None
         st.session_state.specific_conditions = set()
-
-        # Force rerun to clear widgets
-        st.experimental_rerun()
+        st.session_state.trigger_rerun = True
