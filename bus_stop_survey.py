@@ -4,7 +4,7 @@ from datetime import datetime
 import os
 
 # Set up Streamlit UI
-st.set_page_config(page_title="🚌 Bus Stop Survey", layout="centered")
+st.set_page_config(page_title="🚌 Bus Stop Survey", layout="wide")
 st.title("🚌 Bus Stop Assessment Survey")
 
 # Create folders if needed
@@ -38,30 +38,37 @@ filtered_stops = stops_df[stops_df["Route Number"] == selected_route]["Stop Name
 selected_stop = st.selectbox("3️⃣ Select Bus Stop", filtered_stops)
 
 # Question 4: Select Condition
-condition = st.selectbox("4️⃣ Bus Stop Condition", ["Covered Bus Stop", "Pole Only", "Layby", "Non-Infrastructure"])
-
-# Question 5: Specific Conditions (multi-select)
-st.markdown("5️⃣ Specific Situational Conditions (Select all that apply)")
-specific_conditions = st.multiselect("Check all relevant reasons below:", [
-    "Infrastruktur sudah tiada/musnah",
-    "Terlindung oleh pokok",
-    "Terhalang oleh kenderaan parkir",
-    "Keadaan sekeliling tidak selamat (trafik/tiada lampu)",
-    "Tiada penumpang menunggu",
-    "Tiada isyarat daripada penumpang",
-    "Tidak berhenti/memperlahankan bas",
-    "Salah tempat menunggu",
-    "Kedudukan bus stop kurang sesuai",
-    "Bas penuh",
-    "Mengejar masa waybill (punctuality)",
-    "Kesesakan lalu lintas",
-    "Perubahan nama hentian dengan bangunan sekeliling",
-    "Kekeliruan laluan oleh pemandu baru",
-    "Terdapat laluan tutup atas sebab tertentu (baiki jalan, pokok tumbang, lawatan delegasi dari luar negara)",
-    "Hentian terlalu hampir simpang masuk, bas sukar kembali ke laluan betul",
-    "Arahan untuk tidak berhenti kerana kelewatan atau penjadualan semula",
-    "Hentian berdekatan dengan traffic light"
+condition = st.selectbox("4️⃣ Bus Stop Condition", [
+    "1. Covered Bus Stop",
+    "2. Pole Only",
+    "3. Layby",
+    "4. Non-Infrastructure"
 ])
+
+# Question 5: Specific Conditions (multi-select with full text & numbering)
+specific_conditions_options = [
+    "1. Infrastruktur sudah tiada/musnah",
+    "2. Terlindung oleh pokok",
+    "3. Terhalang oleh kenderaan parkir",
+    "4. Keadaan sekeliling tidak selamat (trafik/tiada lampu)",
+    "5. Tiada penumpang menunggu",
+    "6. Tiada isyarat daripada penumpang",
+    "7. Tidak berhenti/memperlahankan bas",
+    "8. Salah tempat menunggu",
+    "9. Kedudukan bus stop kurang sesuai",
+    "10. Bas penuh",
+    "11. Mengejar masa waybill (punctuality)",
+    "12. Kesesakan lalu lintas",
+    "13. Perubahan nama hentian dengan bangunan sekeliling",
+    "14. Kekeliruan laluan oleh pemandu baru",
+    "15. Terdapat laluan tutup atas sebab tertentu (baiki jalan, pokok tumbang, lawatan delegasi dari luar negara)",
+    "16. Hentian terlalu hampir simpang masuk, bas sukar kembali ke laluan betul",
+    "17. Arahan untuk tidak berhenti kerana kelewatan atau penjadualan semula",
+    "18. Hentian berdekatan dengan traffic light"
+]
+
+st.markdown("5️⃣ Specific Situational Conditions (Select all that apply)")
+specific_conditions = st.multiselect("Check all relevant reasons below:", specific_conditions_options)
 
 # Initialize session state for photos
 if "photos" not in st.session_state:
@@ -69,7 +76,7 @@ if "photos" not in st.session_state:
 if "last_photo" not in st.session_state:
     st.session_state.last_photo = None
 
-# Question 6: Photo capture - up to 5 photos with camera only
+# Question 6: Photo capture - up to 5 photos
 st.markdown("6️⃣ Add up to 5 Photos (Camera Only)")
 
 if len(st.session_state.photos) < 5:
@@ -77,7 +84,7 @@ if len(st.session_state.photos) < 5:
     if last_photo is not None:
         st.session_state.last_photo = last_photo
 
-# Append last snapped photo to photos list and reset last photo to keep camera open
+# Save last photo
 if st.session_state.last_photo is not None:
     st.session_state.photos.append(st.session_state.last_photo)
     st.session_state.last_photo = None
@@ -114,7 +121,7 @@ if st.button("✅ Submit Survey"):
                 f.write(photo.getbuffer())
             saved_filenames.append(filename)
 
-        # Create record for CSV
+        # Create response DataFrame
         response = pd.DataFrame([{
             "Timestamp": timestamp,
             "Staff ID": st.session_state.staff_id,
@@ -126,7 +133,7 @@ if st.button("✅ Submit Survey"):
             "Photos": ";".join(saved_filenames)
         }])
 
-        # Append or create CSV
+        # Save to CSV
         if os.path.exists("responses.csv"):
             existing = pd.read_csv("responses.csv")
             updated = pd.concat([existing, response], ignore_index=True)
@@ -138,10 +145,10 @@ if st.button("✅ Submit Survey"):
         st.success("✔️ Your response has been recorded!")
         st.balloons()
 
-        # Clear only photos so Staff ID remains
+        # Clear photos but keep staff ID
         st.session_state.photos = []
 
-# Admin Tools (Optional)
+# Admin Tools
 st.divider()
 if st.checkbox("📋 Show all responses"):
     if os.path.exists("responses.csv"):
