@@ -192,7 +192,7 @@ if st.button("✅ Submit Survey"):
         st.success("✅ Submission complete! Thank you.")
 
         # Wait 4 seconds to keep the message visible
-        time.sleep(4)
+        time.sleep(3)
 
         # Auto-reset all answers except key selections
         keys_to_keep = ("staff_id", "selected_depot", "selected_route", "selected_stop")
