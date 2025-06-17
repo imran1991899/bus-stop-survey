@@ -2,12 +2,53 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import os
+import pickle
+from google_auth_oauthlib.flow import InstalledAppFlow
+from googleapiclient.discovery import build
+from google.auth.transport.requests import Request
+from googleapiclient.http import MediaFileUpload
 
-# Set wide layout
+# ========== Google Drive Setup ==========
+
+SCOPES = ['https://www.googleapis.com/auth/drive.file']
+CREDENTIALS_FILE = "credentials.json"
+TOKEN_PICKLE = "token.pkl"
+UPLOAD_FOLDER_ID = "YOUR_FOLDER_ID_HERE"  # Replace with your Drive folder ID
+
+
+def get_drive_service():
+    creds = None
+    if os.path.exists(TOKEN_PICKLE):
+        with open(TOKEN_PICKLE, 'rb') as token:
+            creds = pickle.load(token)
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        else:
+            flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_FILE, SCOPES)
+            creds = flow.run_local_server(port=0)
+        with open(TOKEN_PICKLE, 'wb') as token:
+            pickle.dump(creds, token)
+    service = build('drive', 'v3', credentials=creds)
+    return service
+
+
+def upload_file_to_drive(file_path, file_name, folder_id=None):
+    service = get_drive_service()
+    file_metadata = {'name': file_name}
+    if folder_id:
+        file_metadata['parents'] = [folder_id]
+    media = MediaFileUpload(file_path, resumable=True)
+    uploaded_file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+    return uploaded_file.get('id')
+
+
+# ========== Streamlit App ==========
+
 st.set_page_config(page_title="🚌 Bus Stop Survey", layout="wide")
 st.title("🚌 Bus Stop Assessment Survey")
 
-# Create images folder if not exists
+# Create images folder if not exists (for temp storage)
 if not os.path.exists("images"):
     os.makedirs("images")
 
@@ -25,23 +66,18 @@ if "staff_id" not in st.session_state:
 
 staff_id_input = st.text_input("👤 Staff ID (numbers only)", value=st.session_state.staff_id, key="staff_id")
 
-# Live warning if non-numeric
 if staff_id_input and not staff_id_input.isdigit():
     st.warning("⚠️ Staff ID must contain numbers only.")
 
-# Depot selection
 depots = routes_df["Depot"].dropna().unique()
 selected_depot = st.selectbox("1️⃣ Select Depot", depots)
 
-# Route selection based on depot
 filtered_routes = routes_df[routes_df["Depot"] == selected_depot]["Route Number"].dropna().unique()
 selected_route = st.selectbox("2️⃣ Select Route Number", filtered_routes)
 
-# Stop selection based on route
 filtered_stops = stops_df[stops_df["Route Number"] == selected_route]["Stop Name"].dropna().unique()
 selected_stop = st.selectbox("3️⃣ Select Bus Stop", filtered_stops)
 
-# Bus stop condition
 condition = st.selectbox("4️⃣ Bus Stop Condition", [
     "1. Covered Bus Stop",
     "2. Pole Only",
@@ -49,13 +85,11 @@ condition = st.selectbox("4️⃣ Bus Stop Condition", [
     "4. Non-Infrastructure"
 ])
 
-# Activity Category
 activity_category = st.selectbox("4️⃣➕ Categorizing Activities", [
     "1. On Board in the Bus",
     "2. On Ground Location"
 ])
 
-# Dynamic specific condition options
 onboard_options = [
     "1. Tiada penumpang menunggu",
     "2. Tiada isyarat (penumpang tidak menahan bas)",
@@ -81,16 +115,13 @@ onground_options = [
     "7. Other (Please specify below)"
 ]
 
-# Choose option list
 specific_conditions_options = onboard_options if activity_category == "1. On Board in the Bus" else onground_options
 
-# Question 5: Specific Situational Conditions
 st.markdown("5️⃣ Specific Situational Conditions (Select all that apply)")
 
 if "specific_conditions" not in st.session_state:
     st.session_state.specific_conditions = set()
 
-# Display checkboxes
 for option in specific_conditions_options:
     checked = option in st.session_state.specific_conditions
     new_checked = st.checkbox(option, value=checked, key=option)
@@ -99,7 +130,6 @@ for option in specific_conditions_options:
     elif not new_checked and checked:
         st.session_state.specific_conditions.remove(option)
 
-# Handle 'Other' input
 other_text = ""
 other_option_label = next((opt for opt in specific_conditions_options if "Other" in opt), None)
 if other_option_label and other_option_label in st.session_state.specific_conditions:
@@ -108,7 +138,6 @@ if other_option_label and other_option_label in st.session_state.specific_condit
     if word_count < 2:
         st.warning(f"🚨 You have written {word_count} word(s). Please write at least 2 words.")
 
-# Photos
 if "photos" not in st.session_state:
     st.session_state.photos = []
 if "last_photo" not in st.session_state:
@@ -124,7 +153,6 @@ if st.session_state.last_photo is not None:
     st.session_state.photos.append(st.session_state.last_photo)
     st.session_state.last_photo = None
 
-# Show saved photos
 if st.session_state.photos:
     st.subheader("📸 Saved Photos")
     to_delete = None
@@ -138,8 +166,10 @@ if st.session_state.photos:
     if to_delete is not None:
         del st.session_state.photos[to_delete]
 
-# Submit button
+# --- Submit Button ---
+
 if st.button("✅ Submit Survey"):
+
     if not staff_id_input.strip():
         st.warning("❗ Please enter your Staff ID.")
     elif not staff_id_input.isdigit():
@@ -150,15 +180,22 @@ if st.button("✅ Submit Survey"):
         st.warning("❗ 'Other' response must be at least 2 words.")
     else:
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        saved_filenames = []
+        photo_drive_links = []
 
+        # Save photos temporarily and upload to Drive
         for idx, photo in enumerate(st.session_state.photos):
-            filename = f"{timestamp}_photo{idx + 1}.jpg"
-            filepath = os.path.join("images", filename)
-            with open(filepath, "wb") as f:
+            photo_filename = f"{timestamp}_photo{idx + 1}.jpg"
+            local_photo_path = os.path.join("images", photo_filename)
+            with open(local_photo_path, "wb") as f:
                 f.write(photo.getbuffer())
-            saved_filenames.append(filename)
+            try:
+                photo_id = upload_file_to_drive(local_photo_path, photo_filename, folder_id=UPLOAD_FOLDER_ID)
+                photo_drive_links.append(f"https://drive.google.com/file/d/{photo_id}/view")
+            except Exception as e:
+                st.error(f"Failed to upload photo {photo_filename} to Google Drive: {e}")
+                st.stop()
 
+        # Prepare specific conditions list
         specific_conditions_list = list(st.session_state.specific_conditions)
         if other_option_label in specific_conditions_list:
             specific_conditions_list.remove(other_option_label)
@@ -173,34 +210,33 @@ if st.button("✅ Submit Survey"):
             "Condition": condition,
             "Activity Category": activity_category,
             "Specific Conditions": "; ".join(specific_conditions_list),
-            "Photos": ";".join(saved_filenames)
+            "Photo Links": "; ".join(photo_drive_links)
         }])
 
-        if os.path.exists("responses.csv"):
-            existing = pd.read_csv("responses.csv")
-            updated = pd.concat([existing, response], ignore_index=True)
-        else:
-            updated = response
+        # Save response CSV locally and upload to Drive
+        csv_filename = f"survey_response_{timestamp}.csv"
+        local_csv_path = os.path.join("images", csv_filename)
+        response.to_csv(local_csv_path, index=False)
 
-        updated.to_csv("responses.csv", index=False)
+        try:
+            upload_file_to_drive(local_csv_path, csv_filename, folder_id=UPLOAD_FOLDER_ID)
+        except Exception as e:
+            st.error(f"Failed to upload CSV response to Google Drive: {e}")
+            st.stop()
 
-        st.success("✅ Done!")
+        st.success("✅ Done! Your survey and photos have been uploaded to Google Drive.")
 
-        # Reset session state except staff ID
+        # Reset session state except staff_id
         st.session_state.photos = []
         st.session_state.last_photo = None
         st.session_state.specific_conditions = set()
 
-# Admin section
+
+# --- Admin Section (Local CSV only, since Drive upload replaces local) ---
 st.divider()
 if st.checkbox("📋 Show all responses"):
-    if os.path.exists("responses.csv"):
-        df = pd.read_csv("responses.csv")
-        st.dataframe(df)
-    else:
-        st.info("No responses yet.")
+    st.info("Responses are saved on Google Drive. Download from there.")
 
 if st.checkbox("⬇️ Download responses as CSV"):
-    if os.path.exists("responses.csv"):
-        df = pd.read_csv("responses.csv")
-        st.download_button("Download CSV", df.to_csv(index=False), file_name="bus_stop_responses.csv")
+    st.info("Responses saved directly to Google Drive. Download from there.")
+
