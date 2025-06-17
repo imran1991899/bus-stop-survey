@@ -52,8 +52,13 @@ if "selected_route" not in st.session_state:
 selected_route = st.selectbox("2️⃣ Select Route Number", filtered_routes, index=list(filtered_routes).index(st.session_state.selected_route) if st.session_state.selected_route in filtered_routes else 0)
 st.session_state.selected_route = selected_route
 
-# ========== Bus Stop Selection ==========
-filtered_stops = stops_df[stops_df["Route Number"] == selected_route]["Stop Name"].dropna().unique()
+# ========== Bus Stop Selection (Ordered) ==========
+filtered_stops = (
+    stops_df[stops_df["Route Number"] == selected_route]
+    .dropna(subset=["Stop Name", "Order"])
+    .sort_values("Order")["Stop Name"]
+    .tolist()
+)
 selected_stop = st.selectbox("3️⃣ Select Bus Stop", filtered_stops)
 
 # ========== Condition ==========
