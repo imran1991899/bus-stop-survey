@@ -3,7 +3,7 @@ import pandas as pd
 from datetime import datetime
 import os
 
-# Use full-width layout to allow dropdown to expand
+# Set wide layout for better dropdown width
 st.set_page_config(page_title="🚌 Bus Stop Survey", layout="wide")
 st.title("🚌 Bus Stop Assessment Survey")
 
@@ -19,25 +19,25 @@ except Exception as e:
     st.error(f"❌ Failed to load Excel file: {e}")
     st.stop()
 
-# 🆕 Staff ID
+# Staff ID input with session_state
 if "staff_id" not in st.session_state:
     st.session_state.staff_id = ""
 
 st.text_input("👤 Staff ID", value=st.session_state.staff_id, key="staff_id")
 
-# Question 1: Select Depot
+# Question 1: Depot
 depots = routes_df["Depot"].dropna().unique()
 selected_depot = st.selectbox("1️⃣ Select Depot", depots)
 
-# Question 2: Select Route
+# Question 2: Route
 filtered_routes = routes_df[routes_df["Depot"] == selected_depot]["Route Number"].dropna().unique()
 selected_route = st.selectbox("2️⃣ Select Route Number", filtered_routes)
 
-# Question 3: Select Stop
+# Question 3: Bus Stop
 filtered_stops = stops_df[stops_df["Route Number"] == selected_route]["Stop Name"].dropna().unique()
 selected_stop = st.selectbox("3️⃣ Select Bus Stop", filtered_stops)
 
-# Question 4: Select General Condition
+# Question 4: Condition
 condition = st.selectbox("4️⃣ Bus Stop Condition", [
     "1. Covered Bus Stop",
     "2. Pole Only",
@@ -45,7 +45,7 @@ condition = st.selectbox("4️⃣ Bus Stop Condition", [
     "4. Non-Infrastructure"
 ])
 
-# Question 5: Specific Conditions with full text shown
+# Question 5: Specific Situational Conditions with manual line breaks on long texts
 specific_conditions_options = [
     "1. Infrastruktur sudah tiada/musnah",
     "2. Terlindung oleh pokok",
@@ -61,33 +61,34 @@ specific_conditions_options = [
     "12. Kesesakan lalu lintas",
     "13. Perubahan nama hentian dengan bangunan sekeliling",
     "14. Kekeliruan laluan oleh pemandu baru",
-    "15. Terdapat laluan tutup atas sebab tertentu (baiki jalan, pokok tumbang, lawatan delegasi dari luar negara)",
-    "16. Hentian terlalu hampir simpang masuk, bas sukar kembali ke laluan betul",
+    # Manually split with \n for line break:
+    "15. Terdapat laluan tutup atas sebab tertentu (baiki jalan,\npokok tumbang, lawatan delegasi dari luar negara)",
+    "16. Hentian terlalu hampir simpang masuk,\nbas sukar kembali ke laluan betul",
     "17. Arahan untuk tidak berhenti kerana kelewatan atau penjadualan semula",
     "18. Hentian berdekatan dengan traffic light"
 ]
 
 st.markdown("5️⃣ Specific Situational Conditions (Select all that apply)")
-specific_conditions = st.multiselect("✔️ Select one or more issues from the list below:", specific_conditions_options)
+specific_conditions = st.multiselect("✔️ Select all relevant reasons:", specific_conditions_options)
 
-# Photo Capture (max 5)
+# Initialize photos state
 if "photos" not in st.session_state:
     st.session_state.photos = []
 if "last_photo" not in st.session_state:
     st.session_state.last_photo = None
 
+# Question 6: Photos (max 5)
 st.markdown("6️⃣ Add up to 5 Photos (Camera Only)")
 if len(st.session_state.photos) < 5:
     last_photo = st.camera_input(f"📷 Take Photo #{len(st.session_state.photos) + 1}")
     if last_photo is not None:
         st.session_state.last_photo = last_photo
 
-# Save photo to session state
 if st.session_state.last_photo is not None:
     st.session_state.photos.append(st.session_state.last_photo)
     st.session_state.last_photo = None
 
-# Show saved photos
+# Display photos with delete buttons
 if st.session_state.photos:
     st.subheader("📸 Saved Photos")
     to_delete = None
@@ -101,7 +102,7 @@ if st.session_state.photos:
     if to_delete is not None:
         del st.session_state.photos[to_delete]
 
-# Submit Button
+# Submit button
 if st.button("✅ Submit Survey"):
     if len(st.session_state.photos) == 0:
         st.warning("❗ Please take at least one photo before submitting.")
@@ -136,11 +137,13 @@ if st.button("✅ Submit Survey"):
             updated = response
 
         updated.to_csv("responses.csv", index=False)
+
         st.success("✔️ Your response has been recorded!")
         st.balloons()
+
         st.session_state.photos = []
 
-# Admin Tools
+# Admin tools
 st.divider()
 if st.checkbox("📋 Show all responses"):
     if os.path.exists("responses.csv"):
