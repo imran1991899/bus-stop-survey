@@ -5,7 +5,7 @@ import os
 
 # Set wide layout for better visibility
 st.set_page_config(page_title="🚌 Bus Stop Survey (On board)", layout="wide")
-st.title("🚌 Bus Stop Assessment Survey")
+st.title("🚌 Bus Stop Assessment Survey (On board)")
 
 # Create images folder if needed
 if not os.path.exists("images"):
