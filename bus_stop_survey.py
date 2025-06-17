@@ -127,8 +127,8 @@ if st.button("✅ Submit Survey"):
         st.warning("❗ Please take at least one photo before submitting.")
     elif not st.session_state.staff_id.strip():
         st.warning("❗ Please enter your Staff ID.")
-    elif "19. Other (Please specify below)" in st.session_state.specific_conditions and len(other_text.split()) < 100:
-        st.warning("❗ 'Other' response must be at least 100 words.")
+    elif "19. Other (Please specify below)" in st.session_state.specific_conditions and len(other_text.split()) < 2:
+        st.warning("❗ 'Other' response must be at least 2 words.")
     else:
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         saved_filenames = []
