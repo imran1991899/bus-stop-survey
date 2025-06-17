@@ -9,7 +9,7 @@ if "trigger_rerun" in st.session_state and st.session_state.trigger_rerun:
     for key in list(st.session_state.keys()):
         if key not in ("staff_id", "selected_depot", "selected_route"):
             del st.session_state[key]
-    st.experimental_rerun()
+    st.rerun()  # <-- fixed from experimental_rerun
 
 # ========== Page Setup ==========
 st.set_page_config(page_title="🚌 Bus Stop Survey", layout="wide")
