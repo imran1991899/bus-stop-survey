@@ -44,29 +44,46 @@ condition = st.selectbox("4️⃣ Bus Stop Condition", [
     "4. Non-Infrastructure"
 ])
 
-# Question 5: Specific Situational Conditions
-st.markdown("5️⃣ Specific Situational Conditions (Select all that apply)")
+# Question 4.1: Categorizing Activities
+activity_category = st.selectbox("4️⃣➕ Categorizing Activities", [
+    "1. On Board in the Bus",
+    "2. On Ground Location"
+])
 
-specific_conditions_options = [
+# Define condition options based on activity
+onboard_options = [
+    "1. Tiada penumpang menunggu",
+    "2. Tiada isyarat (penumpang tidak menahan bas)",
+    "3. Tidak berhenti/memperlahankan bas",
+    "4. Salah tempat menunggu",
+    "5. Bas penuh",
+    "6. Mengejar masa waybill (punctuality)",
+    "7. Kesesakan lalu lintas",
+    "8. Kekeliruan laluan oleh pemandu baru",
+    "9. Terdapat laluan tutup atas sebab tertentu (baiki jalan, pokok tumbang, lawatan delegasi dari luar negara)",
+    "10. Hentian terlalu hampir simpang masuk, bas sukar kembali ke laluan asal",
+    "11. Hentian berdekatan dengan traffic light",
+    "12. Other (Please specify below)"
+]
+
+onground_options = [
     "1. Infrastruktur sudah tiada/musnah",
     "2. Terlindung oleh pokok",
     "3. Terhalang oleh kenderaan parkir",
     "4. Keadaan sekeliling tidak selamat tiada lampu",
-    "5. Tiada penumpang menunggu",
-    "6. Tiada isyarat (penumpang tidak menahan bas)",
-    "7. Tidak berhenti/memperlahankan bas",
-    "8. Salah tempat menunggu",
-    "9. Kedudukan bus stop kurang sesuai",
-    "10. Bas penuh",
-    "11. Mengejar masa waybill (punctuality)",
-    "12. Kesesakan lalu lintas",
-    "13. Perubahan nama hentian dengan bangunan sekeliling",
-    "14. Kekeliruan laluan oleh pemandu baru",
-    "15. Terdapat laluan tutup atas sebab tertentu (baiki jalan, pokok tumbang, lawatan delegasi dari luar negara)",
-    "16. Hentian terlalu hampir simpang masuk, bas sukar kembali ke laluan asal",
-    "17. Hentian berdekatan dengan traffic light",
-    "18. Other (Please specify below)"
+    "5. Kedudukan bus stop kurang sesuai",
+    "6. Perubahan nama hentian dengan bangunan sekeliling",
+    "7. Other (Please specify below)"
 ]
+
+# Choose correct list
+if activity_category == "1. On Board in the Bus":
+    specific_conditions_options = onboard_options
+else:
+    specific_conditions_options = onground_options
+
+# Question 5: Specific Situational Conditions
+st.markdown("5️⃣ Specific Situational Conditions (Select all that apply)")
 
 # Session state for selections
 if "specific_conditions" not in st.session_state:
@@ -83,7 +100,8 @@ for option in specific_conditions_options:
 
 # Show text area if "Other" selected
 other_text = ""
-if "19. Other (Please specify below)" in st.session_state.specific_conditions:
+other_option_label = next((opt for opt in specific_conditions_options if "Other" in opt), None)
+if other_option_label and other_option_label in st.session_state.specific_conditions:
     other_text = st.text_area("📝 Please describe the 'Other' condition (at least 2 words)", height=150)
     word_count = len(other_text.split())
     if word_count < 2:
@@ -125,7 +143,7 @@ if st.button("✅ Submit Survey"):
         st.warning("❗ Please take at least one photo before submitting.")
     elif not st.session_state.staff_id.strip():
         st.warning("❗ Please enter your Staff ID.")
-    elif "19. Other (Please specify below)" in st.session_state.specific_conditions and len(other_text.split()) < 2:
+    elif other_option_label in st.session_state.specific_conditions and len(other_text.split()) < 2:
         st.warning("❗ 'Other' response must be at least 2 words.")
     else:
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -139,8 +157,8 @@ if st.button("✅ Submit Survey"):
             saved_filenames.append(filename)
 
         specific_conditions_list = list(st.session_state.specific_conditions)
-        if "19. Other (Please specify below)" in specific_conditions_list:
-            specific_conditions_list.remove("19. Other (Please specify below)")
+        if other_option_label in specific_conditions_list:
+            specific_conditions_list.remove(other_option_label)
             specific_conditions_list.append(f"Other: {other_text.replace(';', ',')}")
 
         response = pd.DataFrame([{
@@ -150,6 +168,7 @@ if st.button("✅ Submit Survey"):
             "Route Number": selected_route,
             "Bus Stop": selected_stop,
             "Condition": condition,
+            "Activity Category": activity_category,
             "Specific Conditions": "; ".join(specific_conditions_list),
             "Photos": ";".join(saved_filenames)
         }])
