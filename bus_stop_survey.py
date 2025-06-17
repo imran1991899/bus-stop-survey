@@ -84,10 +84,10 @@ for option in specific_conditions_options:
 # Show "Other" textbox if selected
 other_text = ""
 if "19. Other (Please specify below)" in st.session_state.specific_conditions:
-    other_text = st.text_area("📝 Please describe the 'Other' condition (at least 100 words)", height=200)
+    other_text = st.text_area("📝 Please describe the 'Other' condition (at least 2 words)", height=200)
     word_count = len(other_text.split())
-    if word_count < 100:
-        st.warning(f"🚨 You have written {word_count} words. Please write at least 100 words.")
+    if word_count < 2:
+        st.warning(f"🚨 You have written {word_count} words. Please write at least 2 words.")
 
 # Initialize photos state
 if "photos" not in st.session_state:
