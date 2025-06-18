@@ -211,7 +211,7 @@ if st.button("✅ Submit Survey"):
         updated.to_csv("responses.csv", index=False)
         st.success("✅ Submission complete! Thank you.")
         # Wait 3 seconds to keep the message visible
-        time.sleep(3)
+        time.sleep(1.5)
 
         # Auto-reset all answers except key selections
         keys_to_keep = ("staff_id", "selected_depot", "selected_route", "selected_stop")
