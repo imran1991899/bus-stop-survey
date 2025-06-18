@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import os
-import time  # For delay after success
+import time
 
 # ========== Page Setup ==========
 st.set_page_config(page_title="🚌 Bus Stop Survey", layout="wide")
@@ -29,6 +29,14 @@ if "selected_route" not in st.session_state:
     st.session_state.selected_route = ""
 if "selected_stop" not in st.session_state:
     st.session_state.selected_stop = ""
+if "condition" not in st.session_state:
+    st.session_state.condition = "Select a condition..."
+if "activity_category" not in st.session_state:
+    st.session_state.activity_category = "Select an activity..."
+if "specific_conditions" not in st.session_state:
+    st.session_state.specific_conditions = set()
+if "photos" not in st.session_state:
+    st.session_state.photos = []
 
 # ========== Staff ID ==========
 staff_id_input = st.text_input("👤 Staff ID (numbers only)", value=st.session_state.staff_id)
@@ -46,21 +54,19 @@ filtered_routes = routes_df[routes_df["Depot"] == selected_depot]["Route Number"
 selected_route = st.selectbox("2️⃣ Select Route Number", filtered_routes, index=list(filtered_routes).index(st.session_state.selected_route) if st.session_state.selected_route in filtered_routes else 0)
 st.session_state.selected_route = selected_route
 
-# ========== Bus Stop Selection (Ordered) ==========
+# ========== Bus Stop Selection ==========
 filtered_stops = (
     stops_df[stops_df["Route Number"] == selected_route]
     .dropna(subset=["Stop Name", "Order"])
     .sort_values("Order")["Stop Name"]
     .tolist()
 )
-
 if st.session_state.selected_stop not in filtered_stops:
     st.session_state.selected_stop = filtered_stops[0]
-
 selected_stop = st.selectbox("3️⃣ Select Bus Stop", filtered_stops, index=filtered_stops.index(st.session_state.selected_stop))
 st.session_state.selected_stop = selected_stop
 
-# ========== Condition ==========
+# ========== Bus Stop Condition ==========
 condition_options = [
     "Select a condition...",
     "1. Covered Bus Stop",
@@ -68,15 +74,17 @@ condition_options = [
     "3. Layby",
     "4. Non-Infrastructure"
 ]
-condition = st.selectbox("4️⃣ Bus Stop Condition", condition_options)
+condition = st.selectbox("4️⃣ Bus Stop Condition", condition_options, index=condition_options.index(st.session_state.condition))
+st.session_state.condition = condition
 
-# ========== Activity Category ==========
+# ========== Categorizing Activities ==========
 activity_options = [
     "Select an activity...",
     "1. On Board in the Bus",
     "2. On Ground Location"
 ]
-activity_category = st.selectbox("4️⃣➕ Categorizing Activities", activity_options)
+activity_category = st.selectbox("4️⃣➕ Categorizing Activities", activity_options, index=activity_options.index(st.session_state.activity_category))
+st.session_state.activity_category = activity_category
 
 # ========== Situational Conditions ==========
 onboard_options = [
@@ -102,20 +110,16 @@ onground_options = [
     "6. Perubahan nama hentian dengan bangunan sekeliling",
     "7. Other (Please specify below)"
 ]
-
 options = onboard_options if activity_category == "1. On Board in the Bus" else onground_options if activity_category == "2. On Ground Location" else []
 
 st.markdown("5️⃣ Specific Situational Conditions (Select all that apply)")
-if "specific_conditions" not in st.session_state:
-    st.session_state.specific_conditions = set()
-
 for opt in options:
     checked = opt in st.session_state.specific_conditions
     new_checked = st.checkbox(opt, value=checked, key=opt)
-    if new_checked and not checked:
+    if new_checked:
         st.session_state.specific_conditions.add(opt)
-    elif not new_checked and checked:
-        st.session_state.specific_conditions.remove(opt)
+    else:
+        st.session_state.specific_conditions.discard(opt)
 
 # ========== Handle "Other" ==========
 other_text = ""
@@ -126,9 +130,6 @@ if other_option_label and other_option_label in st.session_state.specific_condit
         st.warning("🚨 'Other' description must be at least 2 words.")
 
 # ========== Photo Capture ==========
-if "photos" not in st.session_state:
-    st.session_state.photos = []
-
 st.markdown("6️⃣ Add up to 5 Photos (Camera Only)")
 if len(st.session_state.photos) < 5:
     photo = st.camera_input(f"📷 Take Photo #{len(st.session_state.photos)+1}")
@@ -198,14 +199,11 @@ if st.button("✅ Submit Survey"):
         updated.to_csv("responses.csv", index=False)
 
         st.success("✅ Submission complete! Thank you.")
-
-        # Wait 4 seconds to keep the message visible
         time.sleep(4)
 
-        # Auto-reset all answers except key selections
-        keys_to_keep = ("staff_id", "selected_depot", "selected_route", "selected_stop")
+        # Reset all fields except Staff ID, Depot, Route, Stop
+        keep_keys = ("staff_id", "selected_depot", "selected_route", "selected_stop")
         for key in list(st.session_state.keys()):
-            if key not in keys_to_keep:
+            if key not in keep_keys:
                 del st.session_state[key]
-
         st.rerun()
