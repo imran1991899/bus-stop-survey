@@ -39,22 +39,22 @@ if "photos" not in st.session_state:
     st.session_state.photos = []
 
 # ========== Staff ID ==========
-staff_id_input = st.text_input("👤 Staff ID (numbers only)", value=st.session_state.staff_id)
-if staff_id_input and not staff_id_input.isdigit():
-    st.warning("⚠️ Staff ID must contain numbers only.")
+staff_id_input = st.text_input("👤 Staff ID (8-digit numbers only)", value=st.session_state.staff_id)
+if staff_id_input and (not staff_id_input.isdigit() or len(staff_id_input) != 8):
+    st.warning("⚠️ Staff ID must contain exactly 8 digits.")
 st.session_state.staff_id = staff_id_input
 
-# ========== Depot Selection ==========
+# ========== Depot ==========
 depots = routes_df["Depot"].dropna().unique()
 selected_depot = st.selectbox("1️⃣ Select Depot", depots, index=list(depots).index(st.session_state.selected_depot) if st.session_state.selected_depot in depots else 0)
 st.session_state.selected_depot = selected_depot
 
-# ========== Route Number Selection ==========
+# ========== Route ==========
 filtered_routes = routes_df[routes_df["Depot"] == selected_depot]["Route Number"].dropna().unique()
 selected_route = st.selectbox("2️⃣ Select Route Number", filtered_routes, index=list(filtered_routes).index(st.session_state.selected_route) if st.session_state.selected_route in filtered_routes else 0)
 st.session_state.selected_route = selected_route
 
-# ========== Bus Stop Selection ==========
+# ========== Bus Stop ==========
 filtered_stops = (
     stops_df[stops_df["Route Number"] == selected_route]
     .dropna(subset=["Stop Name", "Order"])
@@ -66,7 +66,7 @@ if st.session_state.selected_stop not in filtered_stops:
 selected_stop = st.selectbox("3️⃣ Select Bus Stop", filtered_stops, index=filtered_stops.index(st.session_state.selected_stop))
 st.session_state.selected_stop = selected_stop
 
-# ========== Bus Stop Condition ==========
+# ========== Condition ==========
 condition_options = [
     "Select a condition...",
     "1. Covered Bus Stop",
@@ -77,13 +77,13 @@ condition_options = [
 condition = st.selectbox("4️⃣ Bus Stop Condition", condition_options, index=condition_options.index(st.session_state.condition))
 st.session_state.condition = condition
 
-# ========== Categorizing Activities ==========
+# ========== Activity Category ==========
 activity_options = [
     "Select an activity...",
     "1. On Board in the Bus",
     "2. On Ground Location"
 ]
-activity_category = st.selectbox("5️⃣ Categorizing Activities", activity_options, index=activity_options.index(st.session_state.activity_category))
+activity_category = st.selectbox("4️⃣➕ Categorizing Activities", activity_options, index=activity_options.index(st.session_state.activity_category))
 st.session_state.activity_category = activity_category
 
 # ========== Situational Conditions ==========
@@ -112,7 +112,7 @@ onground_options = [
 ]
 options = onboard_options if activity_category == "1. On Board in the Bus" else onground_options if activity_category == "2. On Ground Location" else []
 
-st.markdown("6️⃣ Specific Situational Conditions (Select all that apply)")
+st.markdown("5️⃣ Specific Situational Conditions (Select all that apply)")
 for opt in options:
     checked = opt in st.session_state.specific_conditions
     new_checked = st.checkbox(opt, value=checked, key=opt)
@@ -121,7 +121,7 @@ for opt in options:
     else:
         st.session_state.specific_conditions.discard(opt)
 
-# ========== Handle "Other" ==========
+# ========== Handle Other ==========
 other_text = ""
 other_option_label = next((o for o in options if "Other" in o), None)
 if other_option_label and other_option_label in st.session_state.specific_conditions:
@@ -150,12 +150,12 @@ if st.session_state.photos:
     if to_delete is not None:
         del st.session_state.photos[to_delete]
 
-# ========== Submit Button ==========
+# ========== Submit ==========
 if st.button("✅ Submit Survey"):
     if not staff_id_input.strip():
         st.warning("❗ Please enter your Staff ID.")
-    elif not staff_id_input.isdigit():
-        st.warning("❗ Staff ID must contain numbers only.")
+    elif not staff_id_input.isdigit() or len(staff_id_input) != 8:
+        st.warning("❗ Staff ID must contain exactly 8 digits.")
     elif condition == "Select a condition...":
         st.warning("❗ Please select a valid Bus Stop Condition.")
     elif activity_category == "Select an activity...":
