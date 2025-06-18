@@ -249,7 +249,7 @@ keepalive_code = """
     function keepAlive() {
         fetch('/_stcore/health');
     }
-    setInterval(keepAlive, 300000);  // every 5 minutes
+    setInterval(keepAlive, 1800000);  // every 30 minutes
 </script>
 """
 st.components.v1.html(keepalive_code)
