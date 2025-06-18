@@ -40,9 +40,9 @@ if "condition" not in st.session_state:
     st.session_state.condition = "1. Covered Bus Stop"
 
 # ========== Staff ID ==========
-staff_id_input = st.text_input("👤 Staff ID (numbers only)", value=st.session_state.staff_id)
-if staff_id_input and not staff_id_input.isdigit():
-    st.warning("⚠️ Staff ID must contain numbers only.")
+staff_id_input = st.text_input("👤 Staff ID (8-digit numbers only)", value=st.session_state.staff_id)
+if staff_id_input and (not staff_id_input.isdigit() or len(staff_id_input) != 8):
+    st.warning("⚠️ Staff ID must be exactly 8 digits (numbers only).")
 st.session_state.staff_id = staff_id_input
 
 # ========== Depot Selection ==========
@@ -163,8 +163,7 @@ else:
     st.session_state.other_text = ""
 
 # ========== Photo Capture ==========
-st.markdown("7️⃣ Add up to 5 Photos")
-st.info("📱 You can use your phone's back camera (manually switch in camera UI) or upload photos from your device.")
+st.markdown("7️⃣ Add up to 5 Photos (Camera or Upload)")
 
 if len(st.session_state.photos) < 5:
     col1, col2 = st.columns(2)
@@ -201,8 +200,8 @@ if st.session_state.photos:
 if st.button("✅ Submit Survey"):
     if not staff_id_input.strip():
         st.warning("❗ Please enter your Staff ID.")
-    elif not staff_id_input.isdigit():
-        st.warning("❗ Staff ID must contain numbers only.")
+    elif not (staff_id_input.isdigit() and len(staff_id_input) == 8):
+        st.warning("❗ Staff ID must be exactly 8 digits (numbers only).")
     elif not st.session_state.photos:
         st.warning("❗ Please take at least one photo.")
     elif activity_category not in ["1. On Board in the Bus", "2. On Ground Location"]:
@@ -250,7 +249,7 @@ if st.button("✅ Submit Survey"):
 
         st.success("✅ Submission complete! Thank you.")
 
-        # Reset fields
+        # Reset fields except Staff ID (assuming repeated surveys by same user)
         st.session_state.selected_stop = filtered_stops[0] if filtered_stops else ""
         st.session_state.condition = "1. Covered Bus Stop"
         st.session_state.activity_category = ""
