@@ -3,6 +3,15 @@ import pandas as pd
 from datetime import datetime
 import os
 
+# --------- Reset form after submission safely ---------
+if st.session_state.get("reset_form", False):
+    keys_to_keep = ("staff_id", "selected_depot", "selected_route", "selected_stop")
+    for key in list(st.session_state.keys()):
+        if key not in keys_to_keep and key != "reset_form":
+            del st.session_state[key]
+    st.session_state.reset_form = False
+    st.experimental_rerun()
+
 # ========== Page Setup ==========
 st.set_page_config(page_title="🚌 Bus Stop Survey", layout="wide")
 st.title("🚌 Bus Stop Assessment Survey")
@@ -32,17 +41,6 @@ if "specific_conditions" not in st.session_state:
     st.session_state.specific_conditions = set()
 if "photos" not in st.session_state:
     st.session_state.photos = []
-if "reset_form" not in st.session_state:
-    st.session_state.reset_form = False
-
-# ========== Reset Form if flagged ==========
-if st.session_state.reset_form:
-    keys_to_keep = ("staff_id", "selected_depot", "selected_route", "selected_stop")
-    for key in list(st.session_state.keys()):
-        if key not in keys_to_keep:
-            del st.session_state[key]
-    st.session_state.reset_form = False
-    st.experimental_rerun()
 
 # ========== Staff ID ==========
 staff_id_input = st.text_input("👤 Staff ID (numbers only)", value=st.session_state.staff_id)
@@ -68,7 +66,7 @@ selected_route = st.selectbox(
 )
 st.session_state.selected_route = selected_route
 
-# ========== Bus Stop Selection ==========
+# ========== Bus Stop Selection (Ordered) ==========
 filtered_stops = (
     stops_df[stops_df["Route Number"] == selected_route]
     .dropna(subset=["Stop Name", "Order"])
@@ -95,13 +93,18 @@ condition = st.selectbox(
     ],
 )
 
-# ========== Activity Category (with placeholder) ==========
-activity_options = [
-    "-- Select Activity Category --",
-    "1. On Board in the Bus",
-    "2. On Ground Location",
-]
-activity_category = st.selectbox("5️⃣ Categorizing Activities", activity_options)
+# ========== Activity Category (with empty initial choice) ==========
+activity_category = st.selectbox(
+    "5️⃣ Categorizing Activities",
+    [
+        "",  # empty option for no selection yet
+        "1. On Board in the Bus",
+        "2. On Ground Location",
+    ],
+    index=0 if st.session_state.get("activity_category", "") not in ["1. On Board in the Bus", "2. On Ground Location"] else
+          ["1. On Board in the Bus", "2. On Ground Location"].index(st.session_state.activity_category) + 1,
+)
+st.session_state.activity_category = activity_category
 
 # ========== Situational Conditions ==========
 onboard_options = [
@@ -128,19 +131,18 @@ onground_options = [
     "7. Other (Please specify below)",
 ]
 
-if activity_category == "-- Select Activity Category --":
-    st.info("ℹ️ Please select an activity category to continue.")
-    options = []
+if activity_category == "1. On Board in the Bus":
+    options = onboard_options
+elif activity_category == "2. On Ground Location":
+    options = onground_options
 else:
-    options = onboard_options if activity_category == "1. On Board in the Bus" else onground_options
+    options = []
 
+if options:
     st.markdown("6️⃣ Specific Situational Conditions (Select all that apply)")
-
-    if "last_activity" not in st.session_state:
-        st.session_state.last_activity = activity_category
-    elif st.session_state.last_activity != activity_category:
-        st.session_state.specific_conditions.clear()
-        st.session_state.last_activity = activity_category
+    # Initialize specific_conditions for new options
+    if not st.session_state.specific_conditions:
+        st.session_state.specific_conditions = set()
 
     for opt in options:
         checked = opt in st.session_state.specific_conditions
@@ -149,6 +151,8 @@ else:
             st.session_state.specific_conditions.add(opt)
         elif not new_checked and checked:
             st.session_state.specific_conditions.remove(opt)
+else:
+    st.info("Please select an Activity Category above to see situational conditions.")
 
 # ========== Handle "Other" ==========
 other_text = ""
@@ -185,10 +189,10 @@ if st.button("✅ Submit Survey"):
         st.warning("❗ Please enter your Staff ID.")
     elif not staff_id_input.isdigit():
         st.warning("❗ Staff ID must contain numbers only.")
-    elif activity_category == "-- Select Activity Category --":
-        st.warning("❗ Please select an activity category.")
     elif not st.session_state.photos:
         st.warning("❗ Please take at least one photo.")
+    elif activity_category not in ["1. On Board in the Bus", "2. On Ground Location"]:
+        st.warning("❗ Please select an Activity Category.")
     elif other_option_label in st.session_state.specific_conditions and len(other_text.split()) < 2:
         st.warning("❗ 'Other' response must be at least 2 words.")
     else:
