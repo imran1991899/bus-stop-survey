@@ -179,13 +179,6 @@ if st.session_state.photos:
     if to_delete is not None:
         del st.session_state.photos[to_delete]
 
-# ========== Show Summary ==========
-if st.session_state.specific_conditions:
-    st.markdown("🧾 **Selected Situational Conditions:**")
-    with st.expander("Click to review your selected options before submission"):
-        st.write(f"**Category**: {activity_category}")
-        st.markdown("<ul>" + "".join(f"<li>{opt}</li>" for opt in st.session_state.specific_conditions) + "</ul>", unsafe_allow_html=True)
-
 # ========== Submit Button ==========
 if st.button("✅ Submit Survey"):
     if not staff_id_input.strip():
