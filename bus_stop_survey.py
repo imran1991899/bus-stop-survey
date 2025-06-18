@@ -16,9 +16,17 @@ if not os.path.exists("images"):
 try:
     routes_df = pd.read_excel("bus_data.xlsx", sheet_name="routes")
     stops_df = pd.read_excel("bus_data.xlsx", sheet_name="stops")
+
+    # Strip whitespace from column headers
+    routes_df.columns = routes_df.columns.str.strip()
+    stops_df.columns = stops_df.columns.str.strip()
+
 except Exception as e:
     st.error(f"❌ Failed to load Excel file: {e}")
     st.stop()
+
+# Debug: show stops_df columns to verify correct headers
+st.write("Stops dataframe columns:", stops_df.columns.tolist())
 
 # ========== State Initialization ==========
 if "staff_id" not in st.session_state:
