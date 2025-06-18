@@ -199,7 +199,7 @@ if st.button("✅ Submit Survey"):
         updated.to_csv("responses.csv", index=False)
 
         st.success("✅ Submission complete! Thank you.")
-        time.sleep(2.5)
+        time.sleep(1.5)
 
         # Reset all fields except Staff ID, Depot, Route, Stop
         keep_keys = ("staff_id", "selected_depot", "selected_route", "selected_stop")
