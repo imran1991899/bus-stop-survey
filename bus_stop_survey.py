@@ -32,6 +32,17 @@ if "specific_conditions" not in st.session_state:
     st.session_state.specific_conditions = set()
 if "photos" not in st.session_state:
     st.session_state.photos = []
+if "reset_form" not in st.session_state:
+    st.session_state.reset_form = False
+
+# ========== Reset Form if flagged ==========
+if st.session_state.reset_form:
+    keys_to_keep = ("staff_id", "selected_depot", "selected_route", "selected_stop")
+    for key in list(st.session_state.keys()):
+        if key not in keys_to_keep:
+            del st.session_state[key]
+    st.session_state.reset_form = False
+    st.experimental_rerun()
 
 # ========== Staff ID ==========
 staff_id_input = st.text_input("👤 Staff ID (numbers only)", value=st.session_state.staff_id)
@@ -92,7 +103,7 @@ activity_options = [
 ]
 activity_category = st.selectbox("5️⃣ Categorizing Activities", activity_options)
 
-# ========== Situational Conditions (conditional display) ==========
+# ========== Situational Conditions ==========
 onboard_options = [
     "1. Tiada penumpang menunggu",
     "2. Tiada isyarat (penumpang tidak menahan bas)",
@@ -125,14 +136,12 @@ else:
 
     st.markdown("6️⃣ Specific Situational Conditions (Select all that apply)")
 
-    # Reset conditions when switching activity type
     if "last_activity" not in st.session_state:
         st.session_state.last_activity = activity_category
     elif st.session_state.last_activity != activity_category:
         st.session_state.specific_conditions.clear()
         st.session_state.last_activity = activity_category
 
-    # Checkbox rendering
     for opt in options:
         checked = opt in st.session_state.specific_conditions
         new_checked = st.checkbox(opt, value=checked, key=opt)
@@ -170,12 +179,11 @@ if st.session_state.photos:
     if to_delete is not None:
         del st.session_state.photos[to_delete]
 
-# ========== Show Selected Conditions Summary ==========
+# ========== Show Summary ==========
 if st.session_state.specific_conditions:
     st.markdown("🧾 **Selected Situational Conditions:**")
     with st.expander("Click to review your selected options before submission"):
         st.write(f"**Category**: {activity_category}")
-        st.write("**Selected Options:**")
         st.markdown("<ul>" + "".join(f"<li>{opt}</li>" for opt in st.session_state.specific_conditions) + "</ul>", unsafe_allow_html=True)
 
 # ========== Submit Button ==========
@@ -229,11 +237,5 @@ if st.button("✅ Submit Survey"):
 
         updated.to_csv("responses.csv", index=False)
 
-        # Reset answers except location selections
-        keys_to_keep = ("staff_id", "selected_depot", "selected_route", "selected_stop")
-        for key in list(st.session_state.keys()):
-            if key not in keys_to_keep:
-                del st.session_state[key]
-
         st.success("✅ Submission complete! Thank you.")
-        st.experimental_rerun()
+        st.session_state.reset_form = True
