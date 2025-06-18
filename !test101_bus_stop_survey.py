@@ -63,11 +63,11 @@ selected_route = st.selectbox(
 )
 st.session_state.selected_route = selected_route
 
-# ========== Bus Stop Selection (Ordered by DR, then Order) ==========
+# ========== Bus Stop Selection (Ordered by dr, then Order) ==========
 filtered_stops_df = (
     stops_df[stops_df["Route Number"] == selected_route]
-    .dropna(subset=["Stop Name", "Order", "DR"])
-    .sort_values(by=["DR", "Order"])
+    .dropna(subset=["Stop Name", "Order", "dr"])
+    .sort_values(by=["dr", "Order"])
 )
 filtered_stops = filtered_stops_df["Stop Name"].tolist()
 
