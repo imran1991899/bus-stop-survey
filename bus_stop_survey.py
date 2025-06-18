@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import os
-import time  # <-- Added for delay
+import time  # For delay after success
 
 # ========== Page Setup ==========
 st.set_page_config(page_title="🚌 Bus Stop Survey", layout="wide")
@@ -61,18 +61,22 @@ selected_stop = st.selectbox("3️⃣ Select Bus Stop", filtered_stops, index=fi
 st.session_state.selected_stop = selected_stop
 
 # ========== Condition ==========
-condition = st.selectbox("4️⃣ Bus Stop Condition", [
+condition_options = [
+    "Select a condition...",
     "1. Covered Bus Stop",
     "2. Pole Only",
     "3. Layby",
     "4. Non-Infrastructure"
-])
+]
+condition = st.selectbox("4️⃣ Bus Stop Condition", condition_options)
 
 # ========== Activity Category ==========
-activity_category = st.selectbox("4️⃣➕ Categorizing Activities", [
+activity_options = [
+    "Select an activity...",
     "1. On Board in the Bus",
     "2. On Ground Location"
-])
+]
+activity_category = st.selectbox("4️⃣➕ Categorizing Activities", activity_options)
 
 # ========== Situational Conditions ==========
 onboard_options = [
@@ -99,7 +103,7 @@ onground_options = [
     "7. Other (Please specify below)"
 ]
 
-options = onboard_options if activity_category == "1. On Board in the Bus" else onground_options
+options = onboard_options if activity_category == "1. On Board in the Bus" else onground_options if activity_category == "2. On Ground Location" else []
 
 st.markdown("5️⃣ Specific Situational Conditions (Select all that apply)")
 if "specific_conditions" not in st.session_state:
@@ -151,6 +155,10 @@ if st.button("✅ Submit Survey"):
         st.warning("❗ Please enter your Staff ID.")
     elif not staff_id_input.isdigit():
         st.warning("❗ Staff ID must contain numbers only.")
+    elif condition == "Select a condition...":
+        st.warning("❗ Please select a valid Bus Stop Condition.")
+    elif activity_category == "Select an activity...":
+        st.warning("❗ Please select a valid Categorizing Activity.")
     elif not st.session_state.photos:
         st.warning("❗ Please take at least one photo.")
     elif other_option_label in st.session_state.specific_conditions and len(other_text.split()) < 2:
@@ -192,7 +200,7 @@ if st.button("✅ Submit Survey"):
         st.success("✅ Submission complete! Thank you.")
 
         # Wait 4 seconds to keep the message visible
-        time.sleep(3)
+        time.sleep(4)
 
         # Auto-reset all answers except key selections
         keys_to_keep = ("staff_id", "selected_depot", "selected_route", "selected_stop")
