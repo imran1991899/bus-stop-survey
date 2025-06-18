@@ -40,9 +40,9 @@ if "condition" not in st.session_state:
     st.session_state.condition = "1. Covered Bus Stop"
 
 # ========== Staff ID ==========
-staff_id_input = st.text_input("👤 Staff ID (8-digit numbers only)", value=st.session_state.staff_id)
+staff_id_input = st.text_input("👤 Staff ID (exactly 8 digits)", value=st.session_state.staff_id)
 if staff_id_input and (not staff_id_input.isdigit() or len(staff_id_input) != 8):
-    st.warning("⚠️ Staff ID must be exactly 8 digits (numbers only).")
+    st.warning("⚠️ Staff ID must be exactly 8 numeric digits.")
 st.session_state.staff_id = staff_id_input
 
 # ========== Depot Selection ==========
@@ -140,6 +140,7 @@ else:
 
 if options:
     st.markdown("6️⃣ Specific Situational Conditions (Select all that apply)")
+    # Remove any conditions that no longer apply
     st.session_state.specific_conditions = {cond for cond in st.session_state.specific_conditions if cond in options}
 
     for opt in options:
@@ -163,24 +164,16 @@ else:
     st.session_state.other_text = ""
 
 # ========== Photo Capture ==========
-st.markdown("7️⃣ Add up to 5 Photos (Camera or Upload)")
+st.markdown("7️⃣ Add up to 5 Photos (Camera or Upload from device)")
+if len(st.session_state.photos) < 5:
+    photo = st.camera_input(f"📷 Take Photo #{len(st.session_state.photos) + 1}")
+    if photo:
+        st.session_state.photos.append(photo)
 
 if len(st.session_state.photos) < 5:
-    col1, col2 = st.columns(2)
-
-    with col1:
-        photo_camera = st.camera_input(f"📷 Take Photo #{len(st.session_state.photos) + 1}")
-        if photo_camera:
-            st.session_state.photos.append(photo_camera)
-
-    with col2:
-        photo_upload = st.file_uploader(
-            f"⬆️ Upload Photo #{len(st.session_state.photos) + 1} (JPEG/PNG)",
-            type=["png", "jpg", "jpeg"],
-            accept_multiple_files=False,
-        )
-        if photo_upload:
-            st.session_state.photos.append(photo_upload)
+    upload_photo = st.file_uploader(f"📁 Upload Photo #{len(st.session_state.photos) + 1}", type=["png", "jpg", "jpeg"])
+    if upload_photo:
+        st.session_state.photos.append(upload_photo)
 
 # Show Saved Photos
 if st.session_state.photos:
@@ -198,12 +191,13 @@ if st.session_state.photos:
 
 # ========== Submit Button ==========
 if st.button("✅ Submit Survey"):
+    # Validation
     if not staff_id_input.strip():
         st.warning("❗ Please enter your Staff ID.")
     elif not (staff_id_input.isdigit() and len(staff_id_input) == 8):
-        st.warning("❗ Staff ID must be exactly 8 digits (numbers only).")
+        st.warning("❗ Staff ID must be exactly 8 numeric digits.")
     elif not st.session_state.photos:
-        st.warning("❗ Please take at least one photo.")
+        st.warning("❗ Please take or upload at least one photo.")
     elif activity_category not in ["1. On Board in the Bus", "2. On Ground Location"]:
         st.warning("❗ Please select an Activity Category.")
     elif other_option_label in st.session_state.specific_conditions and len(st.session_state.other_text.split()) < 2:
@@ -251,8 +245,9 @@ if st.button("✅ Submit Survey"):
 
         # Reset fields except Staff ID (assuming repeated surveys by same user)
         st.session_state.selected_stop = filtered_stops[0] if filtered_stops else ""
-        st.session_state.condition = "1. Covered Bus Stop"
+        st.session_state.condition = "1. Covered Bus Stop"   # reset Bus Stop Condition
         st.session_state.activity_category = ""
         st.session_state.specific_conditions = set()
         st.session_state.photos = []
         st.session_state.other_text = ""
+
