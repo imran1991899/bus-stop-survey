@@ -63,15 +63,17 @@ selected_route = st.selectbox(
 )
 st.session_state.selected_route = selected_route
 
-# ========== Bus Stop Selection (Ordered) ==========
-filtered_stops = (
+# ========== Bus Stop Selection (Ordered by dr, then Order) ==========
+filtered_stops_df = (
     stops_df[stops_df["Route Number"] == selected_route]
-    .dropna(subset=["Stop Name", "Order"])
-    .sort_values("Order")["Stop Name"]
-    .tolist()
+    .dropna(subset=["Stop Name", "Order", "dr"])
+    .sort_values(by=["dr", "Order"])
 )
+filtered_stops = filtered_stops_df["Stop Name"].tolist()
+
 if st.session_state.selected_stop not in filtered_stops:
     st.session_state.selected_stop = filtered_stops[0] if filtered_stops else ""
+
 selected_stop = st.selectbox(
     "3️⃣ Select Bus Stop",
     filtered_stops,
@@ -249,7 +251,7 @@ keepalive_code = """
     function keepAlive() {
         fetch('/_stcore/health');
     }
-    setInterval(keepAlive, 1800000);  // every 30 minutes
+    setInterval(keepAlive, 300000);  // every 5 minutes
 </script>
 """
 st.components.v1.html(keepalive_code)
