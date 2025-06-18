@@ -20,6 +20,14 @@ except Exception as e:
     st.error(f"❌ Failed to load Excel file: {e}")
     st.stop()
 
+# ========== Check required columns in stops_df ==========
+required_cols = ["Stop Name", "Order"]
+missing_cols = [col for col in required_cols if col not in stops_df.columns]
+
+if missing_cols:
+    st.error(f"❌ Missing columns in 'stops' sheet: {missing_cols}. Please check your Excel file.")
+    st.stop()
+
 # ========== State Initialization ==========
 if "staff_id" not in st.session_state:
     st.session_state.staff_id = ""
