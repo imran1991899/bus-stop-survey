@@ -13,8 +13,8 @@ if not os.path.exists("images"):
 
 # ========== Load Excel ==========
 try:
-    routes_df = pd.read_excel("bus_data.xlsx", sheet_name="routes")
-    stops_df = pd.read_excel("bus_data.xlsx", sheet_name="stops")
+    routes_df = pd.read_excel("!test101_bus_data.xlsx", sheet_name="routes")
+    stops_df = pd.read_excel("!test101_bus_data.xlsx", sheet_name="stops")
 except Exception as e:
     st.error(f"❌ Failed to load Excel file: {e}")
     st.stop()
@@ -140,7 +140,6 @@ else:
 
 if options:
     st.markdown("6️⃣ Specific Situational Conditions (Select all that apply)")
-    # Clean old conditions not in current options
     st.session_state.specific_conditions = {cond for cond in st.session_state.specific_conditions if cond in options}
 
     for opt in options:
@@ -237,7 +236,7 @@ if st.button("✅ Submit Survey"):
 
         st.success("✅ Submission complete! Thank you.")
 
-        # Reset all except Staff ID, Depot, Route Number
+        # Reset fields
         st.session_state.selected_stop = filtered_stops[0] if filtered_stops else ""
         st.session_state.condition = "1. Covered Bus Stop"
         st.session_state.activity_category = ""
