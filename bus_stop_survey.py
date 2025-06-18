@@ -46,12 +46,20 @@ st.session_state.staff_id = staff_id_input
 
 # ========== Depot ==========
 depots = routes_df["Depot"].dropna().unique()
-selected_depot = st.selectbox("1️⃣ Select Depot", depots, index=list(depots).index(st.session_state.selected_depot) if st.session_state.selected_depot in depots else 0)
+selected_depot = st.selectbox(
+    "1️⃣ Select Depot",
+    depots,
+    index=list(depots).index(st.session_state.selected_depot) if st.session_state.selected_depot in depots else 0
+)
 st.session_state.selected_depot = selected_depot
 
 # ========== Route ==========
 filtered_routes = routes_df[routes_df["Depot"] == selected_depot]["Route Number"].dropna().unique()
-selected_route = st.selectbox("2️⃣ Select Route Number", filtered_routes, index=list(filtered_routes).index(st.session_state.selected_route) if st.session_state.selected_route in filtered_routes else 0)
+selected_route = st.selectbox(
+    "2️⃣ Select Route Number",
+    filtered_routes,
+    index=list(filtered_routes).index(st.session_state.selected_route) if st.session_state.selected_route in filtered_routes else 0
+)
 st.session_state.selected_route = selected_route
 
 # ========== Bus Stop ==========
@@ -63,7 +71,11 @@ filtered_stops = (
 )
 if st.session_state.selected_stop not in filtered_stops:
     st.session_state.selected_stop = filtered_stops[0]
-selected_stop = st.selectbox("3️⃣ Select Bus Stop", filtered_stops, index=filtered_stops.index(st.session_state.selected_stop))
+selected_stop = st.selectbox(
+    "3️⃣ Select Bus Stop",
+    filtered_stops,
+    index=filtered_stops.index(st.session_state.selected_stop)
+)
 st.session_state.selected_stop = selected_stop
 
 # ========== Condition ==========
@@ -74,7 +86,11 @@ condition_options = [
     "3. Layby",
     "4. Non-Infrastructure"
 ]
-condition = st.selectbox("4️⃣ Bus Stop Condition", condition_options, index=condition_options.index(st.session_state.condition))
+condition = st.selectbox(
+    "4️⃣ Bus Stop Condition",
+    condition_options,
+    index=condition_options.index(st.session_state.condition)
+)
 st.session_state.condition = condition
 
 # ========== Activity Category ==========
@@ -83,7 +99,11 @@ activity_options = [
     "1. On Board in the Bus",
     "2. On Ground Location"
 ]
-activity_category = st.selectbox("4️⃣➕ Categorizing Activities", activity_options, index=activity_options.index(st.session_state.activity_category))
+activity_category = st.selectbox(
+    "4️⃣➕ Categorizing Activities",
+    activity_options,
+    index=activity_options.index(st.session_state.activity_category)
+)
 st.session_state.activity_category = activity_category
 
 # ========== Situational Conditions ==========
@@ -110,7 +130,11 @@ onground_options = [
     "6. Perubahan nama hentian dengan bangunan sekeliling",
     "7. Other (Please specify below)"
 ]
-options = onboard_options if activity_category == "1. On Board in the Bus" else onground_options if activity_category == "2. On Ground Location" else []
+options = []
+if activity_category == "1. On Board in the Bus":
+    options = onboard_options
+elif activity_category == "2. On Ground Location":
+    options = onground_options
 
 st.markdown("5️⃣ Specific Situational Conditions (Select all that apply)")
 for opt in options:
@@ -132,7 +156,7 @@ if other_option_label and other_option_label in st.session_state.specific_condit
 # ========== Photo Capture ==========
 st.markdown("7️⃣ Add up to 5 Photos (Camera Only)")
 if len(st.session_state.photos) < 5:
-    photo = st.camera_input(f"📷 Take Photo #{len(st.session_state.photos)+1}")
+    photo = st.camera_input(f"📷 Take Photo #{len(st.session_state.photos) + 1}")
     if photo:
         st.session_state.photos.append(photo)
 
@@ -173,10 +197,12 @@ if st.button("✅ Submit Survey"):
             with open(path, "wb") as f:
                 f.write(p.getbuffer())
             saved_photos.append(filename)
+
         conds = list(st.session_state.specific_conditions)
         if other_option_label in conds:
             conds.remove(other_option_label)
             conds.append(f"Other: {other_text.replace(';', ',')}")
+
         data = pd.DataFrame([{
             "Timestamp": timestamp,
             "Staff ID": staff_id_input,
@@ -188,7 +214,21 @@ if st.button("✅ Submit Survey"):
             "Specific Conditions": "; ".join(conds),
             "Photos": ";".join(saved_photos)
         }])
+
         if os.path.exists("responses.csv"):
             prev = pd.read_csv("responses.csv")
             updated = pd.concat([prev, data], ignore_index=True)
         else:
+            updated = data
+
+        updated.to_csv("responses.csv", index=False)
+
+        st.success("✅ Submission complete! Thank you.")
+        time.sleep(1.5)
+        
+        # Reset all fields except Staff ID, Depot, Route, Stop
+        keep_keys = ("staff_id", "selected_depot", "selected_route", "selected_stop")
+        for key in list(st.session_state.keys()):
+            if key not in keep_keys:
+                del st.session_state[key]
+        st.experimental_rerun()
