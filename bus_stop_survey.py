@@ -40,9 +40,9 @@ if "condition" not in st.session_state:
     st.session_state.condition = "1. Covered Bus Stop"
 
 # ========== Staff ID ==========
-staff_id_input = st.text_input("👤 Staff ID (numbers only)", value=st.session_state.staff_id)
-if staff_id_input and not staff_id_input.isdigit():
-    st.warning("⚠️ Staff ID must contain numbers only.")
+staff_id_input = st.text_input("👤 Staff ID (exactly 8 digits)", value=st.session_state.staff_id)
+if staff_id_input and (not staff_id_input.isdigit() or len(staff_id_input) != 8):
+    st.warning("⚠️ Staff ID must be exactly 8 numeric digits.")
 st.session_state.staff_id = staff_id_input
 
 # ========== Depot Selection ==========
@@ -71,11 +71,11 @@ filtered_stops = (
     .tolist()
 )
 if st.session_state.selected_stop not in filtered_stops:
-    st.session_state.selected_stop = filtered_stops[0]
+    st.session_state.selected_stop = filtered_stops[0] if filtered_stops else ""
 selected_stop = st.selectbox(
     "3️⃣ Select Bus Stop",
     filtered_stops,
-    index=filtered_stops.index(st.session_state.selected_stop),
+    index=filtered_stops.index(st.session_state.selected_stop) if st.session_state.selected_stop in filtered_stops else 0,
 )
 st.session_state.selected_stop = selected_stop
 
@@ -93,9 +93,9 @@ condition = st.selectbox(
 )
 st.session_state.condition = condition
 
-# ========== Activity Category (with empty initial choice) ==========
+# ========== Activity Category ==========
 activity_cat_options = [
-    "",  # empty option for no selection yet
+    "",
     "1. On Board in the Bus",
     "2. On Ground Location",
 ]
@@ -131,18 +131,11 @@ onground_options = [
     "7. Other (Please specify below)",
 ]
 
-if activity_category == "1. On Board in the Bus":
-    options = onboard_options
-elif activity_category == "2. On Ground Location":
-    options = onground_options
-else:
-    options = []
+options = onboard_options if activity_category == "1. On Board in the Bus" else onground_options if activity_category == "2. On Ground Location" else []
 
 if options:
     st.markdown("6️⃣ Specific Situational Conditions (Select all that apply)")
-    # Clean old conditions not in current options
     st.session_state.specific_conditions = {cond for cond in st.session_state.specific_conditions if cond in options}
-
     for opt in options:
         checked = opt in st.session_state.specific_conditions
         new_checked = st.checkbox(opt, value=checked, key=opt)
@@ -164,11 +157,16 @@ else:
     st.session_state.other_text = ""
 
 # ========== Photo Capture ==========
-st.markdown("7️⃣ Add up to 5 Photos (Camera Only)")
+st.markdown("7️⃣ Add up to 5 Photos (Camera or Upload from device)")
 if len(st.session_state.photos) < 5:
     photo = st.camera_input(f"📷 Take Photo #{len(st.session_state.photos) + 1}")
     if photo:
         st.session_state.photos.append(photo)
+
+if len(st.session_state.photos) < 5:
+    upload_photo = st.file_uploader(f"📁 Upload Photo #{len(st.session_state.photos) + 1}", type=["png", "jpg", "jpeg"])
+    if upload_photo:
+        st.session_state.photos.append(upload_photo)
 
 # Show Saved Photos
 if st.session_state.photos:
@@ -188,10 +186,10 @@ if st.session_state.photos:
 if st.button("✅ Submit Survey"):
     if not staff_id_input.strip():
         st.warning("❗ Please enter your Staff ID.")
-    elif not staff_id_input.isdigit():
-        st.warning("❗ Staff ID must contain numbers only.")
+    elif not (staff_id_input.isdigit() and len(staff_id_input) == 8):
+        st.warning("❗ Staff ID must be exactly 8 numeric digits.")
     elif not st.session_state.photos:
-        st.warning("❗ Please take at least one photo.")
+        st.warning("❗ Please take or upload at least one photo.")
     elif activity_category not in ["1. On Board in the Bus", "2. On Ground Location"]:
         st.warning("❗ Please select an Activity Category.")
     elif other_option_label in st.session_state.specific_conditions and len(st.session_state.other_text.split()) < 2:
@@ -237,10 +235,21 @@ if st.button("✅ Submit Survey"):
 
         st.success("✅ Submission complete! Thank you.")
 
-        # Reset all except Staff ID, Depot, Route Number
+        # Reset state (except staff ID)
         st.session_state.selected_stop = filtered_stops[0] if filtered_stops else ""
         st.session_state.condition = "1. Covered Bus Stop"
         st.session_state.activity_category = ""
         st.session_state.specific_conditions = set()
         st.session_state.photos = []
         st.session_state.other_text = ""
+
+# ========== Keep Session Alive ==========
+keepalive_code = """
+<script>
+    function keepAlive() {
+        fetch('/_stcore/health');
+    }
+    setInterval(keepAlive, 300000);  // every 5 minutes
+</script>
+"""
+st.components.v1.html(keepalive_code)
