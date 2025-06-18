@@ -70,18 +70,14 @@ filtered_stops = (
     .sort_values("Order")["Stop Name"]
     .tolist()
 )
-if filtered_stops:
-    if st.session_state.selected_stop not in filtered_stops:
-        st.session_state.selected_stop = filtered_stops[0]
-    selected_stop = st.selectbox(
-        "3️⃣ Select Bus Stop",
-        filtered_stops,
-        index=filtered_stops.index(st.session_state.selected_stop),
-    )
-    st.session_state.selected_stop = selected_stop
-else:
-    st.session_state.selected_stop = ""
-    st.info("No bus stops available for this route.")
+if st.session_state.selected_stop not in filtered_stops:
+    st.session_state.selected_stop = filtered_stops[0] if filtered_stops else ""
+selected_stop = st.selectbox(
+    "3️⃣ Select Bus Stop",
+    filtered_stops,
+    index=filtered_stops.index(st.session_state.selected_stop) if st.session_state.selected_stop in filtered_stops else 0,
+)
+st.session_state.selected_stop = selected_stop
 
 # ========== Condition ==========
 condition_options = [
@@ -166,32 +162,26 @@ if other_option_label and other_option_label in st.session_state.specific_condit
 else:
     st.session_state.other_text = ""
 
-# ========== Photo Capture (Camera Input) ==========
-st.markdown("7️⃣ Add up to 5 Photos (Camera Only or Upload from device)")
+# ========== Photo Capture ==========
+st.markdown("7️⃣ Add up to 5 Photos")
+st.info("📱 You can use your phone's back camera (manually switch in camera UI) or upload photos from your device.")
 
-# Camera input (only if less than 5 photos)
 if len(st.session_state.photos) < 5:
-    photo = st.camera_input(f"📷 Take Photo #{len(st.session_state.photos) + 1}")
-    if photo:
-        st.session_state.photos.append(photo)
+    col1, col2 = st.columns(2)
 
-# ========== Photo Upload from Gallery/Computer ==========
-remaining_slots = 5 - len(st.session_state.photos)
+    with col1:
+        photo_camera = st.camera_input(f"📷 Take Photo #{len(st.session_state.photos) + 1}")
+        if photo_camera:
+            st.session_state.photos.append(photo_camera)
 
-if remaining_slots > 0:
-    uploaded_files = st.file_uploader(
-        f"Or upload up to {remaining_slots} photo(s) from your device",
-        type=["png", "jpg", "jpeg"],
-        accept_multiple_files=True,
-        key="file_uploader",
-    )
-    if uploaded_files:
-        for uploaded_file in uploaded_files:
-            if len(st.session_state.photos) < 5:
-                st.session_state.photos.append(uploaded_file)
-            else:
-                st.warning("Maximum 5 photos allowed.")
-                break
+    with col2:
+        photo_upload = st.file_uploader(
+            f"⬆️ Upload Photo #{len(st.session_state.photos) + 1} (JPEG/PNG)",
+            type=["png", "jpg", "jpeg"],
+            accept_multiple_files=False,
+        )
+        if photo_upload:
+            st.session_state.photos.append(photo_upload)
 
 # Show Saved Photos
 if st.session_state.photos:
