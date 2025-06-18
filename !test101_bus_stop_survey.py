@@ -157,7 +157,7 @@ if st.button("✅ Submit Survey"):
             with open(path, "wb") as f:
                 f.write(p.getbuffer())
             saved_photos.append(filename)
-            upload_to_gdrive(path, filename)
+            (path, filename)
 
         conds = list(st.session_state.specific_conditions)
         if other_option_label in conds:
