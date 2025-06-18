@@ -93,9 +93,9 @@ condition = st.selectbox(
 )
 st.session_state.condition = condition
 
-# ========== Activity Category (with empty initial choice) ==========
+# ========== Activity Category ==========
 activity_cat_options = [
-    "",  # empty option for no selection yet
+    "",
     "1. On Board in the Bus",
     "2. On Ground Location",
 ]
@@ -131,18 +131,11 @@ onground_options = [
     "7. Other (Please specify below)",
 ]
 
-if activity_category == "1. On Board in the Bus":
-    options = onboard_options
-elif activity_category == "2. On Ground Location":
-    options = onground_options
-else:
-    options = []
+options = onboard_options if activity_category == "1. On Board in the Bus" else onground_options if activity_category == "2. On Ground Location" else []
 
 if options:
     st.markdown("6️⃣ Specific Situational Conditions (Select all that apply)")
-    # Remove any conditions that no longer apply
     st.session_state.specific_conditions = {cond for cond in st.session_state.specific_conditions if cond in options}
-
     for opt in options:
         checked = opt in st.session_state.specific_conditions
         new_checked = st.checkbox(opt, value=checked, key=opt)
@@ -191,7 +184,6 @@ if st.session_state.photos:
 
 # ========== Submit Button ==========
 if st.button("✅ Submit Survey"):
-    # Validation
     if not staff_id_input.strip():
         st.warning("❗ Please enter your Staff ID.")
     elif not (staff_id_input.isdigit() and len(staff_id_input) == 8):
@@ -243,11 +235,21 @@ if st.button("✅ Submit Survey"):
 
         st.success("✅ Submission complete! Thank you.")
 
-        # Reset fields except Staff ID (assuming repeated surveys by same user)
+        # Reset state (except staff ID)
         st.session_state.selected_stop = filtered_stops[0] if filtered_stops else ""
-        st.session_state.condition = "1. Covered Bus Stop"   # reset Bus Stop Condition
+        st.session_state.condition = "1. Covered Bus Stop"
         st.session_state.activity_category = ""
         st.session_state.specific_conditions = set()
         st.session_state.photos = []
         st.session_state.other_text = ""
 
+# ========== Keep Session Alive ==========
+keepalive_code = """
+<script>
+    function keepAlive() {
+        fetch('/_stcore/health');
+    }
+    setInterval(keepAlive, 300000);  // every 5 minutes
+</script>
+"""
+st.components.v1.html(keepalive_code)
