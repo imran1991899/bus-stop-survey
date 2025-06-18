@@ -83,7 +83,7 @@ activity_options = [
     "1. On Board in the Bus",
     "2. On Ground Location"
 ]
-activity_category = st.selectbox("4️⃣➕ Categorizing Activities", activity_options, index=activity_options.index(st.session_state.activity_category))
+activity_category = st.selectbox("5️⃣ Categorizing Activities", activity_options, index=activity_options.index(st.session_state.activity_category))
 st.session_state.activity_category = activity_category
 
 # ========== Situational Conditions ==========
@@ -112,7 +112,7 @@ onground_options = [
 ]
 options = onboard_options if activity_category == "1. On Board in the Bus" else onground_options if activity_category == "2. On Ground Location" else []
 
-st.markdown("5️⃣ Specific Situational Conditions (Select all that apply)")
+st.markdown("6️⃣ Specific Situational Conditions (Select all that apply)")
 for opt in options:
     checked = opt in st.session_state.specific_conditions
     new_checked = st.checkbox(opt, value=checked, key=opt)
@@ -130,7 +130,7 @@ if other_option_label and other_option_label in st.session_state.specific_condit
         st.warning("🚨 'Other' description must be at least 2 words.")
 
 # ========== Photo Capture ==========
-st.markdown("6️⃣ Add up to 5 Photos (Camera Only)")
+st.markdown("7️⃣ Add up to 5 Photos (Camera Only)")
 if len(st.session_state.photos) < 5:
     photo = st.camera_input(f"📷 Take Photo #{len(st.session_state.photos)+1}")
     if photo:
