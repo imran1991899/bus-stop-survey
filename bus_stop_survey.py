@@ -150,18 +150,3 @@ if st.button("✅ Submit Survey"):
         st.session_state.photos = []
         st.session_state.last_photo = None
         # staff_id remains unchanged in session_state
-
-# Admin Tools (Optional)
-st.divider()
-
-if st.checkbox("📋 Show all responses"):
-    if os.path.exists("responses.csv"):
-        df = pd.read_csv("responses.csv")
-        st.dataframe(df)
-    else:
-        st.info("No responses yet.")
-
-if st.checkbox("⬇️ Download responses as CSV"):
-    if os.path.exists("responses.csv"):
-        df = pd.read_csv("responses.csv")
-        st.download_button("Download CSV", df.to_csv(index=False), file_name="bus_stop_responses.csv")
