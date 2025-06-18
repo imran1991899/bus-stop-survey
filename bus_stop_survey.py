@@ -84,16 +84,15 @@ condition = st.selectbox(
     ],
 )
 
-# ========== Activity Category ==========
-activity_category = st.selectbox(
-    "5️⃣ Categorizing Activities",
-    [
-        "1. On Board in the Bus",
-        "2. On Ground Location",
-    ],
-)
+# ========== Activity Category (with placeholder) ==========
+activity_options = [
+    "-- Select Activity Category --",
+    "1. On Board in the Bus",
+    "2. On Ground Location",
+]
+activity_category = st.selectbox("5️⃣ Categorizing Activities", activity_options)
 
-# ========== Situational Conditions ==========
+# ========== Situational Conditions (conditional display) ==========
 onboard_options = [
     "1. Tiada penumpang menunggu",
     "2. Tiada isyarat (penumpang tidak menahan bas)",
@@ -118,25 +117,29 @@ onground_options = [
     "7. Other (Please specify below)",
 ]
 
-options = onboard_options if activity_category == "1. On Board in the Bus" else onground_options
+if activity_category == "-- Select Activity Category --":
+    st.info("ℹ️ Please select an activity category to continue.")
+    options = []
+else:
+    options = onboard_options if activity_category == "1. On Board in the Bus" else onground_options
 
-st.markdown("6️⃣ Specific Situational Conditions (Select all that apply)")
+    st.markdown("6️⃣ Specific Situational Conditions (Select all that apply)")
 
-# Clear conditions if activity category changed
-if "last_activity" not in st.session_state:
-    st.session_state.last_activity = activity_category
-elif st.session_state.last_activity != activity_category:
-    st.session_state.specific_conditions.clear()
-    st.session_state.last_activity = activity_category
+    # Reset conditions when switching activity type
+    if "last_activity" not in st.session_state:
+        st.session_state.last_activity = activity_category
+    elif st.session_state.last_activity != activity_category:
+        st.session_state.specific_conditions.clear()
+        st.session_state.last_activity = activity_category
 
-# Show checkboxes
-for opt in options:
-    checked = opt in st.session_state.specific_conditions
-    new_checked = st.checkbox(opt, value=checked, key=opt)
-    if new_checked and not checked:
-        st.session_state.specific_conditions.add(opt)
-    elif not new_checked and checked:
-        st.session_state.specific_conditions.remove(opt)
+    # Checkbox rendering
+    for opt in options:
+        checked = opt in st.session_state.specific_conditions
+        new_checked = st.checkbox(opt, value=checked, key=opt)
+        if new_checked and not checked:
+            st.session_state.specific_conditions.add(opt)
+        elif not new_checked and checked:
+            st.session_state.specific_conditions.remove(opt)
 
 # ========== Handle "Other" ==========
 other_text = ""
@@ -181,6 +184,8 @@ if st.button("✅ Submit Survey"):
         st.warning("❗ Please enter your Staff ID.")
     elif not staff_id_input.isdigit():
         st.warning("❗ Staff ID must contain numbers only.")
+    elif activity_category == "-- Select Activity Category --":
+        st.warning("❗ Please select an activity category.")
     elif not st.session_state.photos:
         st.warning("❗ Please take at least one photo.")
     elif other_option_label in st.session_state.specific_conditions and len(other_text.split()) < 2:
@@ -224,11 +229,11 @@ if st.button("✅ Submit Survey"):
 
         updated.to_csv("responses.csv", index=False)
 
-        # Auto-reset all answers except key selections
+        # Reset answers except location selections
         keys_to_keep = ("staff_id", "selected_depot", "selected_route", "selected_stop")
         for key in list(st.session_state.keys()):
             if key not in keys_to_keep:
                 del st.session_state[key]
 
-        # Re-run app to clear form safely
+        st.success("✅ Submission complete! Thank you.")
         st.experimental_rerun()
