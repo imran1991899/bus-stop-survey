@@ -28,6 +28,10 @@ if "selected_route" not in st.session_state:
     st.session_state.selected_route = ""
 if "selected_stop" not in st.session_state:
     st.session_state.selected_stop = ""
+if "specific_conditions" not in st.session_state:
+    st.session_state.specific_conditions = set()
+if "photos" not in st.session_state:
+    st.session_state.photos = []
 
 # ========== Staff ID ==========
 staff_id_input = st.text_input("👤 Staff ID (numbers only)", value=st.session_state.staff_id)
@@ -53,7 +57,7 @@ selected_route = st.selectbox(
 )
 st.session_state.selected_route = selected_route
 
-# ========== Bus Stop Selection (Ordered) ==========
+# ========== Bus Stop Selection ==========
 filtered_stops = (
     stops_df[stops_df["Route Number"] == selected_route]
     .dropna(subset=["Stop Name", "Order"])
@@ -113,13 +117,19 @@ onground_options = [
     "6. Perubahan nama hentian dengan bangunan sekeliling",
     "7. Other (Please specify below)",
 ]
+
 options = onboard_options if activity_category == "1. On Board in the Bus" else onground_options
 
 st.markdown("6️⃣ Specific Situational Conditions (Select all that apply)")
 
-if "specific_conditions" not in st.session_state:
-    st.session_state.specific_conditions = set()
+# Clear conditions if activity category changed
+if "last_activity" not in st.session_state:
+    st.session_state.last_activity = activity_category
+elif st.session_state.last_activity != activity_category:
+    st.session_state.specific_conditions.clear()
+    st.session_state.last_activity = activity_category
 
+# Show checkboxes
 for opt in options:
     checked = opt in st.session_state.specific_conditions
     new_checked = st.checkbox(opt, value=checked, key=opt)
@@ -137,9 +147,6 @@ if other_option_label and other_option_label in st.session_state.specific_condit
         st.warning("🚨 'Other' description must be at least 2 words.")
 
 # ========== Photo Capture ==========
-if "photos" not in st.session_state:
-    st.session_state.photos = []
-
 st.markdown("7️⃣ Add up to 5 Photos (Camera Only)")
 if len(st.session_state.photos) < 5:
     photo = st.camera_input(f"📷 Take Photo #{len(st.session_state.photos) + 1}")
@@ -159,6 +166,14 @@ if st.session_state.photos:
                 to_delete = i
     if to_delete is not None:
         del st.session_state.photos[to_delete]
+
+# ========== Show Selected Conditions Summary ==========
+if st.session_state.specific_conditions:
+    st.markdown("🧾 **Selected Situational Conditions:**")
+    with st.expander("Click to review your selected options before submission"):
+        st.write(f"**Category**: {activity_category}")
+        st.write("**Selected Options:**")
+        st.markdown("<ul>" + "".join(f"<li>{opt}</li>" for opt in st.session_state.specific_conditions) + "</ul>", unsafe_allow_html=True)
 
 # ========== Submit Button ==========
 if st.button("✅ Submit Survey"):
@@ -215,5 +230,5 @@ if st.button("✅ Submit Survey"):
             if key not in keys_to_keep:
                 del st.session_state[key]
 
-        # Re-run app to clear form without causing crash
+        # Re-run app to clear form safely
         st.experimental_rerun()
