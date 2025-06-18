@@ -70,14 +70,18 @@ filtered_stops = (
     .sort_values("Order")["Stop Name"]
     .tolist()
 )
-if st.session_state.selected_stop not in filtered_stops:
-    st.session_state.selected_stop = filtered_stops[0]
-selected_stop = st.selectbox(
-    "3️⃣ Select Bus Stop",
-    filtered_stops,
-    index=filtered_stops.index(st.session_state.selected_stop),
-)
-st.session_state.selected_stop = selected_stop
+if filtered_stops:
+    if st.session_state.selected_stop not in filtered_stops:
+        st.session_state.selected_stop = filtered_stops[0]
+    selected_stop = st.selectbox(
+        "3️⃣ Select Bus Stop",
+        filtered_stops,
+        index=filtered_stops.index(st.session_state.selected_stop),
+    )
+    st.session_state.selected_stop = selected_stop
+else:
+    st.session_state.selected_stop = ""
+    st.info("No bus stops available for this route.")
 
 # ========== Condition ==========
 condition_options = [
@@ -162,12 +166,32 @@ if other_option_label and other_option_label in st.session_state.specific_condit
 else:
     st.session_state.other_text = ""
 
-# ========== Photo Capture ==========
-st.markdown("7️⃣ Add up to 5 Photos (Camera Only)")
+# ========== Photo Capture (Camera Input) ==========
+st.markdown("7️⃣ Add up to 5 Photos (Camera Only or Upload from device)")
+
+# Camera input (only if less than 5 photos)
 if len(st.session_state.photos) < 5:
     photo = st.camera_input(f"📷 Take Photo #{len(st.session_state.photos) + 1}")
     if photo:
         st.session_state.photos.append(photo)
+
+# ========== Photo Upload from Gallery/Computer ==========
+remaining_slots = 5 - len(st.session_state.photos)
+
+if remaining_slots > 0:
+    uploaded_files = st.file_uploader(
+        f"Or upload up to {remaining_slots} photo(s) from your device",
+        type=["png", "jpg", "jpeg"],
+        accept_multiple_files=True,
+        key="file_uploader",
+    )
+    if uploaded_files:
+        for uploaded_file in uploaded_files:
+            if len(st.session_state.photos) < 5:
+                st.session_state.photos.append(uploaded_file)
+            else:
+                st.warning("Maximum 5 photos allowed.")
+                break
 
 # Show Saved Photos
 if st.session_state.photos:
