@@ -39,49 +39,66 @@ if "photos" not in st.session_state:
     st.session_state.photos = []
 
 # ========== Staff ID ==========
-staff_id_input = st.text_input("👤 Staff ID (8-digit numbers only)", value=st.session_state.staff_id)
+staff_id_input = st.text_input("👤 Staff ID (8 digits only)", value=st.session_state.staff_id)
 if staff_id_input and (not staff_id_input.isdigit() or len(staff_id_input) != 8):
-    st.warning("⚠️ Staff ID must contain exactly 8 digits.")
+    st.warning("⚠️ Staff ID must be exactly 8 digits.")
 st.session_state.staff_id = staff_id_input
 
-# ========== Depot ==========
+# ========== Depot Selection ==========
 depots = routes_df["Depot"].dropna().unique()
-selected_depot = st.selectbox("1️⃣ Select Depot", depots, index=list(depots).index(st.session_state.selected_depot) if st.session_state.selected_depot in depots else 0)
+selected_depot = st.selectbox(
+    "1️⃣ Select Depot",
+    depots,
+    index=list(depots).index(st.session_state.selected_depot) if st.session_state.selected_depot in depots else 0,
+)
 st.session_state.selected_depot = selected_depot
 
-# ========== Route ==========
+# ========== Route Number Selection ==========
 filtered_routes = routes_df[routes_df["Depot"] == selected_depot]["Route Number"].dropna().unique()
-selected_route = st.selectbox("2️⃣ Select Route Number", filtered_routes, index=list(filtered_routes).index(st.session_state.selected_route) if st.session_state.selected_route in filtered_routes else 0)
+selected_route = st.selectbox(
+    "2️⃣ Select Route Number",
+    filtered_routes,
+    index=list(filtered_routes).index(st.session_state.selected_route) if st.session_state.selected_route in filtered_routes else 0,
+)
 st.session_state.selected_route = selected_route
 
-# ========== Bus Stop ==========
-filtered_stops = (
-    stops_df[stops_df["Route Number"] == selected_route]
-    .dropna(subset=["Stop Name", "Order"])
-    .sort_values("Order")["Stop Name"]
-    .tolist()
-)
+# ========== Bus Stop Selection (sorted by DR then Order) ==========
+route_stops = stops_df[
+    (stops_df["Route Number"] == selected_route)
+    & stops_df["Stop Name"].notna()
+    & stops_df["Order"].notna()
+    & stops_df["DR"].notna()
+].copy()
+
+route_stops = route_stops.sort_values(["DR", "Order"])
+
+# Dropdown display format: "DR - Order - Stop Name"
+filtered_stops = route_stops.apply(
+    lambda row: f'{row["DR"]} - {int(row["Order"])} - {row["Stop Name"]}', axis=1
+).tolist()
+
 if st.session_state.selected_stop not in filtered_stops:
     st.session_state.selected_stop = filtered_stops[0]
+
 selected_stop = st.selectbox("3️⃣ Select Bus Stop", filtered_stops, index=filtered_stops.index(st.session_state.selected_stop))
 st.session_state.selected_stop = selected_stop
 
-# ========== Condition ==========
+# ========== Bus Stop Condition ==========
 condition_options = [
     "Select a condition...",
     "1. Covered Bus Stop",
     "2. Pole Only",
     "3. Layby",
-    "4. Non-Infrastructure"
+    "4. Non-Infrastructure",
 ]
 condition = st.selectbox("4️⃣ Bus Stop Condition", condition_options, index=condition_options.index(st.session_state.condition))
 st.session_state.condition = condition
 
-# ========== Activity Category ==========
+# ========== Categorizing Activities ==========
 activity_options = [
     "Select an activity...",
     "1. On Board in the Bus",
-    "2. On Ground Location"
+    "2. On Ground Location",
 ]
 activity_category = st.selectbox("4️⃣➕ Categorizing Activities", activity_options, index=activity_options.index(st.session_state.activity_category))
 st.session_state.activity_category = activity_category
@@ -99,7 +116,7 @@ onboard_options = [
     "9. Terdapat laluan tutup atas sebab tertentu (baiki jalan, pokok tumbang, lawatan delegasi dari luar negara)",
     "10. Hentian terlalu hampir simpang masuk, bas sukar kembali ke laluan asal",
     "11. Hentian berdekatan dengan traffic light",
-    "12. Other (Please specify below)"
+    "12. Other (Please specify below)",
 ]
 onground_options = [
     "1. Infrastruktur sudah tiada/musnah",
@@ -108,9 +125,15 @@ onground_options = [
     "4. Keadaan sekeliling tidak selamat tiada lampu",
     "5. Kedudukan bus stop kurang sesuai",
     "6. Perubahan nama hentian dengan bangunan sekeliling",
-    "7. Other (Please specify below)"
+    "7. Other (Please specify below)",
 ]
-options = onboard_options if activity_category == "1. On Board in the Bus" else onground_options if activity_category == "2. On Ground Location" else []
+
+if activity_category == "1. On Board in the Bus":
+    options = onboard_options
+elif activity_category == "2. On Ground Location":
+    options = onground_options
+else:
+    options = []
 
 st.markdown("5️⃣ Specific Situational Conditions (Select all that apply)")
 for opt in options:
@@ -121,7 +144,7 @@ for opt in options:
     else:
         st.session_state.specific_conditions.discard(opt)
 
-# ========== Handle Other ==========
+# ========== Handle "Other" ==========
 other_text = ""
 other_option_label = next((o for o in options if "Other" in o), None)
 if other_option_label and other_option_label in st.session_state.specific_conditions:
@@ -132,7 +155,7 @@ if other_option_label and other_option_label in st.session_state.specific_condit
 # ========== Photo Capture ==========
 st.markdown("7️⃣ Add up to 5 Photos (Camera Only)")
 if len(st.session_state.photos) < 5:
-    photo = st.camera_input(f"📷 Take Photo #{len(st.session_state.photos)+1}")
+    photo = st.camera_input(f"📷 Take Photo #{len(st.session_state.photos) + 1}")
     if photo:
         st.session_state.photos.append(photo)
 
@@ -150,12 +173,12 @@ if st.session_state.photos:
     if to_delete is not None:
         del st.session_state.photos[to_delete]
 
-# ========== Submit ==========
+# ========== Submit Button ==========
 if st.button("✅ Submit Survey"):
     if not staff_id_input.strip():
         st.warning("❗ Please enter your Staff ID.")
     elif not staff_id_input.isdigit() or len(staff_id_input) != 8:
-        st.warning("❗ Staff ID must contain exactly 8 digits.")
+        st.warning("❗ Staff ID must be exactly 8 digits.")
     elif condition == "Select a condition...":
         st.warning("❗ Please select a valid Bus Stop Condition.")
     elif activity_category == "Select an activity...":
@@ -199,11 +222,12 @@ if st.button("✅ Submit Survey"):
         updated.to_csv("responses.csv", index=False)
 
         st.success("✅ Submission complete! Thank you.")
-        time.sleep(1.5)
+        time.sleep(4)
 
         # Reset all fields except Staff ID, Depot, Route, Stop
         keep_keys = ("staff_id", "selected_depot", "selected_route", "selected_stop")
         for key in list(st.session_state.keys()):
             if key not in keep_keys:
                 del st.session_state[key]
-        st.rerun()
+
+        st.experimental_rerun()
