@@ -2,60 +2,61 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import os, json
-from pydrive2.auth import GoogleAuth
-from pydrive2.drive import GoogleDrive
+from google.oauth2 import service_account
+from googleapiclient.http import MediaFileUpload
+from googleapiclient.discovery import build
 
 # --- App setup ---
 st.set_page_config(page_title="🚌 Bus Stop Survey", layout="wide")
 
-# --- Load config ---
+# --- Load config.json ---
 CONFIG_PATH = "config.json"
 if not os.path.exists(CONFIG_PATH):
-    st.error("❗ Missing config.json file with gdrive_folder_id")
+    st.error("❗ Missing config.json")
     st.stop()
-
 with open(CONFIG_PATH) as f:
     config = json.load(f)
 
-gdrive_folder_id = config.get("gdrive_folder_id")
-if not gdrive_folder_id:
-    st.error("❗ gdrive_folder_id not found in config.json")
+GDRIVE_FOLDER_ID = config.get("gdrive_folder_id")
+if not GDRIVE_FOLDER_ID:
+    st.error("❗ 'gdrive_folder_id' not found in config.json")
     st.stop()
 
-# --- Google Drive Auth ---
-@st.cache_resource
-def init_drive():
-    sa_path = "service_account.json"
-    if not os.path.exists(sa_path):
-        st.error("❗ service_account.json not found")
-        st.stop()
+# --- Authenticate with service account ---
+SERVICE_ACCOUNT_FILE = "service_account.json"
+if not os.path.exists(SERVICE_ACCOUNT_FILE):
+    st.error("❗ Missing service_account.json")
+    st.stop()
 
-    gauth = GoogleAuth()
-    gauth.LoadServiceConfigFile(sa_path)
-    gauth.ServiceAuth()
-    return GoogleDrive(gauth)
-
-drive = init_drive()
+credentials = service_account.Credentials.from_service_account_file(
+    SERVICE_ACCOUNT_FILE,
+    scopes=["https://www.googleapis.com/auth/drive.file"]
+)
+drive_service = build("drive", "v3", credentials=credentials)
 
 def upload_to_gdrive(file_path, filename):
-    file = drive.CreateFile({'title': filename, 'parents': [{'id': gdrive_folder_id}]})
-    file.SetContentFile(file_path)
-    file.Upload()
-    return file['id']
+    media = MediaFileUpload(file_path, resumable=True)
+    file_metadata = {
+        "name": filename,
+        "parents": [GDRIVE_FOLDER_ID]
+    }
+    drive_service.files().create(
+        body=file_metadata, media_body=media, fields="id"
+    ).execute()
 
-# --- Diagnostic ---
+# --- Diagnostics ---
 st.write("Current working directory:", os.getcwd())
-st.write(f"Loaded gdrive_folder_id: {gdrive_folder_id}")
+st.write("Loaded GDrive folder ID:", GDRIVE_FOLDER_ID)
 
-# --- Ensure image folder exists ---
+# --- Ensure images directory exists ---
 os.makedirs("images", exist_ok=True)
 
-# --- Load Excel ---
+# --- Load Excel data ---
 try:
     routes_df = pd.read_excel("!test101_bus_data.xlsx", sheet_name="routes")
     stops_df = pd.read_excel("!test101_bus_data.xlsx", sheet_name="stops")
 except Exception as e:
-    st.error(f"❌ Could not load Excel file: {e}")
+    st.error(f"❌ Error reading Excel: {e}")
     st.stop()
 
 # --- Session state defaults ---
@@ -67,10 +68,10 @@ defaults = {
 for k, v in defaults.items():
     st.session_state.setdefault(k, v)
 
-# --- Inputs ---
+# --- Survey inputs ---
 staff = st.text_input("👤 Staff ID (8 digits)", st.session_state.staff_id)
 if staff and (not staff.isdigit() or len(staff) != 8):
-    st.warning("⚠️ ID must be exactly 8 digits.")
+    st.warning("⚠️ ID must be exactly 8 digits")
 st.session_state.staff_id = staff
 
 depots = list(routes_df["Depot"].dropna().unique())
@@ -83,7 +84,7 @@ sel_route = st.selectbox("2️⃣ Select Route Number", routes,
     index=routes.index(st.session_state.selected_route) if st.session_state.selected_route in routes else 0)
 st.session_state.selected_route = sel_route
 
-stops_filtered = stops_df[stops_df["Route Number"] == sel_route].dropna(subset=["Stop Name", "Order", "dr"]).sort_values(by=["dr", "Order"])
+stops_filtered = stops_df[stops_df["Route Number"] == sel_route].dropna(subset=["Stop Name", "Order", "dr"]).sort_values(["dr","Order"])
 stop_names = list(stops_filtered["Stop Name"])
 sel_stop = st.selectbox("3️⃣ Select Bus Stop", stop_names,
     index=stop_names.index(st.session_state.selected_stop) if st.session_state.selected_stop in stop_names else 0)
@@ -97,17 +98,16 @@ activity_opts = ["", "1. On Board in the Bus", "2. On Ground Location"]
 activity = st.selectbox("5️⃣ Activity Category", activity_opts, index=activity_opts.index(st.session_state.activity_category))
 st.session_state.activity_category = activity
 
-# --- Conditions ---
-onboard_opts = [f"{i}. ..." for i in range(1, 13)]  # Replace with real
-onground_opts = [f"{i}. ..." for i in range(1, 8)]   # Replace with real
+onboard_opts = [f"{i}. ..." for i in range(1, 13)]
+onground_opts = [f"{i}. ..." for i in range(1, 8)]
 options = onboard_opts if activity.startswith("1.") else onground_opts if activity.startswith("2.") else []
 
 if options:
     st.markdown("6️⃣ Select situational conditions")
     for opt in options:
         checked = opt in st.session_state.specific_conditions
-        val = st.checkbox(opt, value=checked, key=opt)
-        if val:
+        selected = st.checkbox(opt, value=checked, key=opt)
+        if selected:
             st.session_state.specific_conditions.add(opt)
         elif checked:
             st.session_state.specific_conditions.remove(opt)
@@ -117,45 +117,44 @@ if other_label and other_label in st.session_state.specific_conditions:
     ot = st.text_area("📝 Describe 'Other' (≥2 words)", st.session_state.other_text)
     st.session_state.other_text = ot
     if len(ot.split()) < 2:
-        st.warning("🚨 'Other' must be at least 2 words")
+        st.warning("🚨 Use at least 2 words")
 
-# --- Photos ---
 st.markdown("7️⃣ Add up to 5 photos")
 while len(st.session_state.photos) < 5:
-    new_photo = st.camera_input(f"📷 Photo #{len(st.session_state.photos) + 1}")
+    new_photo = st.camera_input(f"📷 Photo #{len(st.session_state.photos)+1}")
     if new_photo:
         st.session_state.photos.append(new_photo)
-    upload_photo = st.file_uploader(f"📁 Upload photo #{len(st.session_state.photos) + 1}", type=["png", "jpg", "jpeg"])
-    if upload_photo:
-        st.session_state.photos.append(upload_photo)
+    up_ph = st.file_uploader(f"📁 Upload photo #{len(st.session_state.photos)+1}", type=["jpg","jpeg","png"])
+    if up_ph:
+        st.session_state.photos.append(up_ph)
 
 if st.session_state.photos:
     st.subheader("📸 Current photos")
     for idx, ph in enumerate(st.session_state.photos):
-        col1, col2 = st.columns([4, 1])
-        col1.image(ph, caption=f"Photo #{idx + 1}", use_container_width=True)
-        if col2.button("❌ Delete", key=f"del_{idx}"):
+        c1, c2 = st.columns([4,1])
+        c1.image(ph, caption=f"Photo #{idx+1}", use_container_width=True)
+        if c2.button("❌ Delete", key=f"del_{idx}"):
             st.session_state.photos.pop(idx)
             st.experimental_rerun()
 
-# --- Submit ---
+# --- Submission logic ---
 if st.button("✅ Submit Survey"):
     if not staff or not staff.isdigit() or len(staff) != 8:
-        st.warning("❗ Enter a valid 8-digit Staff ID")
+        st.warning("❗ Enter a valid Staff ID")
     elif not st.session_state.photos:
-        st.warning("❗ Upload at least one photo")
+        st.warning("❗ Upload at least 1 photo")
     elif not activity:
-        st.warning("❗ Select an Activity Category")
+        st.warning("❗ Choose Activity Category")
     elif other_label in st.session_state.specific_conditions and len(st.session_state.other_text.split()) < 2:
-        st.warning("❗ 'Other' must be at least 2 words")
+        st.warning("❗ 'Other' needs at least 2 words")
     else:
         ts = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        img_filenames = []
+        img_files = []
         for i, ph in enumerate(st.session_state.photos):
-            fn = f"{ts}_photo{i + 1}.jpg"
-            with open(f"images/{fn}", "wb") as f:
+            fn = f"{ts}_photo{i+1}.jpg"
+            with open(os.path.join("images", fn), "wb") as f:
                 f.write(ph.getbuffer())
-            img_filenames.append(fn)
+            img_files.append(fn)
 
         conds = list(st.session_state.specific_conditions)
         if other_label in conds:
@@ -167,18 +166,16 @@ if st.button("✅ Submit Survey"):
             "Depot": sel_depot, "Route": sel_route, "Stop": sel_stop,
             "Condition": condition, "Activity": activity,
             "Specific Conditions": "; ".join(conds),
-            "Photos": ";".join(img_filenames)
+            "Photos": ";".join(img_files)
         }
-
         df = pd.DataFrame([record])
-        csv_fp = "responses.csv"
-        if os.path.exists(csv_fp):
-            existing = pd.read_csv(csv_fp)
-            df = pd.concat([existing, df], ignore_index=True)
-        df.to_csv(csv_fp, index=False)
+        CSV = "responses.csv"
+        if os.path.exists(CSV):
+            df = pd.concat([pd.read_csv(CSV), df], ignore_index=True)
+        df.to_csv(CSV, index=False)
 
-        upload_to_gdrive(csv_fp, f"{ts}_response.csv")
+        # upload
+        upload_to_gdrive(CSV, f"{ts}_response.csv")
         st.success("✅ Survey submitted!")
-
         st.session_state.update({k: defaults[k] for k in defaults})
         st.experimental_rerun()
