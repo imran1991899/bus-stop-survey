@@ -252,7 +252,7 @@ if options:
 else:
     st.info("Please select an Activity Category above to see situational conditions.")
 
-# --------- 'Other' Description ---------
+# --------- 'Other' Description and Table ---------
 other_label = next((opt for opt in options if "Other" in opt), None)
 if other_label and other_label in st.session_state.specific_conditions:
     other_text = st.text_area(
@@ -263,10 +263,16 @@ if other_label and other_label in st.session_state.specific_conditions:
     st.session_state.other_text = other_text
     if len(other_text.split()) < 2:
         st.warning("🚨 'Other' description must be at least 2 words.")
+    # Show summary table below "Other"
+    st.markdown("**Summary for 'Other':**")
+    st.table(pd.DataFrame({
+        "Field": ["Other"],
+        "Your Answer": [other_text]
+    }))
 else:
     st.session_state.other_text = ""
 
-# --------- 'Remarks' Description (OPTIONAL) ---------
+# --------- 'Remarks' Description (OPTIONAL) and Table ---------
 remarks_label = next((opt for opt in options if "Remarks" in opt), None)
 if remarks_label and remarks_label in st.session_state.specific_conditions:
     remarks_text = st.text_area(
@@ -275,6 +281,12 @@ if remarks_label and remarks_label in st.session_state.specific_conditions:
         value=st.session_state.get("remarks_text", ""),
     )
     st.session_state["remarks_text"] = remarks_text
+    # Show summary table below "Remarks"
+    st.markdown("**Summary for 'Remarks':**")
+    st.table(pd.DataFrame({
+        "Field": ["Remarks"],
+        "Your Answer": [remarks_text]
+    }))
 else:
     st.session_state["remarks_text"] = ""
 
