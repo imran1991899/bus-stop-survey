@@ -362,18 +362,13 @@ if st.button("✅ Submit Survey"):
             append_row_to_gsheet(gsheet_id, row, header)
 
             st.success("✅ Submission complete! Thank you.")
-            st.session_state.update(
-                {
-                    "selected_depot": selected_depot,
-                    "selected_route": selected_route,
-                    "selected_stop": filtered_stops[0] if filtered_stops else "",
-                    "condition": "1. Covered Bus Stop",
-                    "activity_category": "",
-                    "specific_conditions": set(),
-                    "other_text": "",
-                    "photos": [],
-                }
-            )
+
+            # Only clear these fields, keep staff_id, depot, route, stop
+            st.session_state["condition"] = "1. Covered Bus Stop"
+            st.session_state["activity_category"] = ""
+            st.session_state["specific_conditions"] = set()
+            st.session_state["other_text"] = ""
+            st.session_state["photos"] = []
 
         except Exception as e:
             st.error(f"❌ Failed to submit: {e}")
