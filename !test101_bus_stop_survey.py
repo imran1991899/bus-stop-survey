@@ -1,38 +1,46 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-import os, json, tempfile
+import os
+import json
+import tempfile
 from pydrive2.auth import GoogleAuth
 from pydrive2.drive import GoogleDrive
 
-# Diagnostics: working dir and secrets
+# --- Show current working directory ---
 st.write("Current working directory:", os.getcwd())
-st.write("Secrets file exists?", os.path.exists(".streamlit/secrets.toml"))
-st.write("Secrets content:", st.secrets)
 
-# Diagnostics: available keys in secrets
-st.write("🔐 Available st.secrets keys:", list(st.secrets.keys()))
+# --- Load config.json ---
+config_path = "config.json"
+if not os.path.exists(config_path):
+    st.error(f"❗ Missing config file: {config_path}")
+    st.stop()
 
-# --- Google Drive Setup ---
+with open(config_path, "r") as f:
+    config = json.load(f)
+
+folder_id = config.get("gdrive_folder_id")
+if not folder_id:
+    st.error("❗ 'gdrive_folder_id' not found in config.json")
+    st.stop()
+
+st.write("Loaded gdrive_folder_id:", folder_id)
+
+# --- Load service account JSON file ---
+sa_path = "service_account.json"
+if not os.path.exists(sa_path):
+    st.error(f"❗ Missing service account JSON file: {sa_path}")
+    st.stop()
+
+with open(sa_path, "r") as f:
+    sa_info = json.load(f)
+
+# --- Initialize Google Drive client ---
 @st.cache_resource
 def init_drive():
-    # Check for folder id in secrets
-    if "gdrive_folder_id" not in st.secrets:
-        st.error("❗ Missing 'gdrive_folder_id' in st.secrets")
-        st.stop()
-
-    # Load service account JSON directly from file
-    sa_path = "service_account.json"
-    if not os.path.exists(sa_path):
-        st.error(f"❗ Missing service account JSON file: {sa_path}")
-        st.stop()
-
-    with open(sa_path, "r") as f:
-        info = json.load(f)
-
-    # Save to temp file for PyDrive2 auth
+    # Save service account JSON to temp file for PyDrive2
     with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json") as tmp:
-        json.dump(info, tmp)
+        json.dump(sa_info, tmp)
         tmp.flush()
 
         gauth = GoogleAuth()
@@ -44,13 +52,13 @@ def init_drive():
 drive = init_drive()
 
 def upload_to_gdrive(file_path, filename):
-    folder_id = st.secrets["gdrive_folder_id"]
     file = drive.CreateFile({'title': filename, 'parents': [{'id': folder_id}]})
     file.SetContentFile(file_path)
     file.Upload()
     return file['id']
 
-# --- Page setup ---
+# --- Streamlit UI and logic below ---
+
 st.set_page_config(page_title="🚌 Bus Stop Survey", layout="wide")
 st.title("🚌 Bus Stop Assessment Survey")
 
@@ -112,8 +120,8 @@ activity = st.selectbox("5️⃣ Activity Category", activity_opts, index=activi
 st.session_state.activity_category = activity
 
 # --- Specific condition options ---
-onboard_opts = [f"{i}. ..." for i in range(1, 13)]  # Replace with actual descriptions
-onground_opts = [f"{i}. ..." for i in range(1, 8)]  # Replace with actual descriptions
+onboard_opts = [f"{i}. ..." for i in range(1, 13)]  # Replace with real descriptions
+onground_opts = [f"{i}. ..." for i in range(1, 8)]  # Replace with real descriptions
 options = onboard_opts if activity.startswith("1.") else onground_opts if activity.startswith("2.") else []
 
 if options:
