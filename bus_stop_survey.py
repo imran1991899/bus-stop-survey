@@ -113,6 +113,7 @@ for key, default in {
     "activity_category": "",
     "specific_conditions": set(),
     "other_text": "",
+    "remarks_text": "",
     "photos": [],
     "show_success": False,
 }.items():
@@ -213,19 +214,7 @@ onboard_options = [
     "10. Hentian terlalu hampir simpang masuk",
     "11. Hentian berdekatan dengan traffic light",
     "12. Other (Please specify below)",
-    # --------- 'Remarks' Description (OPTIONAL) ---------
-remarks_label = next((opt for opt in options if "Remarks" in opt), None)
-if remarks_label and remarks_label in st.session_state.specific_conditions:
-    remarks_text = st.text_area(
-        "💬 Remarks (optional)",
-        height=100,
-        value=st.session_state.get("remarks_text", ""),
-    )
-    st.session_state["remarks_text"] = remarks_text
-else:
-    st.session_state["remarks_text"] = ""
-
-    
+    "13. Remarks",
 ]
 onground_options = [
     "1. Infrastruktur sudah tiada/musnah",
@@ -235,19 +224,7 @@ onground_options = [
     "5. Kedudukan bus stop kurang sesuai",
     "6. Perubahan nama hentian",
     "7. Other (Please specify below)",
-    # --------- 'Remarks' Description (OPTIONAL) ---------
-remarks_label = next((opt for opt in options if "Remarks" in opt), None)
-if remarks_label and remarks_label in st.session_state.specific_conditions:
-    remarks_text = st.text_area(
-        "💬 Remarks (optional)",
-        height=100,
-        value=st.session_state.get("remarks_text", ""),
-    )
-    st.session_state["remarks_text"] = remarks_text
-else:
-    st.session_state["remarks_text"] = ""
-
-    
+    "8. Remarks",
 ]
 
 options = (
@@ -288,6 +265,18 @@ if other_label and other_label in st.session_state.specific_conditions:
         st.warning("🚨 'Other' description must be at least 2 words.")
 else:
     st.session_state.other_text = ""
+
+# --------- 'Remarks' Description (OPTIONAL) ---------
+remarks_label = next((opt for opt in options if "Remarks" in opt), None)
+if remarks_label and remarks_label in st.session_state.specific_conditions:
+    remarks_text = st.text_area(
+        "💬 Remarks (optional)",
+        height=100,
+        value=st.session_state.get("remarks_text", ""),
+    )
+    st.session_state["remarks_text"] = remarks_text
+else:
+    st.session_state["remarks_text"] = ""
 
 # --------- Photo Upload ---------
 st.markdown("7️⃣ Add up to 5 Photos (Camera or Upload from device)")
@@ -362,6 +351,10 @@ with st.form(key="survey_form"):
                     cond_list.append(
                         f"Other: {st.session_state.other_text.replace(';', ',')}"
                     )
+                if remarks_label in cond_list:
+                    cond_list.remove(remarks_label)
+                    remarks_value = st.session_state.get("remarks_text", "")
+                    cond_list.append(f"Remarks: {remarks_value.replace(';', ',')}")
 
                 row = [
                     timestamp,
@@ -396,6 +389,7 @@ with st.form(key="survey_form"):
                 st.session_state["activity_category"] = ""
                 st.session_state["specific_conditions"] = set()
                 st.session_state["other_text"] = ""
+                st.session_state["remarks_text"] = ""
                 st.session_state["photos"] = []
                 st.session_state["show_success"] = True
 
