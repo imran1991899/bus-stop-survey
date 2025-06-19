@@ -1,41 +1,50 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-import tempfile
-import mimetypes
-import base64
-import requests
 from io import BytesIO
+import tempfile
+import os
+
+from pydrive.auth import GoogleAuth
+from pydrive.drive import GoogleDrive
 
 # --------- Page Setup ---------
 st.set_page_config(page_title="🚌 Bus Stop Survey", layout="wide")
 st.title("🚌 Bus Stop Assessment Survey")
 
-# --------- GitHub Setup ---------
-GITHUB_TOKEN = st.secrets["github_token"]
-GITHUB_REPO = st.secrets["github_repo"]
-GITHUB_BRANCH = st.secrets.get("data_branch", "main")
-CSV_PATH = "data/survey_responses.csv"
-PHOTO_DIR = "uploads"
+# --------- Google Drive Auth ---------
+@st.cache_resource
+def init_drive():
+    gauth = GoogleAuth()
+    gauth.LoadCredentialsFile("mycreds.txt")
+    if gauth.credentials is None:
+        gauth.LocalWebserverAuth()
+    elif gauth.access_token_expired:
+        gauth.Refresh()
+    else:
+        gauth.Authorize()
+    gauth.SaveCredentialsFile("mycreds.txt")
+    return GoogleDrive(gauth)
 
-def github_upload_file(file_path, content, message="Upload via Streamlit"):
-    url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{file_path}"
-    headers = {"Authorization": f"token {GITHUB_TOKEN}"}
-    get_resp = requests.get(url + f"?ref={GITHUB_BRANCH}", headers=headers)
-    sha = get_resp.json().get("sha") if get_resp.status_code == 200 else None
+drive = init_drive()
 
-    data = {
-        "message": message,
-        "content": base64.b64encode(content).decode(),
-        "branch": GITHUB_BRANCH
-    }
-    if sha:
-        data["sha"] = sha
+# --------- Google Drive File Upload ---------
+def upload_to_drive(filename, content_bytes):
+    tmp_path = os.path.join(tempfile.gettempdir(), filename)
+    with open(tmp_path, "wb") as f:
+        f.write(content_bytes)
 
-    response = requests.put(url, json=data, headers=headers)
-    if response.status_code not in (200, 201):
-        raise Exception(f"GitHub upload failed: {response.json().get('message')}")
-    return f"https://raw.githubusercontent.com/{GITHUB_REPO}/{GITHUB_BRANCH}/{file_path}"
+    file_drive = drive.CreateFile({'title': filename})
+    file_drive.SetContentFile(tmp_path)
+    file_drive.Upload()
+
+    file_drive.InsertPermission({
+        'type': 'anyone',
+        'value': 'anyone',
+        'role': 'reader'
+    })
+
+    return file_drive['alternateLink']
 
 # --------- Load Excel Data ---------
 try:
@@ -191,12 +200,9 @@ if st.button("✅ Submit Survey"):
 
             photo_links = []
             for idx, img in enumerate(st.session_state.photos):
-                filename = f"{PHOTO_DIR}/{timestamp}_photo{idx+1}.jpg"
-                if isinstance(img, BytesIO):
-                    content = img.read()
-                else:
-                    content = img.getbuffer()
-                link = github_upload_file(filename, content, f"Upload photo {filename}")
+                filename = f"{timestamp}_photo{idx+1}.jpg"
+                content = img.read() if isinstance(img, BytesIO) else img.getbuffer()
+                link = upload_to_drive(filename, content)
                 photo_links.append(link)
 
             cond_list = list(st.session_state.specific_conditions)
@@ -213,18 +219,20 @@ if st.button("✅ Submit Survey"):
                 "Condition", "Activity", "Situational Conditions", "Photos"
             ])
 
-            # Download current CSV (if exists), append, and push back
-            try:
-                r = requests.get(f"https://raw.githubusercontent.com/{GITHUB_REPO}/{GITHUB_BRANCH}/{CSV_PATH}")
-                if r.status_code == 200:
-                    existing_df = pd.read_csv(BytesIO(r.content))
-                    df = pd.concat([existing_df, df], ignore_index=True)
-            except:
-                pass
+            # Try loading existing Drive CSV
+            csv_filename = "survey_responses.csv"
+            csv_path = os.path.join(tempfile.gettempdir(), csv_filename)
 
-            csv_buffer = BytesIO()
-            df.to_csv(csv_buffer, index=False)
-            github_upload_file(CSV_PATH, csv_buffer.getvalue(), "Append new survey response")
+            existing_files = drive.ListFile({'q': f"title='{csv_filename}'"}).GetList()
+            if existing_files:
+                existing_file = existing_files[0]
+                existing_file.GetContentFile(csv_path)
+                existing_df = pd.read_csv(csv_path)
+                df = pd.concat([existing_df, df], ignore_index=True)
+
+            df.to_csv(csv_path, index=False)
+            with open(csv_path, "rb") as f:
+                upload_to_drive(csv_filename, f.read())
 
             st.success("✅ Submission complete! Thank you.")
             st.session_state.update({
@@ -237,17 +245,14 @@ if st.button("✅ Submit Survey"):
                 "other_text": "",
                 "photos": []
             })
-
         except Exception as e:
             st.error(f"❌ Failed to submit: {e}")
 
 # --------- Keep Session Alive ---------
-keepalive_js = """
+st.components.v1.html("""
 <script>
     setInterval(() => {
         fetch('/_stcore/health');
     }, 300000);
 </script>
-"""
-st.components.v1.html(keepalive_js, height=0)
-
+""", height=0)
