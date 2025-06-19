@@ -1,106 +1,287 @@
 import streamlit as st
-import os
-import json
+import pandas as pd
+from datetime import datetime
 import tempfile
-from pydrive2.auth import GoogleAuth
-from pydrive2.drive import GoogleDrive
+import mimetypes
 
-# --- Load config from JSON file ---
-CONFIG_PATH = "config.json"  # put your gdrive_folder_id here
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+import gspread
 
-if not os.path.exists(CONFIG_PATH):
-    st.error(f"Missing config file: {CONFIG_PATH}")
-    st.stop()
+# --------- Page Setup ---------
+st.set_page_config(page_title="🚌 Bus Stop Survey", layout="wide")
+st.title("🚌 Bus Stop Assessment Survey")
 
-with open(CONFIG_PATH, "r") as f:
-    config = json.load(f)
-
-if "gdrive_folder_id" not in config:
-    st.error("Missing 'gdrive_folder_id' in config.json")
-    st.stop()
-
-GDRIVE_FOLDER_ID = config["gdrive_folder_id"]
-st.write("Loaded GDrive folder ID:", GDRIVE_FOLDER_ID)
-
-# --- Authenticate with Google Drive using service account JSON ---
-
+# --------- Google Setup ---------
 SERVICE_ACCOUNT_FILE = "service_account.json"
-if not os.path.exists(SERVICE_ACCOUNT_FILE):
-    st.error(f"Missing service account JSON file: {SERVICE_ACCOUNT_FILE}")
+SHEET_NAME = "Bus Stop Survey Responses"
+FOLDER_NAME = "BusStopPhotos"
+
+# Authenticate with Google
+credentials = service_account.Credentials.from_service_account_file(
+    SERVICE_ACCOUNT_FILE,
+    scopes=[
+        "https://www.googleapis.com/auth/drive",
+        "https://www.googleapis.com/auth/spreadsheets"
+    ],
+)
+gc = gspread.authorize(credentials)
+
+try:
+    sheet = gc.open(SHEET_NAME).sheet1
+except Exception as e:
+    st.error(f"❌ Cannot open Google Sheet: {e}")
     st.stop()
 
-@st.cache_resource
-def init_drive():
-    gauth = GoogleAuth()
-    gauth.service_account_file = SERVICE_ACCOUNT_FILE
-    gauth.ServiceAuth()  # authenticate using service account
-    return GoogleDrive(gauth)
+drive_service = build("drive", "v3", credentials=credentials)
 
-drive = init_drive()
+def get_folder_id(folder_name):
+    query = f"name='{folder_name}' and mimeType='application/vnd.google-apps.folder' and trashed=false"
+    response = drive_service.files().list(q=query, spaces="drive", fields="files(id, name)").execute()
+    files = response.get("files", [])
+    if files:
+        return files[0]["id"]
+    # Create folder if not found
+    file_metadata = {"name": folder_name, "mimeType": "application/vnd.google-apps.folder"}
+    folder = drive_service.files().create(body=file_metadata, fields="id").execute()
+    return folder.get("id")
 
-def upload_to_gdrive(file_path, filename):
-    file = drive.CreateFile({
-        'title': filename,
-        'parents': [{'id': GDRIVE_FOLDER_ID}]
-    })
-    file.SetContentFile(file_path)
-    file.Upload()
-    return file['id']
+def upload_image_to_drive(image, folder_id, filename):
+    mime_type, _ = mimetypes.guess_type(filename)
+    with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        tmp.write(image.getbuffer())
+        tmp.flush()
 
-# --- Streamlit UI ---
-st.title("Bus Stop Survey")
+        media = None
+        try:
+            from googleapiclient.http import MediaFileUpload
+            media = MediaFileUpload(tmp.name, mimetype=mime_type)
+        except ImportError:
+            st.error("Please install google-api-python-client with media support.")
 
-# Initialize photos list in session state
-if "photos" not in st.session_state:
-    st.session_state.photos = []
+        file_metadata = {"name": filename, "parents": [folder_id]}
+        uploaded_file = drive_service.files().create(
+            body=file_metadata,
+            media_body=media,
+            fields="id"
+        ).execute()
 
-# Example inputs (adjust as needed)
-staff_id = st.text_input("👤 Staff ID (8 digits)")
-depot = st.selectbox("1️⃣ Select Depot", ["Cheras Selatan", "Depot 2", "Depot 3"])
-route_number = st.selectbox("2️⃣ Select Route Number", ["641", "642", "643"])
-bus_stop = st.selectbox("3️⃣ Select Bus Stop", ["SJ63 LRT SUBANG JAYA", "Stop 2", "Stop 3"])
-bus_stop_condition = st.selectbox("4️⃣ Bus Stop Condition", ["Covered Bus Stop", "Open Bus Stop"])
-activity_category = st.selectbox("5️⃣ Activity Category", ["Category 1", "Category 2"])
+    file_id = uploaded_file.get("id")
+    # Make file public readable
+    drive_service.permissions().create(
+        fileId=file_id,
+        body={"role": "reader", "type": "anyone"}
+    ).execute()
+    # Return direct link
+    return f"https://drive.google.com/uc?id={file_id}"
 
-# --- Photos upload section ---
-st.markdown("7️⃣ Add up to 5 photos")
+# --------- Load Excel Data ---------
+try:
+    routes_df = pd.read_excel("bus_data.xlsx", sheet_name="routes")
+    stops_df = pd.read_excel("bus_data.xlsx", sheet_name="stops")
+except Exception as e:
+    st.error(f"❌ Failed to load bus_data.xlsx: {e}")
+    st.stop()
 
-# Show existing photos count
-st.write(f"Photos added: {len(st.session_state.photos)} / 5")
+# --------- Initialize Session State ---------
+for key, default in {
+    "staff_id": "",
+    "selected_depot": "",
+    "selected_route": "",
+    "selected_stop": "",
+    "condition": "1. Covered Bus Stop",
+    "activity_category": "",
+    "specific_conditions": set(),
+    "other_text": "",
+    "photos": []
+}.items():
+    if key not in st.session_state:
+        st.session_state[key] = default
 
-for i in range(5 - len(st.session_state.photos)):
-    cam_key = f"cam_{len(st.session_state.photos)}"
-    upl_key = f"upl_{len(st.session_state.photos)}"
+# --------- Staff ID ---------
+staff_id = st.text_input("👤 Staff ID (8 digits)", value=st.session_state.staff_id)
+if staff_id and (not staff_id.isdigit() or len(staff_id) != 8):
+    st.warning("⚠️ Staff ID must be exactly 8 digits.")
+st.session_state.staff_id = staff_id
 
-    new_photo = st.camera_input(f"📷 Photo #{len(st.session_state.photos) + 1}", key=cam_key)
-    if new_photo:
-        st.session_state.photos.append(new_photo)
-        continue  # move to next iteration
+# --------- Depot ---------
+depots = routes_df["Depot"].dropna().unique()
+selected_depot = st.selectbox("1️⃣ Select Depot", depots, 
+                             index=list(depots).index(st.session_state.selected_depot) if st.session_state.selected_depot in depots else 0)
+st.session_state.selected_depot = selected_depot
 
-    upload_photo = st.file_uploader(f"📁 Upload photo #{len(st.session_state.photos) + 1}",
-                                    type=["png", "jpg", "jpeg"], key=upl_key)
+# --------- Route ---------
+filtered_routes = routes_df[routes_df["Depot"] == selected_depot]["Route Number"].dropna().unique()
+selected_route = st.selectbox("2️⃣ Select Route Number", filtered_routes, 
+                             index=list(filtered_routes).index(st.session_state.selected_route) if st.session_state.selected_route in filtered_routes else 0)
+st.session_state.selected_route = selected_route
+
+# --------- Bus Stop ---------
+filtered_stops_df = stops_df[
+    (stops_df["Route Number"] == selected_route)
+    & stops_df["Stop Name"].notna()
+    & stops_df["Order"].notna()
+    & stops_df["dr"].notna()
+].sort_values(by=["dr", "Order"])
+
+filtered_stops = filtered_stops_df["Stop Name"].tolist()
+if st.session_state.selected_stop not in filtered_stops:
+    st.session_state.selected_stop = filtered_stops[0] if filtered_stops else ""
+
+selected_stop = st.selectbox("3️⃣ Select Bus Stop", filtered_stops,
+                             index=filtered_stops.index(st.session_state.selected_stop) if st.session_state.selected_stop in filtered_stops else 0)
+st.session_state.selected_stop = selected_stop
+
+# --------- Condition ---------
+conditions = [
+    "1. Covered Bus Stop", "2. Pole Only", "3. Layby", "4. Non-Infrastructure"
+]
+condition = st.selectbox("4️⃣ Bus Stop Condition", conditions,
+                        index=conditions.index(st.session_state.condition) if st.session_state.condition in conditions else 0)
+st.session_state.condition = condition
+
+# --------- Activity Category ---------
+activity_options = ["", "1. On Board in the Bus", "2. On Ground Location"]
+activity_category = st.selectbox("5️⃣ Categorizing Activities", activity_options,
+                                 index=activity_options.index(st.session_state.activity_category) if st.session_state.activity_category in activity_options else 0)
+st.session_state.activity_category = activity_category
+
+# --------- Situational Conditions ---------
+onboard_options = [
+    "1. Tiada penumpang menunggu", "2. Tiada isyarat (penumpang tidak menahan bas)",
+    "3. Tidak berhenti/memperlahankan bas", "4. Salah tempat menunggu", "5. Bas penuh",
+    "6. Mengejar masa waybill (punctuality)", "7. Kesesakan lalu lintas",
+    "8. Kekeliruan laluan oleh pemandu baru",
+    "9. Terdapat laluan tutup atas sebab tertentu (baiki jalan, pokok tumbang, lawatan delegasi)",
+    "10. Hentian terlalu hampir simpang masuk", "11. Hentian berdekatan dengan traffic light",
+    "12. Other (Please specify below)",
+]
+
+onground_options = [
+    "1. Infrastruktur sudah tiada/musnah", "2. Terlindung oleh pokok",
+    "3. Terhalang oleh kenderaan parkir", "4. Keadaan sekeliling tidak selamat tiada lampu",
+    "5. Kedudukan bus stop kurang sesuai", "6. Perubahan nama hentian",
+    "7. Other (Please specify below)",
+]
+
+options = []
+if activity_category == "1. On Board in the Bus":
+    options = onboard_options
+elif activity_category == "2. On Ground Location":
+    options = onground_options
+
+if options:
+    st.markdown("6️⃣ Specific Situational Conditions (Select all that apply)")
+    # Remove any conditions no longer available
+    st.session_state.specific_conditions = {c for c in st.session_state.specific_conditions if c in options}
+    for opt in options:
+        checked = opt in st.session_state.specific_conditions
+        new_checked = st.checkbox(opt, value=checked, key=opt)
+        if new_checked:
+            st.session_state.specific_conditions.add(opt)
+        else:
+            st.session_state.specific_conditions.discard(opt)
+else:
+    st.info("Please select an Activity Category above to see situational conditions.")
+
+# --------- 'Other' Description ---------
+other_label = next((opt for opt in options if "Other" in opt), None)
+if other_label and other_label in st.session_state.specific_conditions:
+    other_text = st.text_area("📝 Please describe the 'Other' condition (at least 2 words)", height=150, value=st.session_state.other_text)
+    st.session_state.other_text = other_text
+    if len(other_text.split()) < 2:
+        st.warning("🚨 'Other' description must be at least 2 words.")
+else:
+    st.session_state.other_text = ""
+
+# --------- Photo Upload ---------
+st.markdown("7️⃣ Add up to 5 Photos (Camera or Upload from device)")
+if len(st.session_state.photos) < 5:
+    photo = st.camera_input(f"📷 Take Photo #{len(st.session_state.photos) + 1}")
+    if photo:
+        st.session_state.photos.append(photo)
+
+if len(st.session_state.photos) < 5:
+    upload_photo = st.file_uploader(f"📁 Upload Photo #{len(st.session_state.photos) + 1}", type=["png", "jpg", "jpeg"])
     if upload_photo:
         st.session_state.photos.append(upload_photo)
 
-# Show thumbnails for uploaded photos
+# Display existing photos with delete option
 if st.session_state.photos:
-    st.markdown("### Uploaded Photos Preview:")
-    for idx, photo in enumerate(st.session_state.photos):
-        st.image(photo, caption=f"Photo #{idx + 1}", width=200)
+    st.subheader("📸 Saved Photos")
+    to_delete = None
+    for i, p in enumerate(st.session_state.photos):
+        cols = st.columns([4, 1])
+        cols[0].image(p, caption=f"Photo #{i + 1}", use_container_width=True)
+        if cols[1].button(f"❌ Delete #{i + 1}", key=f"del_{i}"):
+            to_delete = i
+    if to_delete is not None:
+        st.session_state.photos.pop(to_delete)
 
-# --- Submit button ---
-if st.button("Submit Survey"):
-    if not staff_id or len(st.session_state.photos) == 0:
-        st.error("Please enter Staff ID and upload at least one photo before submitting.")
+# --------- Submit Button ---------
+if st.button("✅ Submit Survey"):
+
+    # Validation
+    if not staff_id.strip():
+        st.warning("❗ Please enter your Staff ID.")
+    elif not (staff_id.isdigit() and len(staff_id) == 8):
+        st.warning("❗ Staff ID must be exactly 8 numeric digits.")
+    elif not st.session_state.photos:
+        st.warning("❗ Please add at least one photo.")
+    elif activity_category not in ["1. On Board in the Bus", "2. On Ground Location"]:
+        st.warning("❗ Please select an Activity Category.")
+    elif other_label in st.session_state.specific_conditions and len(st.session_state.other_text.split()) < 2:
+        st.warning("❗ 'Other' description must be at least 2 words.")
     else:
-        # Save photos temporarily and upload to Google Drive
-        for idx, photo in enumerate(st.session_state.photos):
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
-                tmp.write(photo.getbuffer())
-                tmp_path = tmp.name
-            gdrive_file_id = upload_to_gdrive(tmp_path, f"bus_stop_photo_{staff_id}_{idx+1}.jpg")
-            os.unlink(tmp_path)
-            st.write(f"Uploaded Photo #{idx+1} to GDrive with ID: {gdrive_file_id}")
+        try:
+            timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            folder_id = get_folder_id(FOLDER_NAME)
 
-        st.success("Survey submitted successfully!")
-        st.session_state.photos.clear()  # clear photos after submit
+            photo_links = []
+            for idx, img in enumerate(st.session_state.photos):
+                filename = f"{timestamp}_photo{idx+1}.jpg"
+                link = upload_image_to_drive(img, folder_id, filename)
+                photo_links.append(link)
+
+            cond_list = list(st.session_state.specific_conditions)
+            if other_label in cond_list:
+                cond_list.remove(other_label)
+                cond_list.append(f"Other: {st.session_state.other_text.replace(';', ',')}")
+
+            row = [
+                timestamp,
+                staff_id,
+                selected_depot,
+                selected_route,
+                selected_stop,
+                condition,
+                activity_category,
+                "; ".join(cond_list),
+                "; ".join(photo_links),
+            ]
+
+            sheet.append_row(row)
+            st.success("✅ Submission complete! Thank you.")
+
+            # Reset fields except staff ID
+            st.session_state.selected_depot = selected_depot
+            st.session_state.selected_route = selected_route
+            st.session_state.selected_stop = filtered_stops[0] if filtered_stops else ""
+            st.session_state.condition = "1. Covered Bus Stop"
+            st.session_state.activity_category = ""
+            st.session_state.specific_conditions = set()
+            st.session_state.other_text = ""
+            st.session_state.photos = []
+
+        except Exception as e:
+            st.error(f"❌ Failed to submit: {e}")
+
+# --------- Keep Session Alive ---------
+keepalive_js = """
+<script>
+    setInterval(() => {
+        fetch('/_stcore/health');
+    }, 300000);
+</script>
+"""
+st.components.v1.html(keepalive_js, height=0)
