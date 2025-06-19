@@ -5,6 +5,12 @@ import os, json, tempfile
 from pydrive2.auth import GoogleAuth
 from pydrive2.drive import GoogleDrive
 
+
+st.write("Current working directory:", os.getcwd())
+st.write("Secrets file exists?", os.path.exists(".streamlit/secrets.toml"))
+st.write("Secrets content:", st.secrets)
+
+
 # --- Diagnostics: list available secrets ---
 st.write("🔐 Available st.secrets keys:", list(st.secrets.keys()))
 
