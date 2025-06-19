@@ -4,6 +4,7 @@ from datetime import datetime
 import tempfile
 import mimetypes
 
+# Google Auth & API imports
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 import gspread
@@ -13,28 +14,46 @@ st.set_page_config(page_title="🚌 Bus Stop Survey", layout="wide")
 st.title("🚌 Bus Stop Assessment Survey")
 
 # --------- Google Setup ---------
-SERVICE_ACCOUNT_FILE = "service_account.json"
+SERVICE_ACCOUNT_FILE = "service_account.json"  # Make sure this file exists and is valid
 SHEET_NAME = "Bus Stop Survey Responses"
 FOLDER_NAME = "BusStopPhotos"
 
 # Authenticate with Google
-credentials = service_account.Credentials.from_service_account_file(
-    SERVICE_ACCOUNT_FILE,
-    scopes=[
-        "https://www.googleapis.com/auth/drive",
-        "https://www.googleapis.com/auth/spreadsheets"
-    ],
-)
-gc = gspread.authorize(credentials)
+try:
+    credentials = service_account.Credentials.from_service_account_file(
+        SERVICE_ACCOUNT_FILE,
+        scopes=[
+            "https://www.googleapis.com/auth/drive",
+            "https://www.googleapis.com/auth/spreadsheets"
+        ],
+    )
+except Exception as e:
+    st.error(f"❌ Failed to load service account credentials: {e}")
+    st.stop()
 
+# Authorize gspread client
+try:
+    gc = gspread.authorize(credentials)
+except Exception as e:
+    st.error(f"❌ Failed to authorize gspread: {e}")
+    st.stop()
+
+# Open Google Sheet
 try:
     sheet = gc.open(SHEET_NAME).sheet1
 except Exception as e:
-    st.error(f"❌ Cannot open Google Sheet: {e}")
+    st.error(f"❌ Cannot open Google Sheet: {e}\n"
+             f"➡️ Make sure the Google Sheet is shared with the service account email found in your JSON file.")
     st.stop()
 
-drive_service = build("drive", "v3", credentials=credentials)
+# Initialize Google Drive service
+try:
+    drive_service = build("drive", "v3", credentials=credentials)
+except Exception as e:
+    st.error(f"❌ Failed to initialize Google Drive service: {e}")
+    st.stop()
 
+# --------- Helper functions ---------
 def get_folder_id(folder_name):
     query = f"name='{folder_name}' and mimeType='application/vnd.google-apps.folder' and trashed=false"
     response = drive_service.files().list(q=query, spaces="drive", fields="files(id, name)").execute()
@@ -52,12 +71,8 @@ def upload_image_to_drive(image, folder_id, filename):
         tmp.write(image.getbuffer())
         tmp.flush()
 
-        media = None
-        try:
-            from googleapiclient.http import MediaFileUpload
-            media = MediaFileUpload(tmp.name, mimetype=mime_type)
-        except ImportError:
-            st.error("Please install google-api-python-client with media support.")
+        from googleapiclient.http import MediaFileUpload
+        media = MediaFileUpload(tmp.name, mimetype=mime_type)
 
         file_metadata = {"name": filename, "parents": [folder_id]}
         uploaded_file = drive_service.files().create(
@@ -172,7 +187,6 @@ elif activity_category == "2. On Ground Location":
 
 if options:
     st.markdown("6️⃣ Specific Situational Conditions (Select all that apply)")
-    # Remove any conditions no longer available
     st.session_state.specific_conditions = {c for c in st.session_state.specific_conditions if c in options}
     for opt in options:
         checked = opt in st.session_state.specific_conditions
