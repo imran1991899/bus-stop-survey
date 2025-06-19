@@ -6,17 +6,23 @@ import mimetypes
 import base64
 import requests
 from io import BytesIO
+import os  # <-- added for environment variables
 
 # --------- Page Setup ---------
 st.set_page_config(page_title="🚌 Bus Stop Survey", layout="wide")
 st.title("🚌 Bus Stop Assessment Survey")
 
 # --------- GitHub Setup ---------
-GITHUB_TOKEN = st.secrets["github_token"]
-GITHUB_REPO = st.secrets["github_repo"]
-GITHUB_BRANCH = st.secrets.get("data_branch", "main")
+# Load from environment variables instead of st.secrets
+GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
+GITHUB_REPO = os.environ.get("GITHUB_REPO")
+GITHUB_BRANCH = os.environ.get("GITHUB_BRANCH", "main")
 CSV_PATH = "data/survey_responses.csv"
 PHOTO_DIR = "uploads"
+
+if not all([GITHUB_TOKEN, GITHUB_REPO]):
+    st.error("❌ Missing GitHub credentials in environment variables (GITHUB_TOKEN, GITHUB_REPO).")
+    st.stop()
 
 def github_upload_file(file_path, content, message="Upload via Streamlit"):
     url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{file_path}"
@@ -45,6 +51,7 @@ except Exception as e:
     st.error(f"❌ Failed to load bus_data.xlsx: {e}")
     st.stop()
 
+# (Rest of your code unchanged from here on...)
 # --------- Initialize Session State ---------
 for key, default in {
     "staff_id": "",
