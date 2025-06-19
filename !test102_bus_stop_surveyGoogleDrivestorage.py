@@ -362,7 +362,6 @@ if st.button("✅ Submit Survey"):
             append_row_to_gsheet(gsheet_id, row, header)
 
             st.success("✅ Submission complete! Thank you.")
-            st.experimental_rerun()
 
             # Only clear these fields, keep staff_id, depot, route, stop
             st.session_state["condition"] = "1. Covered Bus Stop"
