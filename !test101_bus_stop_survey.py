@@ -1,67 +1,52 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-import os
-import json
-import tempfile
+import os, json
 from pydrive2.auth import GoogleAuth
 from pydrive2.drive import GoogleDrive
 
-# --- Show current working directory ---
-st.write("Current working directory:", os.getcwd())
+st.set_page_config(page_title="🚌 Bus Stop Survey", layout="wide")
 
-# --- Load config.json ---
-config_path = "config.json"
-if not os.path.exists(config_path):
-    st.error(f"❗ Missing config file: {config_path}")
+# --- Load config (folder id) ---
+CONFIG_PATH = "config.json"
+if not os.path.exists(CONFIG_PATH):
+    st.error(f"❗ Missing config file: {CONFIG_PATH}")
     st.stop()
 
-with open(config_path, "r") as f:
+with open(CONFIG_PATH, "r") as f:
     config = json.load(f)
 
-folder_id = config.get("gdrive_folder_id")
-if not folder_id:
-    st.error("❗ 'gdrive_folder_id' not found in config.json")
+gdrive_folder_id = config.get("gdrive_folder_id")
+if not gdrive_folder_id:
+    st.error("❗ Missing 'gdrive_folder_id' in config.json")
     st.stop()
 
-st.write("Loaded gdrive_folder_id:", folder_id)
-
-# --- Load service account JSON file ---
-sa_path = "service_account.json"
-if not os.path.exists(sa_path):
-    st.error(f"❗ Missing service account JSON file: {sa_path}")
-    st.stop()
-
-with open(sa_path, "r") as f:
-    sa_info = json.load(f)
-
-# --- Initialize Google Drive client ---
+# --- Google Drive Setup ---
 @st.cache_resource
 def init_drive():
-    # Save service account JSON to temp file for PyDrive2
-    with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json") as tmp:
-        json.dump(sa_info, tmp)
-        tmp.flush()
+    sa_path = "service_account.json"
+    if not os.path.exists(sa_path):
+        st.error(f"❗ Missing service account JSON file: {sa_path}")
+        st.stop()
 
-        gauth = GoogleAuth()
-        gauth.LoadServiceConfigFile(tmp.name)
-        gauth.ServiceAuth()
-
-        return GoogleDrive(gauth)
+    gauth = GoogleAuth()
+    # Authenticate using service account JSON
+    gauth.credentials = gauth.service_account_login(filename=sa_path)
+    return GoogleDrive(gauth)
 
 drive = init_drive()
 
 def upload_to_gdrive(file_path, filename):
-    file = drive.CreateFile({'title': filename, 'parents': [{'id': folder_id}]})
+    file = drive.CreateFile({'title': filename, 'parents': [{'id': gdrive_folder_id}]})
     file.SetContentFile(file_path)
     file.Upload()
     return file['id']
 
-# --- Streamlit UI and logic below ---
+# --- Diagnostics ---
+st.write("Current working directory:", os.getcwd())
+st.write(f"Loaded gdrive_folder_id: {gdrive_folder_id}")
 
-st.set_page_config(page_title="🚌 Bus Stop Survey", layout="wide")
-st.title("🚌 Bus Stop Assessment Survey")
-
+# --- Create images folder if missing ---
 os.makedirs("images", exist_ok=True)
 
 # --- Load Excel data ---
@@ -72,7 +57,7 @@ except Exception as e:
     st.error(f"❌ Error loading Excel: {e}")
     st.stop()
 
-# --- Initialize session state ---
+# --- Session state defaults ---
 defaults = {
     "staff_id": "", "selected_depot": "", "selected_route": "", "selected_stop": "",
     "condition": "1. Covered Bus Stop", "activity_category": "",
@@ -120,8 +105,8 @@ activity = st.selectbox("5️⃣ Activity Category", activity_opts, index=activi
 st.session_state.activity_category = activity
 
 # --- Specific condition options ---
-onboard_opts = [f"{i}. ..." for i in range(1, 13)]  # Replace with real descriptions
-onground_opts = [f"{i}. ..." for i in range(1, 8)]  # Replace with real descriptions
+onboard_opts = [f"{i}. ..." for i in range(1, 13)]  # Replace with actual descriptions
+onground_opts = [f"{i}. ..." for i in range(1, 8)]  # Replace with actual descriptions
 options = onboard_opts if activity.startswith("1.") else onground_opts if activity.startswith("2.") else []
 
 if options:
