@@ -310,6 +310,7 @@ if st.session_state.photos:
 with st.form(key="survey_form"):
     submit = st.form_submit_button("✅ Submit Survey")
     if submit:
+        # Situational Conditions must not be empty
         if not staff_id.strip():
             st.warning("❗ Please enter your Staff ID.")
         elif not (staff_id.isdigit() and len(staff_id) == 8):
@@ -321,6 +322,8 @@ with st.form(key="survey_form"):
             "2. On Ground Location",
         ]:
             st.warning("❗ Please select an Activity Category.")
+        elif len(st.session_state.specific_conditions) == 0:
+            st.warning("❗ Please select at least one Situational Condition.")
         elif (
             other_label in st.session_state.specific_conditions
             and len(st.session_state.other_text.split()) < 2
