@@ -213,6 +213,19 @@ onboard_options = [
     "10. Hentian terlalu hampir simpang masuk",
     "11. Hentian berdekatan dengan traffic light",
     "12. Other (Please specify below)",
+    # --------- 'Remarks' Description (OPTIONAL) ---------
+remarks_label = next((opt for opt in options if "Remarks" in opt), None)
+if remarks_label and remarks_label in st.session_state.specific_conditions:
+    remarks_text = st.text_area(
+        "💬 Remarks (optional)",
+        height=100,
+        value=st.session_state.get("remarks_text", ""),
+    )
+    st.session_state["remarks_text"] = remarks_text
+else:
+    st.session_state["remarks_text"] = ""
+
+    
 ]
 onground_options = [
     "1. Infrastruktur sudah tiada/musnah",
@@ -222,6 +235,19 @@ onground_options = [
     "5. Kedudukan bus stop kurang sesuai",
     "6. Perubahan nama hentian",
     "7. Other (Please specify below)",
+    # --------- 'Remarks' Description (OPTIONAL) ---------
+remarks_label = next((opt for opt in options if "Remarks" in opt), None)
+if remarks_label and remarks_label in st.session_state.specific_conditions:
+    remarks_text = st.text_area(
+        "💬 Remarks (optional)",
+        height=100,
+        value=st.session_state.get("remarks_text", ""),
+    )
+    st.session_state["remarks_text"] = remarks_text
+else:
+    st.session_state["remarks_text"] = ""
+
+    
 ]
 
 options = (
