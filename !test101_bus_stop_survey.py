@@ -5,32 +5,40 @@ import os, json, tempfile
 from pydrive2.auth import GoogleAuth
 from pydrive2.drive import GoogleDrive
 
-# --- Debug info ---
+# Diagnostics: working dir and secrets
 st.write("Current working directory:", os.getcwd())
 st.write("Secrets file exists?", os.path.exists(".streamlit/secrets.toml"))
 st.write("Secrets content:", st.secrets)
 
+# Diagnostics: available keys in secrets
 st.write("🔐 Available st.secrets keys:", list(st.secrets.keys()))
 
-# --- Google Drive Initialization ---
+# --- Google Drive Setup ---
 @st.cache_resource
 def init_drive():
-    if "gdrive_service_account" not in st.secrets:
-        st.error("❗ Missing 'gdrive_service_account' in st.secrets")
-        st.stop()
+    # Check for folder id in secrets
     if "gdrive_folder_id" not in st.secrets:
         st.error("❗ Missing 'gdrive_folder_id' in st.secrets")
         st.stop()
 
-    # Load service account JSON string from secrets and write to temp file
-    info = json.loads(st.secrets["gdrive_service_account"])
+    # Load service account JSON directly from file
+    sa_path = "service_account.json"
+    if not os.path.exists(sa_path):
+        st.error(f"❗ Missing service account JSON file: {sa_path}")
+        st.stop()
+
+    with open(sa_path, "r") as f:
+        info = json.load(f)
+
+    # Save to temp file for PyDrive2 auth
     with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json") as tmp:
         json.dump(info, tmp)
         tmp.flush()
-        # Authenticate PyDrive2 using service account config file
+
         gauth = GoogleAuth()
         gauth.LoadServiceConfigFile(tmp.name)
         gauth.ServiceAuth()
+
         return GoogleDrive(gauth)
 
 drive = init_drive()
@@ -104,8 +112,8 @@ activity = st.selectbox("5️⃣ Activity Category", activity_opts, index=activi
 st.session_state.activity_category = activity
 
 # --- Specific condition options ---
-onboard_opts = [f"{i}. ..." for i in range(1, 13)]  # Replace "..." with real descriptions
-onground_opts = [f"{i}. ..." for i in range(1, 8)]  # Replace "..." with real descriptions
+onboard_opts = [f"{i}. ..." for i in range(1, 13)]  # Replace with actual descriptions
+onground_opts = [f"{i}. ..." for i in range(1, 8)]  # Replace with actual descriptions
 options = onboard_opts if activity.startswith("1.") else onground_opts if activity.startswith("2.") else []
 
 if options:
@@ -178,7 +186,7 @@ if st.button("✅ Submit Survey"):
         }
         df = pd.DataFrame([record])
 
-        # Append or create CSV locally
+        # Write CSV file locally
         csv_fp = "responses.csv"
         if os.path.exists(csv_fp):
             existing_df = pd.read_csv(csv_fp)
@@ -190,6 +198,6 @@ if st.button("✅ Submit Survey"):
 
         st.success("✅ Submission complete!")
 
-        # Reset session state and rerun
+        # Reset session state
         st.session_state.update({k: defaults[k] for k in defaults})
         st.experimental_rerun()
