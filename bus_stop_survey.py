@@ -6,6 +6,14 @@ import json
 import mimetypes
 import time
 
+# Malaysia timezone
+try:
+    from zoneinfo import ZoneInfo
+    MALAYSIA_ZONE = ZoneInfo("Asia/Kuala_Lumpur")
+except ImportError:
+    import pytz
+    MALAYSIA_ZONE = pytz.timezone("Asia/Kuala_Lumpur")
+
 # --------- Page Setup ---------
 st.set_page_config(page_title="🚌 Bus Stop Survey", layout="wide")
 st.title("🚌 Bus Stop Assessment Survey")
@@ -113,7 +121,6 @@ for key, default in {
     "activity_category": "",
     "specific_conditions": set(),
     "other_text": "",
-    "remarks_text": "",
     "photos": [],
     "show_success": False,
 }.items():
@@ -214,7 +221,6 @@ onboard_options = [
     "10. Hentian terlalu hampir simpang masuk",
     "11. Hentian berdekatan dengan traffic light",
     "12. Other (Please specify below)",
-    "13. Remarks",
 ]
 onground_options = [
     "1. Infrastruktur sudah tiada/musnah",
@@ -224,7 +230,6 @@ onground_options = [
     "5. Kedudukan bus stop kurang sesuai",
     "6. Perubahan nama hentian",
     "7. Other (Please specify below)",
-    "8. Remarks",
 ]
 
 options = (
@@ -266,18 +271,6 @@ if other_label and other_label in st.session_state.specific_conditions:
 else:
     st.session_state.other_text = ""
 
-# --------- 'Remarks' Description (OPTIONAL) ---------
-remarks_label = next((opt for opt in options if "Remarks" in opt), None)
-if remarks_label and remarks_label in st.session_state.specific_conditions:
-    remarks_text = st.text_area(
-        "💬 Remarks (optional)",
-        height=100,
-        value=st.session_state.get("remarks_text", ""),
-    )
-    st.session_state["remarks_text"] = remarks_text
-else:
-    st.session_state["remarks_text"] = ""
-
 # --------- Photo Upload ---------
 st.markdown("7️⃣ Add up to 5 Photos (Camera or Upload from device)")
 if len(st.session_state.photos) < 5:
@@ -310,7 +303,6 @@ if st.session_state.photos:
 with st.form(key="survey_form"):
     submit = st.form_submit_button("✅ Submit Survey")
     if submit:
-        # Situational Conditions must not be empty
         if not staff_id.strip():
             st.warning("❗ Please enter your Staff ID.")
         elif not (staff_id.isdigit() and len(staff_id) == 8):
@@ -322,8 +314,6 @@ with st.form(key="survey_form"):
             "2. On Ground Location",
         ]:
             st.warning("❗ Please select an Activity Category.")
-        elif len(st.session_state.specific_conditions) == 0:
-            st.warning("❗ Please select at least one Situational Condition.")
         elif (
             other_label in st.session_state.specific_conditions
             and len(st.session_state.other_text.split()) < 2
@@ -331,11 +321,18 @@ with st.form(key="survey_form"):
             st.warning("❗ 'Other' description must be at least 2 words.")
         else:
             try:
-                timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+                # -------- Malaysia time for timestamp --------
+                if 'ZoneInfo' in globals():
+                    now_my = datetime.now(MALAYSIA_ZONE)
+                else:
+                    now_my = datetime.now(MALAYSIA_ZONE)
+                timestamp = now_my.strftime("%Y-%m-%d_%H-%M-%S")
+                # --------------------------------------------
 
                 photo_links = []
                 for idx, img in enumerate(st.session_state.photos):
-                    filename = f"{timestamp}_photo{idx+1}.jpg"
+                    safe_stop = str(selected_stop).replace(" ", "_").replace("/", "_")
+                    filename = f"{safe_stop}_{timestamp}_photo{idx+1}.jpg"
                     # Get image bytes and mimetype
                     if hasattr(img, "getvalue"):
                         content = img.getvalue()
@@ -354,10 +351,6 @@ with st.form(key="survey_form"):
                     cond_list.append(
                         f"Other: {st.session_state.other_text.replace(';', ',')}"
                     )
-                if remarks_label in cond_list:
-                    cond_list.remove(remarks_label)
-                    remarks_value = st.session_state.get("remarks_text", "")
-                    cond_list.append(f"Remarks: {remarks_value.replace(';', ',')}")
 
                 row = [
                     timestamp,
@@ -392,7 +385,6 @@ with st.form(key="survey_form"):
                 st.session_state["activity_category"] = ""
                 st.session_state["specific_conditions"] = set()
                 st.session_state["other_text"] = ""
-                st.session_state["remarks_text"] = ""
                 st.session_state["photos"] = []
                 st.session_state["show_success"] = True
 
