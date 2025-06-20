@@ -243,7 +243,7 @@ options = (
 )
 
 if options:
-    st.markdown("6️⃣ Specific Situational Conditions (Select all that apply)")
+    st.markdown("6️⃣ **Specific Situational Conditions (Select at least one) \***")
     st.session_state.specific_conditions = {
         c for c in st.session_state.specific_conditions if c in options
     }
@@ -314,6 +314,8 @@ with st.form(key="survey_form"):
             "2. On Ground Location",
         ]:
             st.warning("❗ Please select an Activity Category.")
+        elif options and not st.session_state.specific_conditions:
+            st.warning("❗ Please select at least one Specific Situational Condition.")
         elif (
             other_label in st.session_state.specific_conditions
             and len(st.session_state.other_text.split()) < 2
