@@ -6,6 +6,14 @@ import json
 import mimetypes
 import time
 
+# Malaysia timezone
+try:
+    from zoneinfo import ZoneInfo
+    MALAYSIA_ZONE = ZoneInfo("Asia/Kuala_Lumpur")
+except ImportError:
+    import pytz
+    MALAYSIA_ZONE = pytz.timezone("Asia/Kuala_Lumpur")
+
 # --------- Page Setup ---------
 st.set_page_config(page_title="🚌 Bus Stop Survey", layout="wide")
 st.title("🚌 Bus Stop Assessment Survey")
@@ -313,11 +321,18 @@ with st.form(key="survey_form"):
             st.warning("❗ 'Other' description must be at least 2 words.")
         else:
             try:
-                timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+                # -------- Malaysia time for timestamp --------
+                if 'ZoneInfo' in globals():
+                    now_my = datetime.now(MALAYSIA_ZONE)
+                else:
+                    now_my = datetime.now(MALAYSIA_ZONE)
+                timestamp = now_my.strftime("%Y-%m-%d_%H-%M-%S")
+                # --------------------------------------------
 
                 photo_links = []
                 for idx, img in enumerate(st.session_state.photos):
-                    filename = f"{timestamp}_photo{idx+1}.jpg"
+                    safe_stop = str(selected_stop).replace(" ", "_").replace("/", "_")
+                    filename = f"{safe_stop}_{timestamp}_photo{idx+1}.jpg"
                     # Get image bytes and mimetype
                     if hasattr(img, "getvalue"):
                         content = img.getvalue()
