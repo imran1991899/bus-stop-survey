@@ -105,10 +105,10 @@ def append_row_to_gsheet(sheet_id, values, header):
 
 # --------- Load Excel Data ---------
 try:
-    routes_df = pd.read_excel("!test101_bus_data.xlsx", sheet_name="routes")
-    stops_df = pd.read_excel("!test101_bus_data.xlsx", sheet_name="stops")
+    routes_df = pd.read_excel("bus_data.xlsx", sheet_name="routes")
+    stops_df = pd.read_excel("bus_data.xlsx", sheet_name="stops")
 except Exception as e:
-    st.error(f"❌ Failed to load !test101_bus_data.xlsx: {e}")
+    st.error(f"❌ Failed to load bus_data.xlsx: {e}")
     st.stop()
 
 # --------- Initialize Session State ---------
