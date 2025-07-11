@@ -40,7 +40,6 @@ from googleapiclient.http import MediaIoBaseUpload
 # ...
 GDRIVE_CREDS = json.loads(st.secrets["gdrive_service_account"])
 
-[gdrive_service_account]
 type = "service_account"
 project_id = "my-project05-465612"
 private_key_id = "33d6d88ec537d19abcfc3248c924773545a4ce1f"
