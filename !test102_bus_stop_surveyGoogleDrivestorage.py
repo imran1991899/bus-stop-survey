@@ -268,10 +268,16 @@ st.session_state.selected_stop = selected_stop
 conditions = [
     "1. Covered Bus Stop",
     "2. Pole Only",
-    "3. Bus Bay",
-    "4. Bus Stop without Shelter",
+    "3. Layby",
+    "4. Non-Infrastructure",
 ]
-condition = st.radio("4️⃣ Condition", conditions, index=conditions.index(st.session_state.condition))
+condition = st.selectbox(
+    "4️⃣ Bus Stop Condition",
+    conditions,
+    index=conditions.index(st.session_state.condition)
+    if st.session_state.condition in conditions
+    else 0,
+)
 st.session_state.condition = condition
 
 # --------- Activity Category ---------
