@@ -475,7 +475,7 @@ with st.form(key="survey_form"):
 
                 # Find or create the GSheet in Drive folder
                 SHEET_NAME = "survey_responses"
-                gsheet_id = find_or_create_gsheet(SHEET_NAME, GDRIVE_FOLDER_ID)
+                gsheet_id = find_or_create_gsheet(SHEET_NAME, FOLDER_ID)
                 append_row_to_gsheet(gsheet_id, row, header)
 
                 # Only clear these fields, keep staff_id, depot, route, stop
