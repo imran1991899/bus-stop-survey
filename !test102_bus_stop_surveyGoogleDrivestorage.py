@@ -58,7 +58,7 @@ def get_authenticated_service():
             flow = Flow.from_client_secrets_file(
                 CLIENT_SECRETS_FILE,
                 scopes=SCOPES,
-                redirect_uri='http://localhost:8501/'  # streamlit default port
+                redirect_uri='https://bus-stop-survey-cdpdt8wk87srejtieqiesh.streamlit.app/'  # streamlit default port
             )
             auth_url, _ = flow.authorization_url(prompt='consent')
 
