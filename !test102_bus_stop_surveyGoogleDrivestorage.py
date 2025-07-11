@@ -27,6 +27,10 @@ except ImportError:
 st.set_page_config(page_title="🚌 Bus Stop Survey", layout="wide")
 st.title("🚌 Bus Stop Assessment Survey")
 
+# --------- Google Drive Folder ID ---------
+# Replace this with your actual Google Drive folder ID
+FOLDER_ID = "your_google_drive_folder_id_here"
+
 # --------- OAuth Setup ---------
 SCOPES = [
     'https://www.googleapis.com/auth/drive.file',
@@ -183,7 +187,6 @@ def append_row_to_gsheet(sheet_id, values, header):
         body={"values": [values]},
     ).execute()
 
-
 # --------- Load Excel Data ---------
 try:
     routes_df = pd.read_excel("bus_data.xlsx", sheet_name="routes")
@@ -265,141 +268,111 @@ st.session_state.selected_stop = selected_stop
 conditions = [
     "1. Covered Bus Stop",
     "2. Pole Only",
-    "3. Layby",
-    "4. Non-Infrastructure",
+    "3. Bus Bay",
+    "4. Bus Stop without Shelter",
 ]
-condition = st.selectbox(
-    "4️⃣ Bus Stop Condition",
-    conditions,
-    index=conditions.index(st.session_state.condition)
-    if st.session_state.condition in conditions
-    else 0,
-)
+condition = st.radio("4️⃣ Condition", conditions, index=conditions.index(st.session_state.condition))
 st.session_state.condition = condition
 
 # --------- Activity Category ---------
-activity_options = ["", "1. On Board in the Bus", "2. On Ground Location"]
-activity_category = st.selectbox(
-    "5️⃣ Categorizing Activities",
-    activity_options,
-    index=activity_options.index(st.session_state.activity_category)
-    if st.session_state.activity_category in activity_options
-    else 0,
-)
+activity_category = st.text_input("5️⃣ Activity Category", st.session_state.activity_category)
 st.session_state.activity_category = activity_category
 
-# --------- Situational Conditions ---------
-onboard_options = [
-    "1. Tiada penumpang menunggu",
-    "2. Tiada isyarat lampu isyarat untuk pejalan kaki",
-    "3. Tiada penanda di hadapan perhentian bas",
-    "4. Tiada papan tanda waktu bas beroperasi",
-    "5. Tiada papan tanda masa bas tiba",
-    "6. Tiada tempat duduk",
-    "7. Tiada tempat berteduh",
-    "8. Tiada laluan untuk orang kurang upaya",
+# --------- Specific Conditions ---------
+specific_options = [
+    "Poor Visibility",
+    "No Ramp",
+    "Ramp in Bad Condition",
+    "Damaged Shelter",
+    "No Seating",
 ]
-onground_options = [
-    "1. Tiada pejalan kaki menunggu di sekitar kawasan perhentian",
-    "2. Tiada lampu jalan di sekitar kawasan perhentian",
-    "3. Tiada kedai makan berhampiran",
-    "4. Tiada tandas awam",
-    "5. Tiada tempat duduk",
-    "6. Tiada tempat berteduh",
-    "7. Tiada laluan untuk orang kurang upaya",
-]
-
-if activity_category == "1. On Board in the Bus":
-    options = onboard_options
-elif activity_category == "2. On Ground Location":
-    options = onground_options
-else:
-    options = []
-
-specific_conditions = st.multiselect(
-    "6️⃣ Situational Conditions",
-    options,
-    default=list(st.session_state.specific_conditions),
-)
+specific_conditions = st.multiselect("6️⃣ Specific Conditions", specific_options, list(st.session_state.specific_conditions))
 st.session_state.specific_conditions = set(specific_conditions)
 
-# --------- Other Comments ---------
-other_text = st.text_area(
-    "7️⃣ Other Comments or Observations", value=st.session_state.other_text, height=100
-)
+# --------- Other Text ---------
+other_text = st.text_area("7️⃣ Other Comments", st.session_state.other_text)
 st.session_state.other_text = other_text
 
-# --------- Photos Upload ---------
-uploaded_files = st.file_uploader(
-    "8️⃣ Upload Photos (Max 5 photos, jpg/png)", accept_multiple_files=True, type=["jpg", "jpeg", "png"]
+# --------- Upload Photos ---------
+uploaded_photos = st.file_uploader(
+    "8️⃣ Upload Photos (you can upload multiple)",
+    accept_multiple_files=True,
+    type=["jpg", "jpeg", "png"],
 )
 
-if uploaded_files:
-    # Only keep max 5 photos, and avoid duplicates
-    new_photos = st.session_state.photos + uploaded_files
-    st.session_state.photos = new_photos[:5]
+if uploaded_photos:
+    # Add uploaded files to session state list
+    for photo in uploaded_photos:
+        if photo not in st.session_state.photos:
+            st.session_state.photos.append(photo)
 
+# Show thumbnails and remove buttons for uploaded photos
 if st.session_state.photos:
-    st.write("Uploaded photos:")
-    for idx, photo in enumerate(st.session_state.photos):
-        st.image(photo, width=150)
-    if st.button("Clear photos"):
-        st.session_state.photos = []
+    st.write("### Uploaded Photos")
+    cols = st.columns(len(st.session_state.photos))
+    remove_indices = []
+    for i, photo in enumerate(st.session_state.photos):
+        with cols[i]:
+            st.image(photo, width=150)
+            if st.button(f"Remove {photo.name}", key=f"remove_{i}"):
+                remove_indices.append(i)
+    # Remove photos if requested
+    for i in sorted(remove_indices, reverse=True):
+        del st.session_state.photos[i]
 
-# --------- Submit Button ---------
+# --------- Submit ---------
 if st.button("Submit Survey"):
     if not staff_id or len(staff_id) != 8 or not staff_id.isdigit():
         st.error("Please enter a valid 8-digit Staff ID.")
     else:
-        # Prepare submission data
-        now = datetime.now(MALAYSIA_ZONE)
-        timestamp = now.strftime("%Y-%m-%d %H:%M:%S")
-        photo_links = []
+        with st.spinner("Uploading photos and submitting data..."):
+            now = datetime.now(MALAYSIA_ZONE)
+            timestamp = now.strftime("%Y-%m-%d %H:%M:%S")
+            photo_links = []
 
-        # Upload photos to Drive and get links
-        folder_id = None  # Optional: specify folder id in Drive
-        for photo in st.session_state.photos:
-            photo_bytes = photo.read()
-            mimetype = mimetypes.guess_type(photo.name)[0] or "image/jpeg"
-            link, _ = gdrive_upload_file(photo_bytes, photo.name, mimetype, folder_id)
-            photo_links.append(link)
+            # Upload photos to Drive folder
+            for photo in st.session_state.photos:
+                photo_bytes = photo.read()
+                mimetype = mimetypes.guess_type(photo.name)[0] or "image/jpeg"
+                link, _ = gdrive_upload_file(photo_bytes, photo.name, mimetype, FOLDER_ID)
+                photo_links.append(link)
 
-        # Prepare data row
-        row = [
-            timestamp,
-            staff_id,
-            selected_depot,
-            selected_route,
-            selected_stop,
-            condition,
-            activity_category,
-            ", ".join(specific_conditions),
-            other_text,
-            ", ".join(photo_links),
-        ]
+            # Prepare data row
+            row = [
+                timestamp,
+                staff_id,
+                selected_depot,
+                selected_route,
+                selected_stop,
+                condition,
+                activity_category,
+                ", ".join(specific_conditions),
+                other_text,
+                ", ".join(photo_links),
+            ]
 
-        # GSheet setup: Replace with your GSheet name or folder id
-        sheet_name = "Bus Stop Assessment Survey"
-        sheet_id = find_or_create_gsheet(sheet_name, folder_id)
+            # Sheet header
+            header = [
+                "Timestamp",
+                "Staff ID",
+                "Depot",
+                "Route Number",
+                "Bus Stop",
+                "Condition",
+                "Activity Category",
+                "Specific Conditions",
+                "Other Comments",
+                "Photo Links",
+            ]
 
-        # Define header row for your sheet
-        header = [
-            "Timestamp",
-            "Staff ID",
-            "Depot",
-            "Route Number",
-            "Bus Stop",
-            "Bus Stop Condition",
-            "Activity Category",
-            "Situational Conditions",
-            "Other Comments",
-            "Photo Links",
-        ]
+            # Find or create sheet in folder
+            sheet_name = "Bus Stop Assessment Survey"
+            sheet_id = find_or_create_gsheet(sheet_name, FOLDER_ID)
 
-        append_row_to_gsheet(sheet_id, row, header)
+            # Append data row
+            append_row_to_gsheet(sheet_id, row, header)
 
-        st.success("✅ Survey submitted successfully!")
-        # Clear form after submission
-        st.session_state.photos = []
-        st.session_state.other_text = ""
-        st.session_state.specific_conditions = set()
+            # Clear photos and success message
+            st.session_state.photos.clear()
+            st.success("✅ Survey submitted successfully!")
+
