@@ -7,6 +7,7 @@ import mimetypes
 import time
 import os
 import pickle
+from urllib.parse import urlencode
 
 from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
@@ -31,6 +32,7 @@ SCOPES = [
     'https://www.googleapis.com/auth/drive.file',
     'https://www.googleapis.com/auth/spreadsheets'
 ]
+
 CLIENT_SECRETS_FILE = 'client_secrets.json'
 
 def save_credentials(credentials):
@@ -62,17 +64,30 @@ def get_authenticated_service():
         flow = Flow.from_client_secrets_file(
             CLIENT_SECRETS_FILE,
             scopes=SCOPES,
-            redirect_uri='https://bus-stop-survey-cdpdt8wk87srejtieqiesh.streamlit.app/'
+            redirect_uri='https://bus-stop-survey-cdpdt8wk87srejtieqiesh.streamlit.app/'  # Your actual redirect URI here
         )
         st.session_state.oauth_flow = flow
     else:
         flow = st.session_state.oauth_flow
 
-    query_params = st.experimental_get_query_params()
+    query_params = st.query_params
+
     if "code" in query_params:
-        auth_response = st.experimental_get_url()
+        # Get base URL of app
         try:
-            flow.fetch_token(authorization_response=auth_response)
+            base_url = st.runtime.scriptrunner.get_script_run_ctx().session_info.app_url
+        except Exception:
+            # fallback if runtime API unavailable (e.g., local)
+            base_url = 'https://bus-stop-survey-cdpdt8wk87srejtieqiesh.streamlit.app/'
+
+        # Flatten query params (dict of lists) for urlencode
+        flat_params = {k: v[0] if isinstance(v, list) else v for k, v in query_params.items()}
+        full_url = base_url
+        if flat_params:
+            full_url += "?" + urlencode(flat_params)
+
+        try:
+            flow.fetch_token(authorization_response=full_url)
             creds = flow.credentials
             save_credentials(creds)
             del st.session_state.oauth_flow
@@ -276,137 +291,115 @@ st.session_state.activity_category = activity_category
 # --------- Situational Conditions ---------
 onboard_options = [
     "1. Tiada penumpang menunggu",
-    "2. Tiada isyarat (penumpang tidak menahan bas)",
-    "3. Tidak berhenti/memperlahankan bas",
-    "4. Salah tempat menunggu",
-    "5. Bas penuh",
-    "6. Mengejar masa waybill (punctuality)",
-    "7. Kesesakan lalu lintas",
-    "8. Kekeliruan laluan oleh pemandu baru",
-    "9. Terdapat laluan tutup atas sebab tertentu (baiki jalan, pokok tumbang, lawatan delegasi)",
-    "10. Hentian terlalu hampir simpang masuk",
-    "11. Hentian berdekatan dengan traffic light",
-    "12. Kenderaan besar/lorry/street vendor",
-    "13. Penumpang menunggu terlalu ramai",
-    "14. Penumpang menghalang laluan bas",
-    "15. Penumpang berjalan di tengah jalan",
-    "16. Penumpang berdiri terlalu dekat pemandu",
+    "2. Tiada isyarat lampu isyarat untuk pejalan kaki",
+    "3. Tiada penanda di hadapan perhentian bas",
+    "4. Tiada papan tanda waktu bas beroperasi",
+    "5. Tiada papan tanda masa bas tiba",
+    "6. Tiada tempat duduk",
+    "7. Tiada tempat berteduh",
+    "8. Tiada laluan untuk orang kurang upaya",
+]
+onground_options = [
+    "1. Tiada pejalan kaki menunggu di sekitar kawasan perhentian",
+    "2. Tiada lampu jalan di sekitar kawasan perhentian",
+    "3. Tiada kedai makan berhampiran",
+    "4. Tiada tandas awam",
+    "5. Tiada tempat duduk",
+    "6. Tiada tempat berteduh",
+    "7. Tiada laluan untuk orang kurang upaya",
 ]
 
-onground_options = [
-    "1. Tiada penumpang menunggu",
-    "2. Tiada isyarat (penumpang tidak menahan bas)",
-    "3. Tidak berhenti/memperlahankan bas",
-    "4. Salah tempat menunggu",
-    "5. Bas penuh",
-    "6. Mengejar masa waybill (punctuality)",
-    "7. Kesesakan lalu lintas",
-    "8. Kekeliruan laluan oleh pemandu baru",
-    "9. Terdapat laluan tutup atas sebab tertentu (baiki jalan, pokok tumbang, lawatan delegasi)",
-    "10. Hentian terlalu hampir simpang masuk",
-    "11. Hentian berdekatan dengan traffic light",
-    "12. Kenderaan besar/lorry/street vendor",
-    "13. Penumpang menunggu terlalu ramai",
-    "14. Penumpang menghalang laluan bas",
-]
+if activity_category == "1. On Board in the Bus":
+    options = onboard_options
+elif activity_category == "2. On Ground Location":
+    options = onground_options
+else:
+    options = []
 
 specific_conditions = st.multiselect(
-    "6️⃣ Specific Situational Conditions",
-    onboard_options if activity_category == "1. On Board in the Bus" else onground_options if activity_category == "2. On Ground Location" else [],
-    default=st.session_state.specific_conditions,
+    "6️⃣ Situational Conditions",
+    options,
+    default=list(st.session_state.specific_conditions),
 )
-st.session_state.specific_conditions = specific_conditions
+st.session_state.specific_conditions = set(specific_conditions)
 
-# --------- Other Text Input ---------
+# --------- Other Comments ---------
 other_text = st.text_area(
-    "7️⃣ Other remarks (e.g. traffic jam details or other conditions)",
-    value=st.session_state.other_text,
+    "7️⃣ Other Comments or Observations", value=st.session_state.other_text, height=100
 )
 st.session_state.other_text = other_text
 
 # --------- Photos Upload ---------
-photos = st.file_uploader(
-    "📸 Upload photos (optional, max 5 files)",
-    accept_multiple_files=True,
-    type=["png", "jpg", "jpeg"],
-    key="photos",
+uploaded_files = st.file_uploader(
+    "8️⃣ Upload Photos (Max 5 photos, jpg/png)", accept_multiple_files=True, type=["jpg", "jpeg", "png"]
 )
-if photos:
-    st.session_state.photos = photos
+
+if uploaded_files:
+    # Only keep max 5 photos, and avoid duplicates
+    new_photos = st.session_state.photos + uploaded_files
+    st.session_state.photos = new_photos[:5]
+
+if st.session_state.photos:
+    st.write("Uploaded photos:")
+    for idx, photo in enumerate(st.session_state.photos):
+        st.image(photo, width=150)
+    if st.button("Clear photos"):
+        st.session_state.photos = []
 
 # --------- Submit Button ---------
-if st.button("Submit"):
-    # Validation
+if st.button("Submit Survey"):
     if not staff_id or len(staff_id) != 8 or not staff_id.isdigit():
-        st.warning("⚠️ Please enter a valid 8-digit Staff ID.")
-        st.stop()
-    if not selected_depot:
-        st.warning("⚠️ Please select a depot.")
-        st.stop()
-    if not selected_route:
-        st.warning("⚠️ Please select a route.")
-        st.stop()
-    if not selected_stop:
-        st.warning("⚠️ Please select a bus stop.")
-        st.stop()
-    if not condition:
-        st.warning("⚠️ Please select bus stop condition.")
-        st.stop()
-    if activity_category == "":
-        st.warning("⚠️ Please select an activity category.")
-        st.stop()
-    if not specific_conditions:
-        st.warning("⚠️ Please select at least one situational condition.")
-        st.stop()
+        st.error("Please enter a valid 8-digit Staff ID.")
+    else:
+        # Prepare submission data
+        now = datetime.now(MALAYSIA_ZONE)
+        timestamp = now.strftime("%Y-%m-%d %H:%M:%S")
+        photo_links = []
 
-    # Prepare data to save
-    now = datetime.now(tz=MALAYSIA_ZONE)
-    timestamp = now.strftime("%Y-%m-%d %H:%M:%S")
-
-    data = {
-        "Timestamp": timestamp,
-        "Staff ID": staff_id,
-        "Depot": selected_depot,
-        "Route Number": selected_route,
-        "Bus Stop": selected_stop,
-        "Condition": condition,
-        "Activity Category": activity_category,
-        "Specific Conditions": ", ".join(specific_conditions),
-        "Other Remarks": other_text,
-    }
-
-    # Upload photos and save links
-    photo_links = []
-    if photos:
-        for photo in photos:
-            file_bytes = photo.read()
-            mimetype = mimetypes.guess_type(photo.name)[0] or "application/octet-stream"
-            link, _ = gdrive_upload_file(file_bytes, photo.name, mimetype)
+        # Upload photos to Drive and get links
+        folder_id = None  # Optional: specify folder id in Drive
+        for photo in st.session_state.photos:
+            photo_bytes = photo.read()
+            mimetype = mimetypes.guess_type(photo.name)[0] or "image/jpeg"
+            link, _ = gdrive_upload_file(photo_bytes, photo.name, mimetype, folder_id)
             photo_links.append(link)
 
-    data["Photo Links"] = ", ".join(photo_links)
+        # Prepare data row
+        row = [
+            timestamp,
+            staff_id,
+            selected_depot,
+            selected_route,
+            selected_stop,
+            condition,
+            activity_category,
+            ", ".join(specific_conditions),
+            other_text,
+            ", ".join(photo_links),
+        ]
 
-    # Save to Google Sheets
-    SHEET_NAME = "Bus Stop Survey"
-    try:
-        sheet_id = find_or_create_gsheet(SHEET_NAME)
-        header = list(data.keys())
-        values = list(data.values())
-        append_row_to_gsheet(sheet_id, values, header)
-    except Exception as e:
-        st.error(f"❌ Failed to save to Google Sheets: {e}")
-        st.stop()
+        # GSheet setup: Replace with your GSheet name or folder id
+        sheet_name = "Bus Stop Assessment Survey"
+        sheet_id = find_or_create_gsheet(sheet_name, folder_id)
 
-    st.success("✅ Data saved successfully!")
+        # Define header row for your sheet
+        header = [
+            "Timestamp",
+            "Staff ID",
+            "Depot",
+            "Route Number",
+            "Bus Stop",
+            "Bus Stop Condition",
+            "Activity Category",
+            "Situational Conditions",
+            "Other Comments",
+            "Photo Links",
+        ]
 
-    # Reset fields after submission if you want
-    # st.session_state.staff_id = ""
-    # st.session_state.selected_depot = ""
-    # st.session_state.selected_route = ""
-    # st.session_state.selected_stop = ""
-    # st.session_state.condition = conditions[0]
-    # st.session_state.activity_category = ""
-    # st.session_state.specific_conditions = set()
-    # st.session_state.other_text = ""
-    # st.session_state.photos = []
+        append_row_to_gsheet(sheet_id, row, header)
 
+        st.success("✅ Survey submitted successfully!")
+        # Clear form after submission
+        st.session_state.photos = []
+        st.session_state.other_text = ""
+        st.session_state.specific_conditions = set()
