@@ -31,7 +31,6 @@ SCOPES = [
     'https://www.googleapis.com/auth/drive.file',
     'https://www.googleapis.com/auth/spreadsheets'
 ]
-
 CLIENT_SECRETS_FILE = 'client_secrets.json'
 
 def save_credentials(credentials):
@@ -59,8 +58,6 @@ def get_authenticated_service():
         sheets_service = build('sheets', 'v4', credentials=creds)
         return drive_service, sheets_service
 
-    # --- OAuth Flow handling ---
-    # Only create flow if not in session_state
     if "oauth_flow" not in st.session_state:
         flow = Flow.from_client_secrets_file(
             CLIENT_SECRETS_FILE,
@@ -68,25 +65,23 @@ def get_authenticated_service():
             redirect_uri='https://bus-stop-survey-cdpdt8wk87srejtieqiesh.streamlit.app/'
         )
         st.session_state.oauth_flow = flow
+    else:
+        flow = st.session_state.oauth_flow
+
+    query_params = st.experimental_get_query_params()
+    if "code" in query_params:
+        auth_response = st.experimental_get_url()
+        try:
+            flow.fetch_token(authorization_response=auth_response)
+            creds = flow.credentials
+            save_credentials(creds)
+            del st.session_state.oauth_flow
+        except Exception as e:
+            st.error(f"Authentication failed: {e}")
+            st.stop()
+    else:
         auth_url, _ = flow.authorization_url(prompt='consent')
         st.markdown(f"[Authenticate here]({auth_url})")
-        st.stop()  # Wait for user to authenticate and paste URL
-
-    flow = st.session_state.oauth_flow
-
-    auth_response = st.text_input('Paste the full redirect URL here:')
-
-    if not auth_response:
-        st.stop()
-
-    try:
-        flow.fetch_token(authorization_response=auth_response)
-        creds = flow.credentials
-        save_credentials(creds)
-        # Clear flow from session_state after success to prevent reuse errors
-        del st.session_state.oauth_flow
-    except Exception as e:
-        st.error(f"Authentication failed: {e}")
         st.stop()
 
     drive_service = build('drive', 'v3', credentials=creds)
@@ -172,6 +167,7 @@ def append_row_to_gsheet(sheet_id, values, header):
         insertDataOption="INSERT_ROWS",
         body={"values": [values]},
     ).execute()
+
 
 # --------- Load Excel Data ---------
 try:
@@ -290,146 +286,127 @@ onboard_options = [
     "9. Terdapat laluan tutup atas sebab tertentu (baiki jalan, pokok tumbang, lawatan delegasi)",
     "10. Hentian terlalu hampir simpang masuk",
     "11. Hentian berdekatan dengan traffic light",
-    "12. Other (Please specify below)",
+    "12. Kenderaan besar/lorry/street vendor",
+    "13. Penumpang menunggu terlalu ramai",
+    "14. Penumpang menghalang laluan bas",
+    "15. Penumpang berjalan di tengah jalan",
+    "16. Penumpang berdiri terlalu dekat pemandu",
 ]
+
 onground_options = [
-    "1. Tiada tempat menunggu",
-    "2. Tiada tempat berteduh",
-    "3. Tiada tempat duduk",
-    "4. Tiada papan tanda bas",
-    "5. Tiada lampu jalan",
-    "6. Tiada lampu amaran",
-    "7. Other (Please specify below)",
+    "1. Tiada penumpang menunggu",
+    "2. Tiada isyarat (penumpang tidak menahan bas)",
+    "3. Tidak berhenti/memperlahankan bas",
+    "4. Salah tempat menunggu",
+    "5. Bas penuh",
+    "6. Mengejar masa waybill (punctuality)",
+    "7. Kesesakan lalu lintas",
+    "8. Kekeliruan laluan oleh pemandu baru",
+    "9. Terdapat laluan tutup atas sebab tertentu (baiki jalan, pokok tumbang, lawatan delegasi)",
+    "10. Hentian terlalu hampir simpang masuk",
+    "11. Hentian berdekatan dengan traffic light",
+    "12. Kenderaan besar/lorry/street vendor",
+    "13. Penumpang menunggu terlalu ramai",
+    "14. Penumpang menghalang laluan bas",
 ]
 
-situational_conditions = (
-    onboard_options if activity_category == "1. On Board in the Bus" else onground_options
+specific_conditions = st.multiselect(
+    "6️⃣ Specific Situational Conditions",
+    onboard_options if activity_category == "1. On Board in the Bus" else onground_options if activity_category == "2. On Ground Location" else [],
+    default=st.session_state.specific_conditions,
 )
-if activity_category:
-    selected_conditions = st.multiselect(
-        "6️⃣ Situational Conditions (Select all that apply)",
-        situational_conditions,
-        default=list(st.session_state.specific_conditions),
-    )
-    st.session_state.specific_conditions = set(selected_conditions)
-else:
-    st.write("Please select an activity category above.")
+st.session_state.specific_conditions = specific_conditions
 
-# --------- Other Text ---------
+# --------- Other Text Input ---------
 other_text = st.text_area(
-    "If you selected 'Other', please specify here:",
+    "7️⃣ Other remarks (e.g. traffic jam details or other conditions)",
     value=st.session_state.other_text,
 )
-st.session_state.other_text = other_text.strip()
+st.session_state.other_text = other_text
 
-# --------- Photo Upload ---------
+# --------- Photos Upload ---------
 photos = st.file_uploader(
-    "📸 Upload Photos (Max 3 images)",
+    "📸 Upload photos (optional, max 5 files)",
     accept_multiple_files=True,
-    type=["jpg", "jpeg", "png"],
-    key="photos_upload",
+    type=["png", "jpg", "jpeg"],
+    key="photos",
 )
-# Limit photos to 3
-photos = photos[:3] if photos else []
+if photos:
+    st.session_state.photos = photos
 
-st.session_state.photos = photos
-
-# --------- Submit Button and Processing ---------
-def clear_form():
-    for key in [
-        "staff_id",
-        "selected_depot",
-        "selected_route",
-        "selected_stop",
-        "condition",
-        "activity_category",
-        "specific_conditions",
-        "other_text",
-        "photos",
-        "show_success",
-    ]:
-        if key == "specific_conditions":
-            st.session_state[key] = set()
-        elif key == "photos":
-            st.session_state[key] = []
-        elif key == "show_success":
-            st.session_state[key] = False
-        else:
-            st.session_state[key] = ""
-
+# --------- Submit Button ---------
 if st.button("Submit"):
     # Validation
-    if not staff_id or not staff_id.isdigit() or len(staff_id) != 8:
-        st.error("Please enter a valid 8-digit Staff ID.")
-    elif not selected_depot or not selected_route or not selected_stop:
-        st.error("Please select Depot, Route, and Bus Stop.")
-    elif not condition:
-        st.error("Please select Bus Stop Condition.")
-    elif not activity_category:
-        st.error("Please select Activity Category.")
-    elif not st.session_state.specific_conditions:
-        st.error("Please select at least one Situational Condition.")
-    else:
-        # Prepare data row
-        now = datetime.now(MALAYSIA_ZONE)
-        timestamp = now.strftime("%Y-%m-%d %H:%M:%S")
+    if not staff_id or len(staff_id) != 8 or not staff_id.isdigit():
+        st.warning("⚠️ Please enter a valid 8-digit Staff ID.")
+        st.stop()
+    if not selected_depot:
+        st.warning("⚠️ Please select a depot.")
+        st.stop()
+    if not selected_route:
+        st.warning("⚠️ Please select a route.")
+        st.stop()
+    if not selected_stop:
+        st.warning("⚠️ Please select a bus stop.")
+        st.stop()
+    if not condition:
+        st.warning("⚠️ Please select bus stop condition.")
+        st.stop()
+    if activity_category == "":
+        st.warning("⚠️ Please select an activity category.")
+        st.stop()
+    if not specific_conditions:
+        st.warning("⚠️ Please select at least one situational condition.")
+        st.stop()
 
-        situational_cond_str = ", ".join(
-            sorted(st.session_state.specific_conditions)
-        )
-        if "Other" in situational_cond_str and other_text:
-            situational_cond_str += f" ({other_text})"
+    # Prepare data to save
+    now = datetime.now(tz=MALAYSIA_ZONE)
+    timestamp = now.strftime("%Y-%m-%d %H:%M:%S")
 
-        row = [
-            timestamp,
-            staff_id,
-            selected_depot,
-            selected_route,
-            selected_stop,
-            condition,
-            activity_category,
-            situational_cond_str,
-        ]
+    data = {
+        "Timestamp": timestamp,
+        "Staff ID": staff_id,
+        "Depot": selected_depot,
+        "Route Number": selected_route,
+        "Bus Stop": selected_stop,
+        "Condition": condition,
+        "Activity Category": activity_category,
+        "Specific Conditions": ", ".join(specific_conditions),
+        "Other Remarks": other_text,
+    }
 
-        # Upload photos to Drive
-        photo_links = []
-        if photos:
-            folder_id = None  # Or set your folder ID here
-            for photo in photos:
-                photo_bytes = photo.read()
-                photo_name = f"{staff_id}_{selected_route}_{selected_stop}_{photo.name}"
-                try:
-                    link, _ = gdrive_upload_file(photo_bytes, photo_name, photo.type, folder_id)
-                    photo_links.append(link)
-                except Exception as e:
-                    st.error(f"Failed to upload photo {photo.name}: {e}")
+    # Upload photos and save links
+    photo_links = []
+    if photos:
+        for photo in photos:
+            file_bytes = photo.read()
+            mimetype = mimetypes.guess_type(photo.name)[0] or "application/octet-stream"
+            link, _ = gdrive_upload_file(file_bytes, photo.name, mimetype)
+            photo_links.append(link)
 
-        # Add photo links to row
-        row.append(", ".join(photo_links))
+    data["Photo Links"] = ", ".join(photo_links)
 
-        # Find or create Google Sheet
-        sheet_name = "Bus_Stop_Survey_Responses"
-        sheet_id = find_or_create_gsheet(sheet_name)
+    # Save to Google Sheets
+    SHEET_NAME = "Bus Stop Survey"
+    try:
+        sheet_id = find_or_create_gsheet(SHEET_NAME)
+        header = list(data.keys())
+        values = list(data.values())
+        append_row_to_gsheet(sheet_id, values, header)
+    except Exception as e:
+        st.error(f"❌ Failed to save to Google Sheets: {e}")
+        st.stop()
 
-        # Header for sheet (if needed)
-        header = [
-            "Timestamp",
-            "Staff ID",
-            "Depot",
-            "Route Number",
-            "Bus Stop",
-            "Bus Stop Condition",
-            "Activity Category",
-            "Situational Conditions",
-            "Photo Links",
-        ]
+    st.success("✅ Data saved successfully!")
 
-        try:
-            append_row_to_gsheet(sheet_id, row, header)
-            st.success("✅ Survey submitted successfully!")
-            clear_form()
-        except Exception as e:
-            st.error(f"Failed to submit data: {e}")
+    # Reset fields after submission if you want
+    # st.session_state.staff_id = ""
+    # st.session_state.selected_depot = ""
+    # st.session_state.selected_route = ""
+    # st.session_state.selected_stop = ""
+    # st.session_state.condition = conditions[0]
+    # st.session_state.activity_category = ""
+    # st.session_state.specific_conditions = set()
+    # st.session_state.other_text = ""
+    # st.session_state.photos = []
 
-# --------- Debug info (optional) ---------
-# st.write(st.session_state)
