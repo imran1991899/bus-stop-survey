@@ -41,6 +41,23 @@ from googleapiclient.http import MediaIoBaseUpload
 # """
 # client_email = "your-service-account-email@your-project.iam.gserviceaccount.com"
 # ...
+
+file_metadata = {
+    'name': filename,
+    'parents': [1U1E45NroftvHINPziURbJDaojsX6P-AP],  # Must be in the Shared Drive!
+    'mimeType': 'application/vnd.google-apps.document'  # or relevant type
+}
+
+media = MediaFileUpload(local_path, mimetype='application/pdf')  # adjust mime
+file = drive_service.files().create(
+    body=file_metadata,
+    media_body=media,
+    fields='id, webViewLink',
+    supportsAllDrives=True  # CRITICAL
+).execute()
+
+
+
 GDRIVE_CREDS = st.secrets["gdrive_service_account"]
 
 type = "service_account"
