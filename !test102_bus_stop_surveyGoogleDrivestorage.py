@@ -38,7 +38,7 @@ from googleapiclient.http import MediaIoBaseUpload
 # """
 # client_email = "your-service-account-email@your-project.iam.gserviceaccount.com"
 # ...
-GDRIVE_CREDS = json.loads(st.secrets["gdrive_service_account"])
+GDRIVE_CREDS = st.secrets["gdrive_service_account"]
 
 type = "service_account"
 project_id = "my-project05-465612"
