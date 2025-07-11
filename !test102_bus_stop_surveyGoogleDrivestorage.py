@@ -83,7 +83,7 @@ client_x509_cert_url = "https://www.googleapis.com/robot/v1/metadata/x509/survey
 
 # 🔑 IMPORTANT:
 # Paste your Google Drive Shared Folder ID here in Streamlit secrets under key "gdrive_folder_id"
-GDRIVE_FOLDER_ID = st.secrets["1U1E45NroftvHINPziURbJDaojsX6P-AP"]
+GDRIVE_FOLDER_ID = st.secrets["gdrive_service_account"]["1U1E45NroftvHINPziURbJDaojsX6P-AP"]
 
 
 creds = service_account.Credentials.from_service_account_info(
