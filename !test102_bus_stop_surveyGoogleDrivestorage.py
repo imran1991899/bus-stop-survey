@@ -2,14 +2,14 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from io import BytesIO
-import json
 import mimetypes
 import time
+
 from google.oauth2 import service_account
-import streamlit as st
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseUpload
 
-
-# timezone
+# timezone setup
 try:
     from zoneinfo import ZoneInfo
     MY_ZONE = ZoneInfo("Asia/Kuala_Lumpur")
@@ -21,77 +21,11 @@ except ImportError:
 st.set_page_config(page_title="🚌 Bus Stop Survey", layout="wide")
 st.title("🚌 Bus Stop Assessment Survey")
 
-# --- Google API Setup ---
-import os
-from google.oauth2 import service_account
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseUpload
-
-# 🔑 IMPORTANT: 
-# Paste your Google service account JSON info as JSON string in Streamlit secrets under key "gdrive_service_account"
-# Example (in .streamlit/secrets.toml or Streamlit cloud UI):
-# [gdrive_service_account]
-# type = "service_account"
-# project_id = "your-project-id"
-# private_key_id = "your-private-key-id"
-# private_key = """
-# -----BEGIN PRIVATE KEY-----
-# YOUR_PRIVATE_KEY_CONTENT
-# -----END PRIVATE KEY-----
-# """
-# client_email = "your-service-account-email@your-project.iam.gserviceaccount.com"
-# ...
-
-GDRIVE_CREDS = st.secrets["gdrive_service_account"]
-
-type = "service_account"
-project_id = "my-project05-465612"
-private_key_id = "33d6d88ec537d19abcfc3248c924773545a4ce1f"
-private_key = """
------BEGIN PRIVATE KEY-----
-MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCksJMe9jLOwEx2
-vLVbGC8db97Rj+0qrkvxnplGOb+rNwAL3lZcP1hMKkxORNAJAl7g5nC50Bi2iMGG
-O01mhO2OK7bh6oh5AbvlXki4eTs3AHGcbtjJ6VX3EjmNg/qMg0IIBjflID7QUTdP
-xnbG8pB7vg96BUlVFP3DwuQ7Adt4FLtNfU5rc+h1RkRSSOkhki8336KywxGA5rHK
-gvJeXwjaZVA580UvjqgNiuyugjgO+yLSDEXGXFI+4PcwMk8ADvsM3QgCADu2LPkL
-ogtRyN51sNXnowpkf9t7Vvwknp3in+SMo7mak+0zb86XOyn47fmz9Uo5CUY4dUHF
-7wedrfTpAgMBAAECggEABLoeaEGuo3wQsHTKAM9wz20TWHEDi0QoS7W0FmMDHciM
-8LTvm3i5pwACI4SlSFOVgmo4MJZ+QG5W8wHMlDAluxJapAvjDGlwvvc7P55ChUQ2
-6UOjkdISegO/e/tz4NNwp6x5WhMtnQruZeoJ+pEM9XGhs0HSa8XX4yX60+MXAqXh
-Noy98EnFH/LJmjm1C05RbXJn8i99Pgs9ER1UuOFPw5pwwjXdGHloMN0DD7T1xgTe
-fqk8zhpi2UMEfZ35bxRLKMpcuwNDGiZPOZlrdFt1Ixp6oZanc0AGueLLwGErGRvA
-14TAulTRceMIEq6G85G9m6pDMQufUbCnUJorvQrenQKBgQDZ6ebzHHqwe3UsUbbG
-GoX675aZ2x79toxnhzRgmHfkxph/O7Dk3jdu6WBge3BjVoFUs4uQpwuT5yGsJiDt
-+KbIrNguF/1eEECTN9CjysGfYdMJY7I44q6VSWUF9bocm3ff4a0THQrzgoiRG7ta
-gTXtMl/FkQpEuGZ1MsFzv9UMPQKBgQDBeUcESPfqOfNb+nMvQz3eX1SDzNd+7Jf+
-HesTE6+kJrv+an4IlVF2UrdMq+qPTihIx3OonLtjrJWr33y8tqakS46P2hEYLftc
-u6dBBWmv2BKApXifE1Br0zjnSpBtDaezp/2Xbe9YypI2AJsoeEs7DRK1R0tQqcMn
-cw0M+Hj6HQKBgFvw3ztlobJCdJ6dX3NYD31fhvglRn8ffT/VANlcmwFQdVkBU1JN
-G7BVEQ/EJRgUkH6vPkxq3myp0UAz2iLtjVkP7CoOfx0n2EcE/qeMzYK0oHjOsoxj
-v+tGyzPniH23bq1sJzzwPQWe5oXq4HKAH8OTRGs0FdQGxVvfbVWr83S1AoGBALkQ
-6jaWGdcKQdhMtJuUBX1N0QkWC1hUtnsUYUVpQkyR5KfTc+V/92Foc/+6Pu9/gpdD
-ekXiTnlkn/K9H5NgX/yubZr6q/lmGpg0xCM1K0hSNjiqj7wSfI33iOntcENwmWcH
-nVKZjSZw9vUDFWfb0ZKVybxviwKIsK1upyAuGYKdAoGAGofL3m88AlOxOuyMpAKT
-NjWzJKosCNNtKo/tSMtA2D/64iCarODmpyDwACqf8PjK9xZLW/vveWjQq5DqwjC2
-0mW5nNaAAAuHF4SCel5w0St+nWORqrLDUm2uMQl9u7Lxlw3ndJMssooohX5giY0G
-47dJZ0LCu42gkiDyl4QDtAc=
------END PRIVATE KEY-----
-"""
-client_email = "surveybusstop-sa@my-project05-465612.iam.gserviceaccount.com"
-client_id = "110889601544152134220"
-auth_uri = "https://accounts.google.com/o/oauth2/auth"
-token_uri = "https://oauth2.googleapis.com/token"
-auth_provider_x509_cert_url = "https://www.googleapis.com/oauth2/v1/certs"
-client_x509_cert_url = "https://www.googleapis.com/robot/v1/metadata/x509/surveybusstop-sa@my-project05-465612.iam.gserviceaccount.com"
-
-
-# 🔑 IMPORTANT:
-# Paste your Google Drive Shared Folder ID here in Streamlit secrets under key "gdrive_folder_id"
+# Load Google Drive credentials and folder ID from secrets
 GDRIVE_CREDS = st.secrets["gdrive_service_account"]
 GDRIVE_FOLDER_ID = GDRIVE_CREDS["gdrive_folder_id"]
 
-
-
+# Create Google API credentials and clients
 creds = service_account.Credentials.from_service_account_info(
     GDRIVE_CREDS,
     scopes=[
@@ -102,17 +36,36 @@ creds = service_account.Credentials.from_service_account_info(
 drive_service = build("drive", "v3", credentials=creds)
 sheets_service = build("sheets", "v4", credentials=creds)
 
+
 # --- Helper: Upload file to Shared Drive ---
 def gdrive_upload_file(file_bytes, filename, mimetype, folder_id=GDRIVE_FOLDER_ID):
-    media = MediaIoBaseUpload(BytesIO(file_bytes), mimetype)
-    metadata = {"name": filename, "parents": [folder_id]}
-    res = drive_service.files().create(
+    """
+    Uploads a file to a Shared Drive folder.
+
+    Args:
+        file_bytes (bytes): File content in bytes.
+        filename (str): Desired filename.
+        mimetype (str): MIME type of the file.
+        folder_id (str): Google Drive folder ID in the Shared Drive.
+
+    Returns:
+        tuple: (webViewLink, fileId)
+    """
+    media = MediaIoBaseUpload(BytesIO(file_bytes), mimetype=mimetype)
+    metadata = {
+        'name': filename,
+        'parents': [folder_id],  # Important: must be folder inside Shared Drive
+    }
+
+    file = drive_service.files().create(
         body=metadata,
         media_body=media,
-        fields="id, webViewLink",
-        supportsAllDrives=True
+        fields='id, webViewLink',
+        supportsAllDrives=True  # Critical for Shared Drive upload
     ).execute()
-    return res.get("webViewLink"), res.get("id")
+
+    return file.get('webViewLink'), file.get('id')
+
 
 # --- Helper: Find or create Google Sheet ---
 def find_or_create_gsheet(sheet_name, folder_id=GDRIVE_FOLDER_ID):
@@ -141,6 +94,7 @@ def find_or_create_gsheet(sheet_name, folder_id=GDRIVE_FOLDER_ID):
     ).execute()
     return created["id"]
 
+
 # --- Helper: Append row to Google Sheet ---
 def append_row_to_gsheet(sheet_id, values, header):
     sheet = sheets_service.spreadsheets()
@@ -163,6 +117,7 @@ def append_row_to_gsheet(sheet_id, values, header):
         insertDataOption="INSERT_ROWS",
         body={"values": [values]},
     ).execute()
+
 
 # --- Load Reference Data ---
 try:
@@ -300,30 +255,22 @@ if submit:
                 condition, activity_category, "; ".join(conds), "; ".join(photo_links)
             ]
             header = ["Timestamp","Staff ID","Depot","Route","Stop","Condition","Activity","Conditions","Photos"]
-            sheet_id = find_or_create_gsheet("survey_responses", GDRIVE_FOLDER_ID)
+            sheet_name = f"{selected_depot} Bus Survey"
+            sheet_id = find_or_create_gsheet(sheet_name)
+
             append_row_to_gsheet(sheet_id, row, header)
 
-            # reset
-            st.session_state.update({
-                "condition":"1. Covered Bus Stop","activity_category":"", "specific_conditions":set(),
-                "other_text":"", "photos":[], "show_success":True
-            })
+            st.session_state.show_success = True
         except Exception as e:
-            st.error(f"Failed to submit: {e}")
+            st.error(f"Failed to submit survey: {e}")
 
 if st.session_state.show_success:
-    placeholder = st.empty()
-    placeholder.success("✅ Submitted successfully!")
-    time.sleep(2)
-    placeholder.empty()
-    st.session_state.show_success = False
-
-# keep session alive
-st.components.v1.html(
-    """
-    <script>
-      setInterval(()=>fetch('/_stcore/health'),300000);
-    </script>
-    """,
-    height=0
-)
+    st.success("✅ Survey submitted successfully!")
+    if photo_links:
+        st.markdown("**Photos Uploaded:**")
+        for l in photo_links:
+            st.markdown(f"- [View Photo]({l})")
+    if st.button("Submit another survey"):
+        for k in defaults:
+            st.session_state[k] = defaults[k]
+        st.experimental_rerun()
