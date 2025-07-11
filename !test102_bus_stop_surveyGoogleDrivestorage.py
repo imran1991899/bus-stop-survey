@@ -5,6 +5,14 @@ from io import BytesIO
 import json
 import mimetypes
 import time
+import os
+import pickle
+
+from google_auth_oauthlib.flow import Flow
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseUpload
+from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
 
 # Malaysia timezone
 try:
@@ -18,31 +26,66 @@ except ImportError:
 st.set_page_config(page_title="🚌 Bus Stop Survey", layout="wide")
 st.title("🚌 Bus Stop Assessment Survey")
 
+# --------- OAuth Setup ---------
+# If modifying these SCOPES, delete the token.pickle file.
+SCOPES = [
+    'https://www.googleapis.com/auth/drive.file',
+    'https://www.googleapis.com/auth/spreadsheets'
+]
+
+# Path to your OAuth 2.0 Client Secrets file - put this file in your working dir
+CLIENT_SECRETS_FILE = 'client_secrets.json'
+
+def save_credentials(credentials):
+    with open('token.pickle', 'wb') as token:
+        pickle.dump(credentials, token)
+
+def load_credentials():
+    creds = None
+    if os.path.exists('token.pickle'):
+        with open('token.pickle', 'rb') as token:
+            creds = pickle.load(token)
+    return creds
+
+def get_authenticated_service():
+    creds = load_credentials()
+
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        else:
+            flow = Flow.from_client_secrets_file(
+                CLIENT_SECRETS_FILE,
+                scopes=SCOPES,
+                redirect_uri='http://localhost:8501/'  # streamlit default port
+            )
+            auth_url, _ = flow.authorization_url(prompt='consent')
+
+            st.markdown(f"[Authenticate here]({auth_url})")
+
+            auth_response = st.text_input('Paste the full redirect URL here:')
+
+            if auth_response:
+                flow.fetch_token(authorization_response=auth_response)
+                creds = flow.credentials
+                save_credentials(creds)
+            else:
+                st.stop()
+
+    drive_service = build('drive', 'v3', credentials=creds)
+    sheets_service = build('sheets', 'v4', credentials=creds)
+    return drive_service, sheets_service
+
+
 # --------- Google API Setup ---------
-from google.oauth2 import service_account
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseUpload
+drive_service, sheets_service = get_authenticated_service()
 
-GDRIVE_CREDS = st.secrets["gdrive_service_account"]
-GDRIVE_FOLDER_ID = st.secrets["gdrive_folder_id"]
-
-credentials = service_account.Credentials.from_service_account_info(
-    GDRIVE_CREDS,
-    scopes=[
-        "https://www.googleapis.com/auth/drive",
-        "https://www.googleapis.com/auth/spreadsheets",
-    ],
-)
-drive_service = build("drive", "v3", credentials=credentials)
-sheets_service = build("sheets", "v4", credentials=credentials)
-
-# --------- ✅ Upload file to Drive (Shared Drive Support) ---------
-def gdrive_upload_file(file_bytes, filename, mimetype, folder_id=GDRIVE_FOLDER_ID):
+# --------- Upload file to Drive (uses OAuth creds) ---------
+def gdrive_upload_file(file_bytes, filename, mimetype, folder_id=None):
     media = MediaIoBaseUpload(BytesIO(file_bytes), mimetype)
-    file_metadata = {
-        "name": filename,
-        "parents": [folder_id],
-    }
+    file_metadata = {"name": filename}
+    if folder_id:
+        file_metadata["parents"] = [folder_id]
     uploaded = drive_service.files().create(
         body=file_metadata,
         media_body=media,
@@ -51,12 +94,18 @@ def gdrive_upload_file(file_bytes, filename, mimetype, folder_id=GDRIVE_FOLDER_I
     ).execute()
     return uploaded.get("webViewLink"), uploaded.get("id")
 
-# --------- ✅ Find or Create GSheet (Shared Drive Support) ---------
-def find_or_create_gsheet(sheet_name, folder_id=GDRIVE_FOLDER_ID):
-    query = (
-        f"'{folder_id}' in parents and name = '{sheet_name}' and "
-        "mimeType = 'application/vnd.google-apps.spreadsheet'"
-    )
+# --------- Find or Create GSheet (uses OAuth creds) ---------
+def find_or_create_gsheet(sheet_name, folder_id=None):
+    if folder_id:
+        query = (
+            f"'{folder_id}' in parents and name = '{sheet_name}' and "
+            "mimeType = 'application/vnd.google-apps.spreadsheet'"
+        )
+    else:
+        query = (
+            f"name = '{sheet_name}' and "
+            "mimeType = 'application/vnd.google-apps.spreadsheet'"
+        )
     response = drive_service.files().list(
         q=query,
         fields="files(id, name)",
@@ -71,8 +120,10 @@ def find_or_create_gsheet(sheet_name, folder_id=GDRIVE_FOLDER_ID):
     file_metadata = {
         "name": sheet_name,
         "mimeType": "application/vnd.google-apps.spreadsheet",
-        "parents": [folder_id],
     }
+    if folder_id:
+        file_metadata["parents"] = [folder_id]
+
     file = drive_service.files().create(
         body=file_metadata,
         fields="id",
@@ -80,7 +131,7 @@ def find_or_create_gsheet(sheet_name, folder_id=GDRIVE_FOLDER_ID):
     ).execute()
     return file["id"]
 
-# --------- Append row to GSheet ---------
+# --------- Append row to GSheet (uses OAuth creds) ---------
 def append_row_to_gsheet(sheet_id, values, header):
     sheet = sheets_service.spreadsheets()
     result = sheet.values().get(spreadsheetId=sheet_id, range="A1:A1").execute()
@@ -93,10 +144,10 @@ def append_row_to_gsheet(sheet_id, values, header):
         ).execute()
         row_num = 2
     else:
-        row_num = (
+        row_values = (
             sheet.values().get(spreadsheetId=sheet_id, range="A:A").execute().get("values", [])
         )
-        row_num = len(row_num) + 1
+        row_num = len(row_values) + 1
 
     sheet.values().append(
         spreadsheetId=sheet_id,
@@ -105,6 +156,7 @@ def append_row_to_gsheet(sheet_id, values, header):
         insertDataOption="INSERT_ROWS",
         body={"values": [values]},
     ).execute()
+
 
 # --------- Load Excel Data ---------
 try:
@@ -226,162 +278,124 @@ onboard_options = [
     "12. Other (Please specify below)",
 ]
 onground_options = [
-    "1. Infrastruktur sudah tiada/musnah",
-    "2. Terlindung oleh pokok",
-    "3. Terhalang oleh kenderaan parkir",
-    "4. Keadaan sekeliling tidak selamat tiada lampu",
-    "5. Kedudukan bus stop kurang sesuai",
-    "6. Perubahan nama hentian",
+    "1. Tiada tempat menunggu",
+    "2. Tiada tempat berteduh",
+    "3. Tiada tempat duduk",
+    "4. Tiada papan tanda bas",
+    "5. Tiada lampu jalan",
+    "6. Tiada lampu amaran",
     "7. Other (Please specify below)",
 ]
 
-options = onboard_options if activity_category == "1. On Board in the Bus" else (
-    onground_options if activity_category == "2. On Ground Location" else []
+situational_conditions = (
+    onboard_options if activity_category == "1. On Board in the Bus" else onground_options
+    if activity_category == "2. On Ground Location"
+    else []
 )
 
-if options:
-    st.markdown("6️⃣ **Specific Situational Conditions (Select at least one) \***")
-    st.session_state.specific_conditions = {
-        c for c in st.session_state.specific_conditions if c in options
-    }
-    for opt in options:
-        checked = opt in st.session_state.specific_conditions
-        new_checked = st.checkbox(opt, value=checked, key=opt)
-        if new_checked:
-            st.session_state.specific_conditions.add(opt)
-        else:
-            st.session_state.specific_conditions.discard(opt)
-else:
-    st.info("Please select an Activity Category above to see situational conditions.")
+specific_conditions = st.multiselect(
+    "6️⃣ Situational Conditions",
+    situational_conditions,
+    default=list(st.session_state.specific_conditions),
+)
 
-# --------- 'Other' Description ---------
-other_label = next((opt for opt in options if "Other" in opt), None)
-if other_label and other_label in st.session_state.specific_conditions:
-    other_text = st.text_area(
-        "📝 Please describe the 'Other' condition (at least 2 words)",
-        height=150,
-        value=st.session_state.other_text,
-    )
-    st.session_state.other_text = other_text
-    if len(other_text.split()) < 2:
-        st.warning("🚨 'Other' description must be at least 2 words.")
-else:
-    st.session_state.other_text = ""
+st.session_state.specific_conditions = set(specific_conditions)
+
+# --------- Other Text Input ---------
+other_text = st.text_area(
+    "If 'Other' selected, please specify:",
+    value=st.session_state.other_text,
+    placeholder="Provide additional info here if you selected 'Other'",
+)
+st.session_state.other_text = other_text
 
 # --------- Photo Upload ---------
-st.markdown("7️⃣ Add up to 5 Photos (Camera or Upload from device)")
-if len(st.session_state.photos) < 5:
-    photo = st.camera_input(f"📷 Take Photo #{len(st.session_state.photos) + 1}")
-    if photo:
-        st.session_state.photos.append(photo)
+photos = st.file_uploader(
+    "7️⃣ Upload Photos (multiple allowed, max 5):",
+    type=["png", "jpg", "jpeg"],
+    accept_multiple_files=True,
+    key="photo_uploader",
+)
 
-if len(st.session_state.photos) < 5:
-    upload_photo = st.file_uploader(
-        f"📁 Upload Photo #{len(st.session_state.photos) + 1}",
-        type=["png", "jpg", "jpeg"],
-    )
-    if upload_photo:
-        st.session_state.photos.append(upload_photo)
+# Limit photos count
+if photos and len(photos) > 5:
+    st.warning("You can upload up to 5 photos only.")
+    photos = photos[:5]
 
-if st.session_state.photos:
-    st.subheader("📸 Saved Photos")
-    to_delete = None
-    for i, p in enumerate(st.session_state.photos):
-        cols = st.columns([4, 1])
-        cols[0].image(p, caption=f"Photo #{i + 1}", use_container_width=True)
-        if cols[1].button(f"❌ Delete #{i + 1}", key=f"del_{i}"):
-            to_delete = i
-    if to_delete is not None:
-        st.session_state.photos.pop(to_delete)
+st.session_state.photos = photos
 
 # --------- Submit Button ---------
-with st.form(key="survey_form"):
-    submit = st.form_submit_button("✅ Submit Survey")
-    if submit:
-        if not staff_id.strip():
-            st.warning("❗ Please enter your Staff ID.")
-        elif not (staff_id.isdigit() and len(staff_id) == 8):
-            st.warning("❗ Staff ID must be exactly 8 numeric digits.")
-        elif not st.session_state.photos:
-            st.warning("❗ Please add at least one photo.")
-        elif activity_category not in ["1. On Board in the Bus", "2. On Ground Location"]:
-            st.warning("❗ Please select an Activity Category.")
-        elif options and not st.session_state.specific_conditions:
-            st.warning("❗ Please select at least one Specific Situational Condition.")
-        elif other_label in st.session_state.specific_conditions and len(st.session_state.other_text.split()) < 2:
-            st.warning("❗ 'Other' description must be at least 2 words.")
-        else:
-            try:
-                now_my = datetime.now(MALAYSIA_ZONE)
-                timestamp = now_my.strftime("%Y-%m-%d_%H-%M-%S")
+if st.button("✅ Submit Survey"):
+    if not staff_id or len(staff_id) != 8 or not staff_id.isdigit():
+        st.error("Please enter a valid 8-digit Staff ID.")
+    elif not selected_depot:
+        st.error("Please select a Depot.")
+    elif not selected_route:
+        st.error("Please select a Route Number.")
+    elif not selected_stop:
+        st.error("Please select a Bus Stop.")
+    elif not condition:
+        st.error("Please select a Bus Stop Condition.")
+    elif not activity_category:
+        st.error("Please select an Activity Category.")
+    else:
+        # Prepare data row
+        now = datetime.now(MALAYSIA_ZONE).strftime("%Y-%m-%d %H:%M:%S")
 
-                photo_links = []
-                for idx, img in enumerate(st.session_state.photos):
-                    safe_stop = str(selected_stop).replace(" ", "_").replace("/", "_")
-                    filename = f"{safe_stop}_{timestamp}_photo{idx+1}.jpg"
-                    content = img.getvalue() if hasattr(img, "getvalue") else img.read()
-                    mimetype = mimetypes.guess_type(filename)[0] or "image/jpeg"
-                    link, _ = gdrive_upload_file(content, filename, mimetype)
-                    photo_links.append(link)
+        # Photos upload
+        photo_links = []
+        folder_id = None  # Set to your Drive folder ID if you want to store files in a folder
+        for photo in photos:
+            content = photo.read()
+            mimetype, _ = mimetypes.guess_type(photo.name)
+            link, _ = gdrive_upload_file(content, photo.name, mimetype or "image/jpeg", folder_id)
+            photo_links.append(link)
+            time.sleep(0.5)  # Small delay to avoid hitting API limits
 
-                cond_list = list(st.session_state.specific_conditions)
-                if other_label in cond_list:
-                    cond_list.remove(other_label)
-                    cond_list.append(f"Other: {st.session_state.other_text.replace(';', ',')}")
+        # Prepare row data
+        row = [
+            now,
+            staff_id,
+            selected_depot,
+            selected_route,
+            selected_stop,
+            condition,
+            activity_category,
+            ", ".join(specific_conditions),
+            other_text,
+            ", ".join(photo_links),
+        ]
 
-                row = [
-                    timestamp,
-                    staff_id,
-                    selected_depot,
-                    selected_route,
-                    selected_stop,
-                    condition,
-                    activity_category,
-                    "; ".join(cond_list),
-                    "; ".join(photo_links),
-                ]
-                header = [
-                    "Timestamp",
-                    "Staff ID",
-                    "Depot",
-                    "Route",
-                    "Bus Stop",
-                    "Condition",
-                    "Activity",
-                    "Situational Conditions",
-                    "Photos",
-                ]
+        # Sheet name and folder id (optional)
+        SHEET_NAME = "Bus Stop Assessment"
+        SHEET_FOLDER_ID = None  # Put your Drive folder ID here if desired
 
-                SHEET_NAME = "survey_responses"
-                gsheet_id = find_or_create_gsheet(SHEET_NAME, GDRIVE_FOLDER_ID)
-                append_row_to_gsheet(gsheet_id, row, header)
+        sheet_id = find_or_create_gsheet(SHEET_NAME, SHEET_FOLDER_ID)
 
-                st.session_state.update({
-                    "condition": "1. Covered Bus Stop",
-                    "activity_category": "",
-                    "specific_conditions": set(),
-                    "other_text": "",
-                    "photos": [],
-                    "show_success": True,
-                })
+        # Header row
+        header = [
+            "Timestamp",
+            "Staff ID",
+            "Depot",
+            "Route Number",
+            "Bus Stop",
+            "Bus Stop Condition",
+            "Activity Category",
+            "Situational Conditions",
+            "Other Info",
+            "Photo Links",
+        ]
 
-            except Exception as e:
-                st.error(f"❌ Failed to submit: {e}")
+        append_row_to_gsheet(sheet_id, row, header)
 
-# --------- Show success message ---------
-if st.session_state.get("show_success", False):
-    msg_placeholder = st.empty()
-    msg_placeholder.success("✅ Submission complete! Thank you.")
-    time.sleep(2)
-    msg_placeholder.empty()
-    st.session_state["show_success"] = False
-
-# --------- Keep Session Alive ---------
-keepalive_js = """
-<script>
-    setInterval(() => {
-        fetch('/_stcore/health');
-    }, 300000);
-</script>
-"""
-st.components.v1.html(keepalive_js, height=0)
+        st.success("✅ Survey submitted successfully!")
+        # Reset inputs except staff ID for convenience
+        st.session_state.selected_depot = ""
+        st.session_state.selected_route = ""
+        st.session_state.selected_stop = ""
+        st.session_state.condition = conditions[0]
+        st.session_state.activity_category = ""
+        st.session_state.specific_conditions = set()
+        st.session_state.other_text = ""
+        st.session_state.photos = []
+        st.experimental_rerun()
