@@ -100,21 +100,7 @@ def get_authenticated_service():
             st.stop()
     else:
         auth_url, _ = flow.authorization_url(prompt='consent')
-        st.markdown(f"""
-    <div style="text-align: center; margin-top: 2em;">
-        <a href="{auth_url}" target="_self"
-           style="background-color: #4285F4;
-                  color: white;
-                  padding: 16px 32px;
-                  font-size: 20px;
-                  border: none;
-                  border-radius: 8px;
-                  text-decoration: none;
-                  display: inline-block;">
-            🔐 Authenticate Here
-        </a>
-    </div>
-""", unsafe_allow_html=True)
+        st.markdown(f"[Authenticate here]({auth_url})")
         st.stop()
 
     drive_service = build('drive', 'v3', credentials=creds)
