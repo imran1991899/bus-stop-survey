@@ -48,34 +48,56 @@ def load_credentials():
             creds = pickle.load(token)
     return creds
 
+from google_auth_oauthlib.flow import Flow
+
 def get_authenticated_service():
     creds = load_credentials()
+    if creds and creds.valid:
+        # Already authenticated
+        drive_service = build('drive', 'v3', credentials=creds)
+        sheets_service = build('sheets', 'v4', credentials=creds)
+        return drive_service, sheets_service
 
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            flow = Flow.from_client_secrets_file(
-                CLIENT_SECRETS_FILE,
-                scopes=SCOPES,
-                redirect_uri='https://bus-stop-survey-cdpdt8wk87srejtieqiesh.streamlit.app/'  # streamlit default port
-            )
-            auth_url, _ = flow.authorization_url(prompt='consent')
+    if creds and creds.expired and creds.refresh_token:
+        creds.refresh(Request())
+        save_credentials(creds)
+        drive_service = build('drive', 'v3', credentials=creds)
+        sheets_service = build('sheets', 'v4', credentials=creds)
+        return drive_service, sheets_service
 
-            st.markdown(f"[Authenticate here]({auth_url})")
+    # Create Flow or reuse from session_state
+    if "oauth_flow" not in st.session_state:
+        flow = Flow.from_client_secrets_file(
+            CLIENT_SECRETS_FILE,
+            scopes=SCOPES,
+            redirect_uri='https://bus-stop-survey-cdpdt8wk87srejtieqiesh.streamlit.app/'
+        )
+        st.session_state.oauth_flow = flow
+    else:
+        flow = st.session_state.oauth_flow
 
-            auth_response = st.text_input('Paste the full redirect URL here:')
+    auth_url, _ = flow.authorization_url(prompt='consent')
+    st.markdown(f"[Authenticate here]({auth_url})")
 
-            if auth_response:
-                flow.fetch_token(authorization_response=auth_response)
-                creds = flow.credentials
-                save_credentials(creds)
-            else:
-                st.stop()
+    auth_response = st.text_input('Paste the full redirect URL here:')
+
+    if auth_response:
+        try:
+            flow.fetch_token(authorization_response=auth_response)
+            creds = flow.credentials
+            save_credentials(creds)
+            # Clear flow after successful auth to avoid reuse issues
+            del st.session_state.oauth_flow
+        except Exception as e:
+            st.error(f"Authentication failed: {e}")
+            st.stop()
+    else:
+        st.stop()
 
     drive_service = build('drive', 'v3', credentials=creds)
     sheets_service = build('sheets', 'v4', credentials=creds)
     return drive_service, sheets_service
+
 
 
 # --------- Google API Setup ---------
