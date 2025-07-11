@@ -5,6 +5,15 @@ from io import BytesIO
 import json
 import mimetypes
 import time
+import os
+import pickle
+from urllib.parse import urlencode
+
+from google_auth_oauthlib.flow import Flow
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseUpload
+from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
 
 # Malaysia timezone
 try:
@@ -18,66 +27,145 @@ except ImportError:
 st.set_page_config(page_title="🚌 Bus Stop Survey", layout="wide")
 st.title("🚌 Bus Stop Assessment Survey")
 
+# --------- Google Drive Folder ID ---------
+# Replace this with your actual Google Drive folder ID
+FOLDER_ID = "1U1E45NroftvHINPziURbJDaojsX6P-AP"
+
+# --------- OAuth Setup ---------
+SCOPES = [
+    'https://www.googleapis.com/auth/drive.file',
+    'https://www.googleapis.com/auth/spreadsheets'
+]
+
+CLIENT_SECRETS_FILE = 'client_secrets.json'
+
+def save_credentials(credentials):
+    with open('token.pickle', 'wb') as token:
+        pickle.dump(credentials, token)
+
+def load_credentials():
+    creds = None
+    if os.path.exists('token.pickle'):
+        with open('token.pickle', 'rb') as token:
+            creds = pickle.load(token)
+    return creds
+
+def get_authenticated_service():
+    creds = load_credentials()
+    if creds and creds.valid:
+        drive_service = build('drive', 'v3', credentials=creds)
+        sheets_service = build('sheets', 'v4', credentials=creds)
+        return drive_service, sheets_service
+
+    if creds and creds.expired and creds.refresh_token:
+        creds.refresh(Request())
+        save_credentials(creds)
+        drive_service = build('drive', 'v3', credentials=creds)
+        sheets_service = build('sheets', 'v4', credentials=creds)
+        return drive_service, sheets_service
+
+    if "oauth_flow" not in st.session_state:
+        flow = Flow.from_client_secrets_file(
+            CLIENT_SECRETS_FILE,
+            scopes=SCOPES,
+            redirect_uri='https://bus-stop-survey-cdpdt8wk87srejtieqiesh.streamlit.app/'  # Your actual redirect URI here
+        )
+        st.session_state.oauth_flow = flow
+    else:
+        flow = st.session_state.oauth_flow
+
+    query_params = st.query_params
+
+    if "code" in query_params:
+        # Get base URL of app
+        try:
+            base_url = st.runtime.scriptrunner.get_script_run_ctx().session_info.app_url
+        except Exception:
+            # fallback if runtime API unavailable (e.g., local)
+            base_url = 'https://bus-stop-survey-cdpdt8wk87srejtieqiesh.streamlit.app/'
+
+        # Flatten query params (dict of lists) for urlencode
+        flat_params = {k: v[0] if isinstance(v, list) else v for k, v in query_params.items()}
+        full_url = base_url
+        if flat_params:
+            full_url += "?" + urlencode(flat_params)
+
+        try:
+            flow.fetch_token(authorization_response=full_url)
+            creds = flow.credentials
+            save_credentials(creds)
+            del st.session_state.oauth_flow
+        except Exception as e:
+            st.error(f"Authentication failed: {e}")
+            st.stop()
+    else:
+        auth_url, _ = flow.authorization_url(prompt='consent')
+        st.markdown(f"[Authenticate here]({auth_url})")
+        st.stop()
+
+    drive_service = build('drive', 'v3', credentials=creds)
+    sheets_service = build('sheets', 'v4', credentials=creds)
+    return drive_service, sheets_service
+
 # --------- Google API Setup ---------
-from google.oauth2 import service_account
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseUpload
+drive_service, sheets_service = get_authenticated_service()
 
-GDRIVE_CREDS = json.loads(st.secrets["gdrive_service_account"])
-GDRIVE_FOLDER_ID = st.secrets["gdrive_folder_id"]
-
-credentials = service_account.Credentials.from_service_account_info(
-    GDRIVE_CREDS,
-    scopes=[
-        "https://www.googleapis.com/auth/drive",
-        "https://www.googleapis.com/auth/spreadsheets",
-    ],
-)
-drive_service = build("drive", "v3", credentials=credentials)
-sheets_service = build("sheets", "v4", credentials=credentials)
-
-# --------- Helper: Upload file to Drive ---------
-def gdrive_upload_file(file_bytes, filename, mimetype, folder_id=GDRIVE_FOLDER_ID):
+# --------- Upload file to Drive (uses OAuth creds) ---------
+def gdrive_upload_file(file_bytes, filename, mimetype, folder_id=None):
     media = MediaIoBaseUpload(BytesIO(file_bytes), mimetype)
-    file_metadata = {
-        "name": filename,
-        "parents": [folder_id],
-    }
+    file_metadata = {"name": filename}
+    if folder_id:
+        file_metadata["parents"] = [folder_id]
     uploaded = drive_service.files().create(
-        body=file_metadata, media_body=media, fields="id, webViewLink"
+        body=file_metadata,
+        media_body=media,
+        fields="id, webViewLink",
+        supportsAllDrives=True,
     ).execute()
     return uploaded.get("webViewLink"), uploaded.get("id")
 
-# --------- Helper: Find/Create GSheet in folder ---------
-def find_or_create_gsheet(sheet_name, folder_id=GDRIVE_FOLDER_ID):
-    # Search for file in folder
-    query = (
-        f"'{folder_id}' in parents and name = '{sheet_name}' and mimeType = 'application/vnd.google-apps.spreadsheet'"
-    )
-    response = drive_service.files().list(q=query, fields="files(id,name)").execute()
+# --------- Find or Create GSheet (uses OAuth creds) ---------
+def find_or_create_gsheet(sheet_name, folder_id=None):
+    if folder_id:
+        query = (
+            f"'{folder_id}' in parents and name = '{sheet_name}' and "
+            "mimeType = 'application/vnd.google-apps.spreadsheet'"
+        )
+    else:
+        query = (
+            f"name = '{sheet_name}' and "
+            "mimeType = 'application/vnd.google-apps.spreadsheet'"
+        )
+    response = drive_service.files().list(
+        q=query,
+        fields="files(id, name)",
+        includeItemsFromAllDrives=True,
+        supportsAllDrives=True,
+    ).execute()
+
     files = response.get("files", [])
     if files:
         return files[0]["id"]
-    # Not found: create
+
     file_metadata = {
         "name": sheet_name,
         "mimeType": "application/vnd.google-apps.spreadsheet",
-        "parents": [folder_id],
     }
-    file = drive_service.files().create(body=file_metadata, fields="id").execute()
+    if folder_id:
+        file_metadata["parents"] = [folder_id]
+
+    file = drive_service.files().create(
+        body=file_metadata,
+        fields="id",
+        supportsAllDrives=True,
+    ).execute()
     return file["id"]
 
-# --------- Helper: Append row to GSheet ---------
+# --------- Append row to GSheet (uses OAuth creds) ---------
 def append_row_to_gsheet(sheet_id, values, header):
     sheet = sheets_service.spreadsheets()
-    # Check if sheet is new (no data), if so, write header
-    result = (
-        sheet.values()
-        .get(spreadsheetId=sheet_id, range="A1:A1")
-        .execute()
-    )
+    result = sheet.values().get(spreadsheetId=sheet_id, range="A1:A1").execute()
     if "values" not in result:
-        # Write header
         sheet.values().update(
             spreadsheetId=sheet_id,
             range="A1",
@@ -86,15 +174,11 @@ def append_row_to_gsheet(sheet_id, values, header):
         ).execute()
         row_num = 2
     else:
-        # Get the next empty row
-        row_num = (
-            sheet.values()
-            .get(spreadsheetId=sheet_id, range="A:A")
-            .execute()
-            .get("values", [])
+        row_values = (
+            sheet.values().get(spreadsheetId=sheet_id, range="A:A").execute().get("values", [])
         )
-        row_num = len(row_num) + 1
-    # Append data
+        row_num = len(row_values) + 1
+
     sheet.values().append(
         spreadsheetId=sheet_id,
         range=f"A{row_num}",
@@ -221,6 +305,7 @@ onboard_options = [
     "10. Hentian terlalu hampir simpang masuk",
     "11. Hentian berdekatan dengan traffic light",
     "12. Other (Please specify below)",
+    "13. Remarks",
 ]
 onground_options = [
     "1. Infrastruktur sudah tiada/musnah",
@@ -230,6 +315,7 @@ onground_options = [
     "5. Kedudukan bus stop kurang sesuai",
     "6. Perubahan nama hentian",
     "7. Other (Please specify below)",
+    "8. Remarks",
 ]
 
 options = (
@@ -243,7 +329,7 @@ options = (
 )
 
 if options:
-    st.markdown("6️⃣ **Specific Situational Conditions (Select at least one) \***")
+    st.markdown("6️⃣ Specific Situational Conditions (Select all that apply)")
     st.session_state.specific_conditions = {
         c for c in st.session_state.specific_conditions if c in options
     }
@@ -270,6 +356,18 @@ if other_label and other_label in st.session_state.specific_conditions:
         st.warning("🚨 'Other' description must be at least 2 words.")
 else:
     st.session_state.other_text = ""
+
+# --------- 'Remarks' Description (OPTIONAL) ---------
+remarks_label = next((opt for opt in options if "Remarks" in opt), None)
+if remarks_label and remarks_label in st.session_state.specific_conditions:
+    remarks_text = st.text_area(
+        "💬 Remarks (optional)",
+        height=100,
+        value=st.session_state.get("remarks_text", ""),
+    )
+    st.session_state["remarks_text"] = remarks_text
+else:
+    st.session_state["remarks_text"] = ""
 
 # --------- Photo Upload ---------
 st.markdown("7️⃣ Add up to 5 Photos (Camera or Upload from device)")
@@ -303,6 +401,7 @@ if st.session_state.photos:
 with st.form(key="survey_form"):
     submit = st.form_submit_button("✅ Submit Survey")
     if submit:
+        # Situational Conditions must not be empty
         if not staff_id.strip():
             st.warning("❗ Please enter your Staff ID.")
         elif not (staff_id.isdigit() and len(staff_id) == 8):
@@ -314,8 +413,8 @@ with st.form(key="survey_form"):
             "2. On Ground Location",
         ]:
             st.warning("❗ Please select an Activity Category.")
-        elif options and not st.session_state.specific_conditions:
-            st.warning("❗ Please select at least one Specific Situational Condition.")
+        elif len(st.session_state.specific_conditions) == 0:
+            st.warning("❗ Please select at least one Situational Condition.")
         elif (
             other_label in st.session_state.specific_conditions
             and len(st.session_state.other_text.split()) < 2
@@ -323,18 +422,11 @@ with st.form(key="survey_form"):
             st.warning("❗ 'Other' description must be at least 2 words.")
         else:
             try:
-                # -------- Malaysia time for timestamp --------
-                if 'ZoneInfo' in globals():
-                    now_my = datetime.now(MALAYSIA_ZONE)
-                else:
-                    now_my = datetime.now(MALAYSIA_ZONE)
-                timestamp = now_my.strftime("%Y-%m-%d_%H-%M-%S")
-                # --------------------------------------------
+                timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
                 photo_links = []
                 for idx, img in enumerate(st.session_state.photos):
-                    safe_stop = str(selected_stop).replace(" ", "_").replace("/", "_")
-                    filename = f"{safe_stop}_{timestamp}_photo{idx+1}.jpg"
+                    filename = f"{timestamp}_photo{idx+1}.jpg"
                     # Get image bytes and mimetype
                     if hasattr(img, "getvalue"):
                         content = img.getvalue()
@@ -353,6 +445,10 @@ with st.form(key="survey_form"):
                     cond_list.append(
                         f"Other: {st.session_state.other_text.replace(';', ',')}"
                     )
+                if remarks_label in cond_list:
+                    cond_list.remove(remarks_label)
+                    remarks_value = st.session_state.get("remarks_text", "")
+                    cond_list.append(f"Remarks: {remarks_value.replace(';', ',')}")
 
                 row = [
                     timestamp,
@@ -379,7 +475,7 @@ with st.form(key="survey_form"):
 
                 # Find or create the GSheet in Drive folder
                 SHEET_NAME = "survey_responses"
-                gsheet_id = find_or_create_gsheet(SHEET_NAME, GDRIVE_FOLDER_ID)
+                gsheet_id = find_or_create_gsheet(SHEET_NAME, FOLDER_ID)
                 append_row_to_gsheet(gsheet_id, row, header)
 
                 # Only clear these fields, keep staff_id, depot, route, stop
@@ -387,6 +483,7 @@ with st.form(key="survey_form"):
                 st.session_state["activity_category"] = ""
                 st.session_state["specific_conditions"] = set()
                 st.session_state["other_text"] = ""
+                st.session_state["remarks_text"] = ""
                 st.session_state["photos"] = []
                 st.session_state["show_success"] = True
 
