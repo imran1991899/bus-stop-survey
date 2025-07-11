@@ -23,7 +23,7 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 
-GDRIVE_CREDS = json.loads(st.secrets["gdrive_service_account"])
+GDRIVE_CREDS = st.secrets["gdrive_service_account"])
 GDRIVE_FOLDER_ID = st.secrets["gdrive_folder_id"]
 
 credentials = service_account.Credentials.from_service_account_info(
