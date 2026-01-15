@@ -82,7 +82,7 @@ def get_authenticated_service():
             base_url = st.runtime.scriptrunner.get_script_run_ctx().session_info.app_url
         except Exception:
             # fallback if runtime API unavailable (e.g., local)
-            base_url = 'https://bus-stop-survey-cdpdt8wk87srejtieqiesh.streamlit.app/'
+            base_url = 'https://bus-stop-survey-m4stmn4tsqyqrtip92bls2.streamlit.app/'
 
         # Flatten query params (dict of lists) for urlencode
         flat_params = {k: v[0] if isinstance(v, list) else v for k, v in query_params.items()}
@@ -507,6 +507,7 @@ keepalive_js = """
 </script>
 """
 st.components.v1.html(keepalive_js, height=0)
+
 
 
 
