@@ -68,7 +68,7 @@ def get_authenticated_service():
         flow = Flow.from_client_secrets_file(
             CLIENT_SECRETS_FILE,
             scopes=SCOPES,
-            redirect_uri='https://bus-stop-survey-cdpdt8wk87srejtieqiesh.streamlit.app/'  # Your actual redirect URI here
+            redirect_uri='https://bus-stop-survey-m4stmn4tsqyqrtip92bls2.streamlit.app/'  # Your actual redirect URI here
         )
         st.session_state.oauth_flow = flow
     else:
@@ -507,4 +507,5 @@ keepalive_js = """
 </script>
 """
 st.components.v1.html(keepalive_js, height=0)
+
 
