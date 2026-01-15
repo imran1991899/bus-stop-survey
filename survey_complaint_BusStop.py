@@ -25,11 +25,11 @@ except ImportError:
 
 # --------- Page Setup ---------
 st.set_page_config(page_title="🚌 Bus Stop Survey", layout="wide")
-st.title("🚌 🚌Bus Stop Assessment Survey")
+st.title("🚌🚌 Bus Stop Assessment Survey")
 
 # --------- Google Drive Folder ID ---------
 # Replace this with your actual Google Drive folder ID
-FOLDER_ID = "1DjtLxgyQXwgjq_N6I_-rtYcBcnWhzMGp"
+FOLDER_ID = "1U1E45NroftvHINPziURbJDaojsX6P-AP"
 
 # --------- OAuth Setup ---------
 SCOPES = [
@@ -68,7 +68,7 @@ def get_authenticated_service():
         flow = Flow.from_client_secrets_file(
             CLIENT_SECRETS_FILE,
             scopes=SCOPES,
-            redirect_uri='https://bus-stop-survey-99f8wusughejfcfvrvxmyl.streamlit.app/'  # Your actual redirect URI here
+            redirect_uri='https://bus-stop-survey-cdpdt8wk87srejtieqiesh.streamlit.app/'  # Your actual redirect URI here
         )
         st.session_state.oauth_flow = flow
     else:
@@ -82,7 +82,7 @@ def get_authenticated_service():
             base_url = st.runtime.scriptrunner.get_script_run_ctx().session_info.app_url
         except Exception:
             # fallback if runtime API unavailable (e.g., local)
-            base_url = 'https://bus-stop-survey-99f8wusughejfcfvrvxmyl.streamlit.app/'
+            base_url = 'https://bus-stop-survey-cdpdt8wk87srejtieqiesh.streamlit.app/'
 
         # Flatten query params (dict of lists) for urlencode
         flat_params = {k: v[0] if isinstance(v, list) else v for k, v in query_params.items()}
@@ -507,11 +507,3 @@ keepalive_js = """
 </script>
 """
 st.components.v1.html(keepalive_js, height=0)
-
-
-
-
-
-
-
-
