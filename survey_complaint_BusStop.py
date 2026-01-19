@@ -37,7 +37,7 @@ SCOPES = [
     'https://www.googleapis.com/auth/spreadsheets'
 ]
 
-CLIENT_SECRETS_FILE = 'client_secrets.json'
+CLIENT_SECRETS_FILE = 'client_secrets2.json'
 
 def save_credentials(credentials):
     with open('token.pickle', 'wb') as token:
@@ -507,5 +507,6 @@ keepalive_js = """
 </script>
 """
 st.components.v1.html(keepalive_js, height=0)
+
 
 
