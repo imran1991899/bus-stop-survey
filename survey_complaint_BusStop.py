@@ -33,18 +33,17 @@ st.markdown("""
         letter-spacing: -0.02em !important;
     }
 
-    /* Card-like containers for selections */
-    .stSelectbox, .stTextInput, .stMultiSelect {
-        background-color: white !important;
-        border-radius: 12px !important;
-    }
-
     /* iOS Segmented Control Style for Radio Buttons */
     div[role="radiogroup"] {
-        background-color: #E3E3E8 !important; /* Light grey track */
-        padding: 3px !important;
+        background-color: #E3E3E8 !important; 
+        padding: 4px !important;
         border-radius: 12px !important;
-        gap: 2px !important;
+        gap: 4px !important;
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        margin-top: 15px !important; /* Pushes the gray box down from the question */
+        margin-bottom: 20px !important;
     }
 
     /* Hide standard radio circles */
@@ -52,17 +51,28 @@ st.markdown("""
         display: none !important;
     }
 
-    /* Individual Radio Item */
+    /* Individual Radio Item Label */
     div[role="radiogroup"] label {
         background-color: transparent !important;
         border: none !important;
-        padding: 8px 15px !important;
+        padding: 10px 0px !important; /* Adjusted padding */
         border-radius: 10px !important;
         transition: all 0.2s ease-in-out !important;
-        flex: 1;
-        justify-content: center;
+        flex: 1 !important;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
         margin: 0 !important;
-        box-shadow: none !important;
+        min-width: 80px !important; /* Ensures the box doesn't squash the text */
+    }
+
+    /* Standardizing text inside Yes/No */
+    div[role="radiogroup"] label p {
+        font-size: 15px !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        white-space: nowrap !important; /* Prevents "Yes" from splitting into "Ye" and "s" */
+        line-height: 1 !important;
     }
 
     /* Selected State (The White Slide) */
@@ -71,19 +81,18 @@ st.markdown("""
         box-shadow: 0px 3px 8px rgba(0,0,0,0.12) !important;
     }
 
-    div[role="radiogroup"] label:has(input:checked) p {
-        color: #000000 !important;
-        font-weight: 600 !important;
-    }
-
-    /* Specific Colors for Yes/No/NA when selected */
-    /* Yes - Blue (iOS Primary) */
+    /* Specific Colors for text when selected */
     div[role="radiogroup"] label:has(input[value="Yes"]):has(input:checked) p {
         color: #007AFF !important;
+        font-weight: 600 !important;
     }
-    /* No - Red */
     div[role="radiogroup"] label:has(input[value="No"]):has(input:checked) p {
         color: #FF3B30 !important;
+        font-weight: 600 !important;
+    }
+    div[role="radiogroup"] label:has(input[value="NA"]):has(input:checked) p {
+        color: #8E8E93 !important;
+        font-weight: 600 !important;
     }
 
     /* Main Submit Button (iOS Blue) */
@@ -94,36 +103,18 @@ st.markdown("""
         border: none !important;
         height: 50px !important;
         font-weight: 600 !important;
-        font-size: 16px !important;
         border-radius: 14px !important;
-        transition: opacity 0.2s;
         margin-top: 20px;
     }
 
-    div.stButton > button:hover {
-        background-color: #007AFF !important;
-        opacity: 0.85;
-        color: white !important;
-    }
-
-    /* Info/Success Boxes */
-    .stAlert {
-        border-radius: 14px !important;
-        border: none !important;
-        background-color: white !important;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.05) !important;
-    }
-
-    /* Divider */
-    hr {
-        margin: 2em 0 !important;
-        opacity: 0.1 !important;
+    /* Input/Selectbox standardizing */
+    .stSelectbox, .stTextInput {
+        margin-bottom: 10px;
     }
     </style>
     """, unsafe_allow_html=True)
 
 st.title("🚌 Bus Stop Survey")
-st.markdown("<p style='color: #8E8E93;'>Sila lengkapkan maklumat aduan di bawah.</p>", unsafe_allow_html=True)
 
 # --------- Google Drive Folder ID ---------
 FOLDER_ID = "1DjtLxgyQXwgjq_N6I_-rtYcBcnWhzMGp"
@@ -159,7 +150,7 @@ def get_authenticated_service():
         creds = flow.credentials; save_credentials(creds)
     else:
         auth_url, _ = flow.authorization_url(prompt="consent")
-        st.markdown(f"### Authentication Required\n[Please click here to log in with Google]({auth_url})"); st.stop()
+        st.markdown(f"### Authentication Required\n[Please click here to log in]({auth_url})"); st.stop()
     return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
 
 drive_service, sheets_service = get_authenticated_service()
@@ -185,14 +176,9 @@ def append_row(sheet_id, row, header):
         sheet.values().update(spreadsheetId=sheet_id, range="A1", valueInputOption="RAW", body={"values": [header]}).execute()
     sheet.values().append(spreadsheetId=sheet_id, range="A1", valueInputOption="RAW", insertDataOption="INSERT_ROWS", body={"values": [row]}).execute()
 
-# --------- Load Data ---------
-# Wrap in try-except to avoid crash if file is missing during UI dev
-try:
-    routes_df = pd.read_excel("bus_data.xlsx", sheet_name="routes")
-    stops_df = pd.read_excel("bus_data.xlsx", sheet_name="stops")
-except:
-    st.error("bus_data.xlsx not found.")
-    st.stop()
+# --------- Load Excel ---------
+routes_df = pd.read_excel("bus_data.xlsx", sheet_name="routes")
+stops_df = pd.read_excel("bus_data.xlsx", sheet_name="stops")
 
 allowed_stops = sorted([
     "AJ106 LRT AMPANG", "DAMANSARA INTAN", "ECOSKY RESIDENCE", "FAKULTI KEJURUTERAAN (UTARA)",
@@ -240,15 +226,12 @@ all_questions = questions_a + questions_b
 if "responses" not in st.session_state:
     st.session_state.responses = {q: None for q in all_questions}
 
-# --------- Main Form UI ---------
-
-# Staff ID Section
-staff_id = st.selectbox("👤 Staff ID", options=list(staff_dict.keys()), index=None, placeholder="Pilih ID Staf...")
+# --------- Form Layout ---------
+staff_id = st.selectbox("👤 Staff ID", options=list(staff_dict.keys()), index=None, placeholder="Pilih ID...")
 if staff_id:
-    st.markdown(f"<div style='background-color: white; padding: 10px; border-radius: 10px; border: 1px solid #E5E5E5;'><b>Nama:</b> {staff_dict[staff_id]}</div>", unsafe_allow_html=True)
+    st.info(f"Staf: {staff_dict[staff_id]}")
 
-# Bus Stop Selection
-stop = st.selectbox("📍 Bus Stop", allowed_stops, index=None, placeholder="Pilih hentian bas...")
+stop = st.selectbox("📍 Bus Stop", allowed_stops, index=None, placeholder="Pilih hentian...")
 
 if stop:
     matched_stop_data = stops_df[stops_df["Stop Name"] == stop]
@@ -256,23 +239,13 @@ if stop:
     current_route = " / ".join(map(str, matched_route_nums))
     matched_depot_names = routes_df[routes_df["Route Number"].isin(matched_route_nums)]["Depot"].unique()
     current_depot = " / ".join(map(str, matched_depot_names))
-    
-    st.markdown(f"""
-    <div style='background-color: #F2F2F7; padding: 15px; border-radius: 12px; margin-top: 10px;'>
-        <p style='margin:0; font-size: 14px; color: #8E8E93;'>INFO RENTUAN</p>
-        <p style='margin:0;'><b>Laluan:</b> {current_route}</p>
-        <p style='margin:0;'><b>Depot:</b> {current_depot}</p>
-    </div>
-    """, unsafe_allow_html=True)
-else:
-    current_route, current_depot = "", ""
+    st.markdown(f"**Laluan:** {current_route} | **Depot:** {current_depot}")
 
 st.divider()
 
-# Survey Sections
 st.subheader("A. KELAKUAN KAPTEN BAS")
 for i, q in enumerate(questions_a):
-    st.markdown(f"<p style='margin-bottom: -10px; font-weight: 500;'>{q}</p>", unsafe_allow_html=True)
+    st.markdown(f"**{q}**")
     options = ["Yes", "No", "NA"] if i >= 4 else ["Yes", "No"]
     st.session_state.responses[q] = st.radio(label=q, options=options, index=None, key=f"qa_{i}", horizontal=True, label_visibility="collapsed")
 
@@ -280,49 +253,38 @@ st.divider()
 
 st.subheader("B. KEADAAN HENTIAN BAS")
 for i, q in enumerate(questions_b):
-    st.markdown(f"<p style='margin-bottom: -10px; font-weight: 500;'>{q}</p>", unsafe_allow_html=True)
+    st.markdown(f"**{q}**")
     options = ["Yes", "No", "NA"] if "NA" in q else ["Yes", "No"]
     st.session_state.responses[q] = st.radio(label=q, options=options, index=None, key=f"qb_{i}", horizontal=True, label_visibility="collapsed")
 
 st.divider()
 
-# Photos Section
-st.subheader("📸 Gambar (Wajib 3)")
+# --------- Camera Section ---------
+st.subheader("📸 Gambar (Exactly 3)")
 if len(st.session_state.photos) < 3:
     col_cam, col_file = st.columns(2)
     with col_cam:
-        cam_photo = st.camera_input(f"Ambil Gambar #{len(st.session_state.photos) + 1}")
+        cam_photo = st.camera_input(f"Photo #{len(st.session_state.photos) + 1}")
         if cam_photo:
             st.session_state.photos.append(cam_photo)
             st.rerun()
     with col_file:
-        up_photo = st.file_uploader(f"Muat naik Gambar #{len(st.session_state.photos) + 1}", type=["png", "jpg", "jpeg"])
+        up_photo = st.file_uploader(f"Upload #{len(st.session_state.photos) + 1}", type=["png", "jpg", "jpeg"])
         if up_photo:
             st.session_state.photos.append(up_photo)
             st.rerun()
 else:
-    st.success("✅ 3 Gambar telah berjaya dirakam.")
-    if st.button("🗑️ Reset Gambar", type="secondary"):
+    st.success("3 Gambar dirakam.")
+    if st.button("Reset Gambar"):
         st.session_state.photos = []
         st.rerun()
 
-if st.session_state.photos:
-    cols = st.columns(3)
-    for i, p in enumerate(st.session_state.photos):
-        cols[i].image(p, use_container_width=True)
-
-# Submit Logic
-if st.button("Hantar Laporan"):
-    if not staff_id:
-        st.error("Sila pilih Staff ID.")
-    elif not stop:
-        st.error("Sila pilih Hentian Bas.")
-    elif len(st.session_state.photos) != 3:
-        st.error("Sila ambil atau muat naik tepat 3 keping gambar.")
-    elif None in st.session_state.responses.values():
-        st.error("Sila lengkapkan semua soalan.")
+# --------- Submit ---------
+if st.button("Submit Survey"):
+    if not staff_id or not stop or len(st.session_state.photos) != 3 or None in st.session_state.responses.values():
+        st.error("Sila lengkapkan semua maklumat dan ambil 3 keping gambar.")
     else:
-        with st.spinner("Menghantar aduan..."):
+        with st.spinner("Submitting..."):
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             photo_links = []
             for i, img in enumerate(st.session_state.photos):
@@ -337,8 +299,8 @@ if st.button("Hantar Laporan"):
             append_row(sheet_id, row, header)
 
             st.balloons()
-            st.success("✅ Laporan berjaya dihantar!")
+            st.success("Berjaya dihantar!")
             st.session_state.photos = []
             st.session_state.responses = {q: None for q in all_questions}
-            time.sleep(3)
+            time.sleep(2)
             st.rerun()
