@@ -17,15 +17,10 @@ from google.auth.transport.requests import Request
 st.set_page_config(page_title="🚌 Bus Stop Survey", layout="wide")
 st.title("Bus Stop Complaints Survey")
 
-# --------- Enhanced "iPhone Style" Pill Button CSS ---------
+# --------- Custom CSS for Dynamic Colors ---------
 st.markdown("""
     <style>
-    div[role="radiogroup"] {
-        display: flex;
-        flex-direction: row;
-        gap: 20px;
-        background-color: transparent !important;
-    }
+    /* Base style for the radio group labels (the pills) */
     div[role="radiogroup"] label {
         padding: 10px 25px !important;
         border-radius: 50px !important; 
@@ -33,11 +28,8 @@ st.markdown("""
         background-color: white !important;
         transition: all 0.3s ease;
     }
-    div[role="radiogroup"] label div[data-testid="stMarkdownContainer"] p {
-        color: #333 !important;
-        font-weight: bold !important;
-        font-size: 16px !important;
-    }
+
+    /* Change "Yes" to GREEN when selected */
     div[role="radiogroup"] label:has(input[value="Yes"]):has(input:checked) {
         background-color: #28a745 !important; 
         border-color: #28a745 !important;
@@ -45,6 +37,8 @@ st.markdown("""
     div[role="radiogroup"] label:has(input[value="Yes"]):has(input:checked) p {
         color: white !important;
     }
+
+    /* Change "No" to RED when selected */
     div[role="radiogroup"] label:has(input[value="No"]):has(input:checked) {
         background-color: #dc3545 !important; 
         border-color: #dc3545 !important;
@@ -52,6 +46,8 @@ st.markdown("""
     div[role="radiogroup"] label:has(input[value="No"]):has(input:checked) p {
         color: white !important;
     }
+
+    /* Change "NA" to GREY when selected (Optional) */
     div[role="radiogroup"] label:has(input[value="NA"]):has(input:checked) {
         background-color: #6c757d !important;
         border-color: #6c757d !important;
@@ -59,11 +55,39 @@ st.markdown("""
     div[role="radiogroup"] label:has(input[value="NA"]):has(input:checked) p {
         color: white !important;
     }
+
+    /* Hide the original small radio circle for a cleaner pill look */
     div[role="radiogroup"] [data-testid="stWidgetSelectionVisualizer"] {
         display: none !important;
     }
     </style>
     """, unsafe_allow_html=True)
+
+# --------- Implementation in the App ---------
+
+st.write("### Bus Stop Survey Questions")
+
+# Example for Question A
+q1 = "1. BC menggunakan telefon bimbit?"
+st.session_state.responses[q1] = st.radio(
+    label=q1,
+    options=["Yes", "No", "NA"],
+    index=None, # Starts with nothing selected
+    horizontal=True,
+    key="q1_radio"
+)
+
+st.divider()
+
+# Example for Question B
+q2 = "7. Hentian terlindung dari pandangan BC?"
+st.session_state.responses[q2] = st.radio(
+    label=q2,
+    options=["Yes", "No"],
+    index=None,
+    horizontal=True,
+    key="q2_radio"
+)
 
 # --------- Google Drive Folder ID ---------
 FOLDER_ID = "1DjtLxgyQXwgjq_N6I_-rtYcBcnWhzMGp"
@@ -273,3 +297,4 @@ if st.button("✅ Submit Survey"):
             st.session_state.responses = {q: None for q in all_questions}
             time.sleep(2)
             st.rerun()
+
