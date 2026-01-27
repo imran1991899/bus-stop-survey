@@ -16,109 +16,102 @@ from google.auth.transport.requests import Request
 # --------- Page Setup ---------
 st.set_page_config(page_title="🚌 Bus Stop Survey", layout="wide")
 
-# --------- EXACT DASHBOARD THEME CSS ---------
+# --------- THEME CSS WITH GLOW EFFECT ---------
 st.markdown("""
     <style>
-    /* 1. Main Background - Deep Dark */
+    /* Main Background */
     .stApp {
         background-color: #050a05 !important;
         color: #39FF14 !important;
     }
 
-    /* 2. Headers and Labels - Neon Green */
+    /* Headers and Labels */
     h1, h2, h3, p, label {
         color: #39FF14 !important;
-        font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
+        font-family: 'Segoe UI', sans-serif !important;
         text-transform: uppercase;
-        letter-spacing: 1px;
     }
 
-    /* 3. Dropdown/Selectboxes - Dark with Green Border */
+    /* Radio Buttons Container */
+    div[role="radiogroup"] {
+        gap: 20px;
+        padding: 10px 0;
+    }
+
+    /* Base Button Style */
+    div[role="radiogroup"] label {
+        padding: 15px 35px !important;
+        border-radius: 10px !important; 
+        border: 2px solid #1c331c !important;
+        background-color: #0d110d !important;
+        transition: all 0.3s ease-in-out;
+        cursor: pointer;
+    }
+
+    /* YES GLOW - Green */
+    div[role="radiogroup"] label:has(input[value="Yes"]):has(input:checked) {
+        background-color: #39FF14 !important; 
+        border-color: #39FF14 !important;
+        box-shadow: 0 0 20px #39FF14, 0 0 40px #1c331c !important;
+    }
+    div[role="radiogroup"] label:has(input[value="Yes"]):has(input:checked) p {
+        color: #000000 !important;
+        font-weight: bold !important;
+    }
+
+    /* NO GLOW - Red */
+    div[role="radiogroup"] label:has(input[value="No"]):has(input:checked) {
+        background-color: #ff0000 !important; 
+        border-color: #ff0000 !important;
+        box-shadow: 0 0 20px #ff0000, 0 0 40px #4a0000 !important;
+    }
+    div[role="radiogroup"] label:has(input[value="No"]):has(input:checked) p {
+        color: #ffffff !important;
+        font-weight: bold !important;
+    }
+    
+    /* NA GLOW - Gray */
+    div[role="radiogroup"] label:has(input[value="NA"]):has(input:checked) {
+        background-color: #444444 !important; 
+        border-color: #888888 !important;
+        box-shadow: 0 0 15px #888888 !important;
+    }
+
+    /* Selectbox Styling */
     div[data-baseweb="select"] > div {
         background-color: #0d110d !important;
         border: 1px solid #1c331c !important;
-        color: #39FF14 !important;
-    }
-    
-    /* 4. YES / NO / NA BUTTONS - Full Color on Selection */
-    div[role="radiogroup"] {
-        gap: 15px;
-    }
-    div[role="radiogroup"] label {
-        padding: 12px 30px !important;
-        border-radius: 8px !important; 
-        border: 1px solid #1c331c !important;
-        background-color: #0d110d !important;
-        transition: all 0.2s ease-in-out;
-    }
-    
-    /* YES - Full Green when selected */
-    div[role="radiogroup"] label:has(input[value="Yes"]):has(input:checked) {
-        background-color: #008f11 !important; 
-        border-color: #39FF14 !important;
-    }
-    
-    /* NO - Full Red when selected */
-    div[role="radiogroup"] label:has(input[value="No"]):has(input:checked) {
-        background-color: #8b0000 !important; 
-        border-color: #ff0000 !important;
-    }
-    
-    /* NA - Full Gray when selected */
-    div[role="radiogroup"] label:has(input[value="NA"]):has(input:checked) {
-        background-color: #333333 !important; 
-        border-color: #999999 !important;
     }
 
-    /* Text color changes to white when button is "Filled" */
-    div[role="radiogroup"] label:has(input:checked) p {
-        color: #ffffff !important;
-    }
-
-    /* 5. BIG SUBMIT BUTTON - Large & Centered Style */
+    /* Big Submit Button */
     div.stButton > button:first-child {
         width: 100% !important;
-        height: 85px !important;
+        height: 70px !important;
         background-color: #0d110d !important;
         color: #39FF14 !important;
         border: 2px solid #39FF14 !important;
-        font-size: 26px !important;
+        font-size: 22px !important;
         font-weight: bold !important;
-        border-radius: 12px !important;
         text-transform: uppercase;
-        box-shadow: 0 0 5px #1c331c;
+        border-radius: 10px !important;
     }
-    
     div.stButton > button:first-child:hover {
         background-color: #39FF14 !important;
-        color: #000000 !important;
-        box-shadow: 0 0 25px #39FF14;
+        color: black !important;
+        box-shadow: 0 0 30px #39FF14 !important;
     }
 
-    /* Hide the radio dot circles */
+    /* Hide standard radio circles */
     div[role="radiogroup"] [data-testid="stWidgetSelectionVisualizer"] {
         display: none !important;
-    }
-    
-    /* 6. Info Boxes and Alerts */
-    .stAlert {
-        background-color: #0d110d !important;
-        border: 1px solid #1c331c !important;
-        color: #39FF14 !important;
-    }
-    
-    hr {
-        border-color: #1c331c !important;
     }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("🚌 BUS STOP SURVEY ENTRY")
+st.title("🚌 BUS STOP SURVEY")
 
-# --------- Google Drive Folder ID ---------
+# --------- Google Drive & Logic ---------
 FOLDER_ID = "1DjtLxgyQXwgjq_N6I_-rtYcBcnWhzMGp"
-
-# --------- OAuth Setup ---------
 SCOPES = ["https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/spreadsheets"]
 CLIENT_SECRETS_FILE = "client_secrets2.json"
 
@@ -192,29 +185,15 @@ allowed_stops = [
 allowed_stops.sort()
 
 staff_dict = {
-"10005475": "MOHD RIZAL BIN RAMLI",
-"10020779": "NUR FAEZAH BINTI HARUN",
-"10014181": "NORAINSYIRAH BINTI ARIFFIN",
-"10022768": "NORAZHA RAFFIZZI ZORKORNAINI",
-"10022769": "NUR HANIM HANIL",
-"10023845": "MUHAMMAD HAMKA BIN ROSLIM",
-"10002059": "MUHAMAD NIZAM BIN IBRAHIM",
-"10005562": "AZFAR NASRI BIN BURHAN",
-"10010659": "MOHD SHAHFIEE BIN ABDULLAH",
-"10008350": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN",
-"10003214": "NIK MOHD FADIR BIN NIK MAT RAWI",
-"10016370": "AHMAD AZIM BIN ISA",
-"10022910": "NUR SHAHIDA BINTI MOHD TAMIJI ",
-"10023513": "MUHAMMAD SYAHMI BIN AZMEY",
-"10023273": "MOHD IDZHAM BIN ABU BAKAR",
-"10023577": "MOHAMAD NAIM MOHAMAD SAPRI",
-"10023853": "MUHAMAD IMRAN BIN MOHD NASRUDDIN",
-"10008842": "MIRAN NURSYAWALNI AMIR",
-"10015662": "MUHAMMAD HANIF BIN HASHIM",
-"10011944": "NUR HAZIRAH BINTI NAWI"
+    "8917": "MOHD RIZAL BIN RAMLI", "8918": "NUR FAEZAH BINTI HARUN", "8919": "NORAINSYIRAH BINTI ARIFFIN",
+    "8920": "NORAZHA RAFFIZZI ZORKORNAINI", "8921": "NUR HANIM HANIL", "8922": "MUHAMMAD HAMKA BIN ROSLIM",
+    "8923": "MUHAMAD NIZAM BIN IBRAHIM", "8924": "AZFAR NASRI BIN BURHAN", "8925": "MOHD SHAHFIEE BIN ABDULLAH",
+    "8926": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN", "8927": "NIK MOHD FADIR BIN NIK MAT RAWI", "8928": "AHMAD AZIM BIN ISA",
+    "8929": "NUR SHAHIDA BINTI MOHD TAMIJI", "8930": "MUHAMMAD SYAHMI BIN AZMEY", "8931": "MOHD IDZHAM BIN ABU BAKAR",
+    "8932": "MOHAMAD NAIM MOHAMAD SAPRI", "8933": "MUHAMAD IMRAN BIN MOHD NASRUDDIN", "8934": "MIRAN NURSYAWALNI AMIR",
+    "8935": "MUHAMMAD HANIF BIN HASHIM", "8936": "NUR HAZIRAH BINTI NAWI"
 }
 
-# --------- Session State ---------
 if "photos" not in st.session_state:
     st.session_state.photos = []
 
@@ -239,14 +218,11 @@ all_questions = questions_a + questions_b
 if "responses" not in st.session_state:
     st.session_state.responses = {q: None for q in all_questions}
 
-# --------- Staff ID ---------
-staff_id = st.selectbox("👤 STAFF ID", options=list(staff_dict.keys()), index=None, placeholder="Select ID...")
-staff_name = staff_dict[staff_id] if staff_id else ""
-if staff_id: st.success(f"NAME: {staff_name}")
+# --------- Main Form ---------
+staff_id = st.selectbox("👤 STAFF ID", options=list(staff_dict.keys()), index=None)
+if staff_id: st.info(f"NAME: {staff_dict[staff_id]}")
 
-# --------- Step 1: Select Bus Stop ---------
-stop = st.selectbox("📍 BUS STOP SELECTION", allowed_stops, index=None, placeholder="Search stop...")
-
+stop = st.selectbox("📍 BUS STOP", allowed_stops, index=None)
 current_route = ""
 current_depot = ""
 if stop:
@@ -255,52 +231,43 @@ if stop:
     current_route = " / ".join(map(str, matched_route_nums))
     matched_depot_names = routes_df[routes_df["Route Number"].isin(matched_route_nums)]["Depot"].unique()
     current_depot = " / ".join(map(str, matched_depot_names))
-    st.info(f"ROUTE: {current_route}  |  DEPOT: {current_depot}")
+    st.write(f"**Route:** {current_route} | **Depot:** {current_depot}")
 
-# --------- Survey Sections ---------
-st.markdown("### A. DRIVER BEHAVIOR")
+st.markdown("---")
+st.markdown("### A. KELAKUAN KAPTEN BAS")
 for i, q in enumerate(questions_a):
     st.write(f"**{q}**")
     options = ["Yes", "No", "NA"] if i >= 4 else ["Yes", "No"]
-    choice = st.radio(label=q, options=options, index=None, key=f"qa_{i}", horizontal=True, label_visibility="collapsed")
-    st.session_state.responses[q] = choice
-    st.write("---")
+    st.session_state.responses[q] = st.radio(label=q, options=options, index=None, key=f"qa_{i}", horizontal=True, label_visibility="collapsed")
 
-st.markdown("### B. INFRASTRUCTURE STATUS")
+st.markdown("---")
+st.markdown("### B. KEADAAN HENTIAN BAS")
 for i, q in enumerate(questions_b):
     st.write(f"**{q}**")
     options = ["Yes", "No", "NA"] if "NA" in q else ["Yes", "No"]
-    choice = st.radio(label=q, options=options, index=None, key=f"qb_{i}", horizontal=True, label_visibility="collapsed")
-    st.session_state.responses[q] = choice
-    st.write("---")
+    st.session_state.responses[q] = st.radio(label=q, options=options, index=None, key=f"qb_{i}", horizontal=True, label_visibility="collapsed")
 
-# --------- CAMERA & PHOTOS ---------
-st.markdown("### 6️⃣ DATA CAPTURE (3 PHOTOS)")
-
+st.markdown("---")
+st.markdown("### C. MEDIA")
 if len(st.session_state.photos) < 3:
-    col_cam, col_file = st.columns(2)
-    with col_cam:
-        cam_photo = st.camera_input(f"SCAN #{len(st.session_state.photos) + 1}")
-        if cam_photo:
-            st.session_state.photos.append(cam_photo); st.rerun()
-    with col_file:
-        up_photo = st.file_uploader(f"UPLOAD #{len(st.session_state.photos) + 1}", type=["png", "jpg", "jpeg"])
-        if up_photo:
-            st.session_state.photos.append(up_photo); st.rerun()
+    col1, col2 = st.columns(2)
+    with col1:
+        cam = st.camera_input(f"Capture {len(st.session_state.photos) + 1}")
+        if cam:
+            st.session_state.photos.append(cam); st.rerun()
+    with col2:
+        up = st.file_uploader(f"Upload {len(st.session_state.photos) + 1}", type=["png", "jpg", "jpeg"])
+        if up:
+            st.session_state.photos.append(up); st.rerun()
 else:
-    st.success("✅ IMAGERY CAPTURED.")
-    if st.button("🗑️ RESET IMAGES"):
+    st.success("3 Images captured.")
+    if st.button("Reset Photos"):
         st.session_state.photos = []; st.rerun()
 
-if st.session_state.photos:
-    cols = st.columns(3)
-    for i, p in enumerate(st.session_state.photos):
-        cols[i].image(p, caption=f"IMG_{i+1}", use_container_width=True)
-
 # --------- Submit ---------
-if st.button("✅ SUBMIT "):
+if st.button("SUBMIT SURVEY DATA"):
     if not staff_id or not stop or len(st.session_state.photos) != 3 or None in st.session_state.responses.values():
-        st.warning("⚠️ CRITICAL ERROR: REQUIRED FIELDS MISSING.")
+        st.error("INCOMPLETE DATA.")
     else:
         with st.spinner("TRANSMITTING..."):
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -310,14 +277,13 @@ if st.button("✅ SUBMIT "):
                 photo_links.append(link)
 
             answers = [st.session_state.responses[q] for q in all_questions]
-            row = [timestamp, staff_id, staff_name, current_depot, current_route, stop] + answers + ["; ".join(photo_links)]
+            row = [timestamp, staff_id, staff_dict[staff_id], current_depot, current_route, stop] + answers + ["; ".join(photo_links)]
             header = ["Timestamp", "Staff ID", "Staff Name", "Depot", "Route", "Bus Stop"] + all_questions + ["Photos"]
 
             sheet_id = find_or_create_gsheet("survey_responses", FOLDER_ID)
             append_row(sheet_id, row, header)
 
-            st.success("📡 DATA TRANSMISSION SUCCESSFUL.")
+            st.success("SUBMISSION SUCCESS.")
             st.session_state.photos = []
             st.session_state.responses = {q: None for q in all_questions}
-            time.sleep(2); st.rerun()
-
+            time.sleep(1); st.rerun()
