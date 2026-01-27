@@ -69,8 +69,8 @@ st.markdown("""
         overflow: visible !important;
         line-height: 1.2 !important;
         text-align: center !important;
-        color: #333333 !important; /* Dark Gray */
-        font-weight: 700 !important; /* Bold */
+        color: #444444 !important; /* Bold Dark Gray */
+        font-weight: 700 !important; 
     }
 
     /* Selected State (The White Slide) */
@@ -79,9 +79,9 @@ st.markdown("""
         box-shadow: 0px 4px 12px rgba(0,0,0,0.15) !important;
     }
 
-    /* Keep text dark even when selected */
+    /* Selected State Text */
     div[role="radiogroup"] label:has(input:checked) p {
-        color: #1D1D1F !important; 
+        color: #000000 !important; 
     }
 
     /* Main Submit Button Styling */
@@ -106,7 +106,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --------- Authentication & Drive Logic ---------
+# --------- Logic Functions ---------
 FOLDER_ID = "1DjtLxgyQXwgjq_N6I_-rtYcBcnWhzMGp"
 CLIENT_SECRETS_FILE = "client_secrets2.json"
 SCOPES = ["https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/spreadsheets"]
@@ -193,7 +193,8 @@ st.title("🚌 Bus Stop Survey")
 # Staff Section
 staff_id = st.selectbox("👤 Staff ID", options=list(staff_dict.keys()), index=None, placeholder="Pilih ID Staf...")
 if staff_id:
-    st.info(f"**Staff ID:** {staff_id} | **Staff Name:** {staff_dict[staff_id]}")
+    # UPDATED: Only show name in bold
+    st.info(f"**{staff_dict[staff_id]}**")
 
 # Bus Stop Section
 stop = st.selectbox("📍 Bus Stop", allowed_stops, index=None, placeholder="Pilih Hentian Bas...")
@@ -256,7 +257,7 @@ if st.session_state.photos:
     for idx, pic in enumerate(st.session_state.photos):
         img_cols[idx].image(pic, use_container_width=True)
 
-# Submit Logic - BALLOONS REMOVED
+# Submit Logic
 if st.button("Submit Survey"):
     if not staff_id or not stop or len(st.session_state.photos) != 3 or None in st.session_state.responses.values():
         st.error("Sila pastikan semua soalan dijawab dan 3 keping gambar disediakan.")
@@ -273,7 +274,6 @@ if st.button("Submit Survey"):
             gsheet_id = find_or_create_gsheet("survey_responses", FOLDER_ID)
             append_row(gsheet_id, row_data, header_data)
             
-            # Balloon animation removed as requested
             st.success("Tinjauan berjaya dihantar!")
             # Reset state
             st.session_state.photos = []
