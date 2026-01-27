@@ -1,5 +1,5 @@
 import streamlit as st
-import pandas as pd
+import pd as pd
 from datetime import datetime
 from io import BytesIO
 import mimetypes
@@ -17,9 +17,10 @@ from google.auth.transport.requests import Request
 st.set_page_config(page_title="🚌 Bus Stop Survey", layout="wide")
 st.title("Bus Stop Complaints Survey")
 
-# --------- Enhanced "iPhone Style" Pill Button CSS ---------
+# --------- Updated CSS for Bigger Submit Button & Pill Buttons ---------
 st.markdown("""
     <style>
+    /* 1. Pill Button Styling */
     div[role="radiogroup"] {
         display: flex;
         flex-direction: row;
@@ -62,13 +63,35 @@ st.markdown("""
     div[role="radiogroup"] [data-testid="stWidgetSelectionVisualizer"] {
         display: none !important;
     }
+
+    /* 2. BIGGER SUBMIT BUTTON STYLING */
+    div.stButton > button:first-child {
+        width: 100%;
+        height: 80px !important;
+        font-size: 28px !important;
+        font-weight: bold !important;
+        background-color: #28a745 !important;
+        color: white !important;
+        border-radius: 15px !important;
+        border: none !important;
+        transition: all 0.3s ease;
+        margin-top: 20px;
+    }
+    
+    div.stButton > button:first-child:hover {
+        background-color: #218838 !important;
+        transform: scale(1.02);
+    }
+    
+    /* Ensuring regular buttons (like Reset) stay normal size */
+    div.stButton > button:not(:first-child) {
+        font-size: 14px;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-# --------- Google Drive Folder ID ---------
+# --------- OAuth / Google Functions (Logic remains as you provided) ---------
 FOLDER_ID = "1DjtLxgyQXwgjq_N6I_-rtYcBcnWhzMGp"
-
-# --------- OAuth Setup ---------
 SCOPES = ["https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/spreadsheets"]
 CLIENT_SECRETS_FILE = "client_secrets2.json"
 
@@ -125,7 +148,7 @@ def append_row(sheet_id, row, header):
         sheet.values().update(spreadsheetId=sheet_id, range="A1", valueInputOption="RAW", body={"values": [header]}).execute()
     sheet.values().append(spreadsheetId=sheet_id, range="A1", valueInputOption="RAW", insertDataOption="INSERT_ROWS", body={"values": [row]}).execute()
 
-# --------- Load Excel ---------
+# --------- Load Data ---------
 routes_df = pd.read_excel("bus_data.xlsx", sheet_name="routes")
 stops_df = pd.read_excel("bus_data.xlsx", sheet_name="stops")
 
@@ -142,29 +165,16 @@ allowed_stops = [
 allowed_stops.sort()
 
 staff_dict = {
-"10005475": "MOHD RIZAL BIN RAMLI",
-"10020779": "NUR FAEZAH BINTI HARUN",
-"10014181": "NORAINSYIRAH BINTI ARIFFIN",
-"10022768": "NORAZHA RAFFIZZI ZORKORNAINI",
-"10022769": "NUR HANIM HANIL",
-"10023845": "MUHAMMAD HAMKA BIN ROSLIM",
-"10002059": "MUHAMAD NIZAM BIN IBRAHIM",
-"10005562": "AZFAR NASRI BIN BURHAN",
-"10010659": "MOHD SHAHFIEE BIN ABDULLAH",
-"10008350": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN",
-"10003214": "NIK MOHD FADIR BIN NIK MAT RAWI",
-"10016370": "AHMAD AZIM BIN ISA",
-"10022910": "NUR SHAHIDA BINTI MOHD TAMIJI ",
-"10023513": "MUHAMMAD SYAHMI BIN AZMEY",
-"10023273": "MOHD IDZHAM BIN ABU BAKAR",
-"10023577": "MOHAMAD NAIM MOHAMAD SAPRI",
-"10023853": "MUHAMAD IMRAN BIN MOHD NASRUDDIN",
-"10008842": "MIRAN NURSYAWALNI AMIR",
-"10015662": "MUHAMMAD HANIF BIN HASHIM",
-"10011944": "NUR HAZIRAH BINTI NAWI"
+    "8917": "MOHD RIZAL BIN RAMLI", "8918": "NUR FAEZAH BINTI HARUN", "8919": "NORAINSYIRAH BINTI ARIFFIN",
+    "8920": "NORAZHA RAFFIZZI ZORKORNAINI", "8921": "NUR HANIM HANIL", "8922": "MUHAMMAD HAMKA BIN ROSLIM",
+    "8923": "MUHAMAD NIZAM BIN IBRAHIM", "8924": "AZFAR NASRI BIN BURHAN", "8925": "MOHD SHAHFIEE BIN ABDULLAH",
+    "8926": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN", "8927": "NIK MOHD FADIR BIN NIK MAT RAWI", "8928": "AHMAD AZIM BIN ISA",
+    "8929": "NUR SHAHIDA BINTI MOHD TAMIJI", "8930": "MUHAMMAD SYAHMI BIN AZMEY", "8931": "MOHD IDZHAM BIN ABU BAKAR",
+    "8932": "MOHAMAD NAIM MOHAMAD SAPRI", "8933": "MUHAMAD IMRAN BIN MOHD NASRUDDIN", "8934": "MIRAN NURSYAWALNI AMIR",
+    "8935": "MUHAMMAD HANIF BIN HASHIM", "8936": "NUR HAZIRAH BINTI NAWI"
 }
 
-# --------- Session State ---------
+# --------- Session State Initialization ---------
 if "photos" not in st.session_state:
     st.session_state.photos = []
 
@@ -205,10 +215,10 @@ if stop:
     current_route = " / ".join(map(str, matched_route_nums))
     matched_depot_names = routes_df[routes_df["Route Number"].isin(matched_route_nums)]["Depot"].unique()
     current_depot = " / ".join(map(str, matched_depot_names))
-    st.info(f"📍 **Route Number:** {current_route}  \n🏢 **Depot:** {current_depot}")
+    st.info(f"📍 **Route Number:** {current_route} \n🏢 **Depot:** {current_depot}")
 
 # --------- Survey Sections ---------
-st.markdown("### 2️⃣ A. KELAKUAN KAPTEN BAS")
+st.markdown("### 4️⃣ A. KELAKUAN KAPTEN BAS")
 for i, q in enumerate(questions_a):
     st.write(f"**{q}**")
     options = ["Yes", "No", "NA"] if i >= 4 else ["Yes", "No"]
@@ -216,47 +226,40 @@ for i, q in enumerate(questions_a):
     st.session_state.responses[q] = choice
     st.write("---")
 
-st.markdown("### 3️⃣ B. KEADAAN HENTIAN BAS")
+st.markdown("### 5️⃣ B. KEADAAN HENTIAN BAS")
 for i, q in enumerate(questions_b):
     st.write(f"**{q}**")
-    options = ["Yes", "No", "NA"] if q in ["17. Penumpang beri isyarat menahan? (NA jika tiada)", "18. Penumpang leka/tidak peka? (NA jika tiada)"] else ["Yes", "No"]
+    # Specific logic for NA options
+    is_na_question = q in ["17. Penumpang beri isyarat menahan? (NA jika tiada)", "18. Penumpang leka/tidak peka? (NA jika tiada)"]
+    options = ["Yes", "No", "NA"] if is_na_question else ["Yes", "No"]
     choice = st.radio(label=q, options=options, index=None, key=f"qb_{i}", horizontal=True, label_visibility="collapsed")
     st.session_state.responses[q] = choice
     st.write("---")
 
 # --------- CAMERA & UPLOAD PHOTOS SECTION ---------
-st.markdown("### 4️⃣ Photos (Exactly 3 Photos Required)")
+st.markdown("### 6️⃣ Photos (Exactly 3 Photos Required)")
 
-# Display current photo count and a clear list
 if len(st.session_state.photos) < 3:
     col_cam, col_file = st.columns(2)
-    
     with col_cam:
-        # Camera Input
         cam_photo = st.camera_input(f"📷 Take Photo #{len(st.session_state.photos) + 1}")
         if cam_photo:
-            st.session_state.photos.append(cam_photo)
-            st.rerun()
-
+            st.session_state.photos.append(cam_photo); st.rerun()
     with col_file:
-        # File Uploader
         up_photo = st.file_uploader(f"📁 Upload Photo #{len(st.session_state.photos) + 1}", type=["png", "jpg", "jpeg"])
         if up_photo:
-            st.session_state.photos.append(up_photo)
-            st.rerun()
+            st.session_state.photos.append(up_photo); st.rerun()
 else:
     st.success("✅ 3 Photos Captured/Uploaded.")
     if st.button("🗑️ Reset Photos"):
-        st.session_state.photos = []
-        st.rerun()
+        st.session_state.photos = []; st.rerun()
 
-# Image Preview Logic
 if st.session_state.photos:
     cols = st.columns(3)
     for i, p in enumerate(st.session_state.photos):
         cols[i].image(p, caption=f"Photo {i+1}", use_container_width=True)
 
-# --------- Submit ---------
+# --------- Submit (The Big Button) ---------
 if st.button("✅ Submit Survey"):
     if not staff_id:
         st.warning("Sila pilih Staff ID.")
@@ -284,7 +287,4 @@ if st.button("✅ Submit Survey"):
             st.success("✅ Submission successful!")
             st.session_state.photos = []
             st.session_state.responses = {q: None for q in all_questions}
-            time.sleep(2)
-            st.rerun()
-
-
+            time.sleep(2); st.rerun()
