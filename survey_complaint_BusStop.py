@@ -26,25 +26,19 @@ st.markdown("""
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
     }
 
-    /* Column Container for 2-column layout */
-    .question-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 30px;
-        margin-bottom: 20px;
-    }
-
     /* iOS Segmented Control Style */
     div[role="radiogroup"] {
         background-color: #E3E3E8 !important; 
-        padding: 4px !important;
+        padding: 5px !important;
         border-radius: 12px !important;
-        gap: 4px !important;
+        gap: 6px !important;
         display: flex !important;
         flex-direction: row !important;
         align-items: center !important;
-        margin-top: 12px !important; /* Spacing below the question */
-        max-width: 300px; /* Limits width so buttons don't stretch too far */
+        margin-top: 6px !important; /* Moved higher below the question */
+        margin-bottom: 20px !important; 
+        max-width: 320px; /* Slightly larger gray box */
+        min-height: 48px !important;
     }
 
     /* Hide standard radio circles */
@@ -57,7 +51,7 @@ st.markdown("""
         background-color: transparent !important;
         border: none !important;
         padding: 8px 0px !important; 
-        border-radius: 9px !important;
+        border-radius: 10px !important;
         transition: all 0.2s ease-in-out !important;
         flex: 1 !important;
         display: flex !important;
@@ -68,12 +62,13 @@ st.markdown("""
 
     /* Standardizing text inside Yes/No */
     div[role="radiogroup"] label p {
-        font-size: 14px !important;
+        font-size: 15px !important;
         margin: 0 !important;
-        padding: 0 10px !important;
-        white-space: nowrap !important; /* Fixes "Ye s" issue */
+        padding: 0 15px !important;
+        white-space: nowrap !important; /* Prevents text breaking */
         overflow: visible !important;
-        line-height: 1.4 !important;
+        line-height: 1.2 !important;
+        text-align: center !important;
     }
 
     /* Selected State (The White Slide) */
@@ -87,24 +82,24 @@ st.markdown("""
     div[role="radiogroup"] label:has(input[value="No"]):has(input:checked) p { color: #FF3B30 !important; font-weight: 600 !important; }
     div[role="radiogroup"] label:has(input[value="NA"]):has(input:checked) p { color: #8E8E93 !important; font-weight: 600 !important; }
 
-    /* Button Styling */
+    /* Main Submit Button */
     div.stButton > button {
         width: 100% !important;
         background-color: #007AFF !important;
         color: white !important;
         border: none !important;
-        height: 50px !important;
+        height: 55px !important;
         font-weight: 600 !important;
-        border-radius: 14px !important;
+        border-radius: 15px !important;
+        font-size: 17px !important;
     }
     
-    /* Input formatting */
-    .stSelectbox label p { font-weight: 600 !important; font-size: 16px !important; }
+    /* Selection labels */
+    .stSelectbox label p { font-weight: 600 !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# --------- Authentication & Logic Functions ---------
-# (Retaining your original functional logic)
+# --------- Logic Functions ---------
 FOLDER_ID = "1DjtLxgyQXwgjq_N6I_-rtYcBcnWhzMGp"
 CLIENT_SECRETS_FILE = "client_secrets2.json"
 SCOPES = ["https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/spreadsheets"]
@@ -136,7 +131,7 @@ def get_authenticated_service():
         creds = flow.credentials; save_credentials(creds)
     else:
         auth_url, _ = flow.authorization_url(prompt="consent")
-        st.markdown(f"### Authentication Required\n[Please click here to log in with Google]({auth_url})"); st.stop()
+        st.markdown(f"### Authentication Required\n[Please log in with Google]({auth_url})"); st.stop()
     return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
 
 drive_service, sheets_service = get_authenticated_service()
@@ -162,7 +157,7 @@ def append_row(sheet_id, row, header):
         sheet.values().update(spreadsheetId=sheet_id, range="A1", valueInputOption="RAW", body={"values": [header]}).execute()
     sheet.values().append(spreadsheetId=sheet_id, range="A1", valueInputOption="RAW", insertDataOption="INSERT_ROWS", body={"values": [row]}).execute()
 
-# --------- Data Preparation ---------
+# --------- Data Loading ---------
 routes_df = pd.read_excel("bus_data.xlsx", sheet_name="routes")
 stops_df = pd.read_excel("bus_data.xlsx", sheet_name="stops")
 
@@ -185,14 +180,15 @@ questions_b = ["7. Hentian terlindung dari pandangan BC?", "8. Hentian terhalang
 all_questions = questions_a + questions_b
 if "responses" not in st.session_state: st.session_state.responses = {q: None for q in all_questions}
 
-# --------- Main App UI ---------
+# --------- Main UI ---------
 st.title("🚌 Bus Stop Survey")
 
-col_left, col_right = st.columns(2)
-with col_left:
-    staff_id = st.selectbox("👤 Staff ID", options=list(staff_dict.keys()), index=None)
-with col_right:
-    stop = st.selectbox("📍 Bus Stop", allowed_stops, index=None)
+# Staff & Stop Selection (List Layout)
+staff_id = st.selectbox("👤 Staff ID", options=list(staff_dict.keys()), index=None, placeholder="Select ID...")
+if staff_id:
+    st.markdown(f"**Staff Name:** {staff_dict[staff_id]}")
+
+stop = st.selectbox("📍 Bus Stop", allowed_stops, index=None, placeholder="Select Bus Stop...")
 
 current_route, current_depot = "", ""
 if stop:
@@ -203,76 +199,62 @@ if stop:
 
 st.divider()
 
-def render_question_row(question_list, start_idx):
-    """Renders questions in a 1. 2. grid format"""
-    for i in range(0, len(question_list), 2):
+def render_grid_questions(q_list):
+    """Renders questions in 2 columns: 1. 2. / 3. 4. etc."""
+    for i in range(0, len(q_list), 2):
         col1, col2 = st.columns(2)
-        
-        # Question 1 (Left Column)
         with col1:
-            q1 = question_list[i]
-            st.markdown(f"**{q1}**")
-            opts1 = ["Yes", "No", "NA"] if "NA" in q1 else ["Yes", "No"]
-            st.session_state.responses[q1] = st.radio(label=q1, options=opts1, index=None, key=f"r_{q1}", horizontal=True, label_visibility="collapsed")
+            q = q_list[i]
+            st.markdown(f"**{q}**")
+            opts = ["Yes", "No", "NA"] if "NA" in q else ["Yes", "No"]
+            st.session_state.responses[q] = st.radio(label=q, options=opts, index=None, key=f"r_{q}", horizontal=True, label_visibility="collapsed")
         
-        # Question 2 (Right Column)
-        if i + 1 < len(question_list):
+        if i + 1 < len(q_list):
             with col2:
-                q2 = question_list[i+1]
-                st.markdown(f"**{q2}**")
-                opts2 = ["Yes", "No", "NA"] if "NA" in q2 else ["Yes", "No"]
-                st.session_state.responses[q2] = st.radio(label=q2, options=opts2, index=None, key=f"r_{q2}", horizontal=True, label_visibility="collapsed")
-        st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
+                q = q_list[i+1]
+                st.markdown(f"**{q}**")
+                opts = ["Yes", "No", "NA"] if "NA" in q else ["Yes", "No"]
+                st.session_state.responses[q] = st.radio(label=q, options=opts, index=None, key=f"r_{q}", horizontal=True, label_visibility="collapsed")
 
 st.subheader("A. KELAKUAN KAPTEN BAS")
-render_question_row(questions_a, 0)
+render_grid_questions(questions_a)
 
 st.divider()
 
 st.subheader("B. KEADAAN HENTIAN BAS")
-render_question_row(questions_b, 6)
+render_grid_questions(questions_b)
 
 st.divider()
 
-# --------- Camera Section ---------
+# --------- Camera & Submit ---------
 st.subheader("📸 Evidence (3 Photos)")
 if len(st.session_state.photos) < 3:
     c1, c2 = st.columns(2)
     with c1:
-        cam = st.camera_input(f"Take Photo #{len(st.session_state.photos)+1}")
+        cam = st.camera_input(f"Photo #{len(st.session_state.photos)+1}")
         if cam: 
-            st.session_state.photos.append(cam)
-            st.rerun()
+            st.session_state.photos.append(cam); st.rerun()
     with c2:
-        up = st.file_uploader(f"Upload Photo #{len(st.session_state.photos)+1}", type=["jpg", "jpeg", "png"])
+        up = st.file_uploader(f"Upload #{len(st.session_state.photos)+1}", type=["jpg", "png"])
         if up: 
-            st.session_state.photos.append(up)
-            st.rerun()
+            st.session_state.photos.append(up); st.rerun()
 else:
     st.success("3 Photos captured.")
-    if st.button("Reset Photos"):
-        st.session_state.photos = []
-        st.rerun()
+    if st.button("Reset Photos"): st.session_state.photos = []; st.rerun()
 
 if st.session_state.photos:
-    cols = st.columns(3)
+    p_cols = st.columns(3)
     for idx, img in enumerate(st.session_state.photos):
-        cols[idx].image(img, use_container_width=True)
+        p_cols[idx].image(img, use_container_width=True)
 
-# --------- Submit ---------
 if st.button("Submit Survey"):
     if not staff_id or not stop or len(st.session_state.photos) != 3 or None in st.session_state.responses.values():
-        st.error("Please fill all fields and provide 3 photos.")
+        st.error("Please ensure all questions are answered and 3 photos are provided.")
     else:
-        with st.spinner("Uploading to Google Drive..."):
+        with st.spinner("Uploading..."):
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             links = [gdrive_upload_file(p.getvalue(), f"{timestamp}_{idx}.jpg", "image/jpeg", FOLDER_ID) for idx, p in enumerate(st.session_state.photos)]
             row = [timestamp, staff_id, staff_dict[staff_id], current_depot, current_route, stop] + [st.session_state.responses[q] for q in all_questions] + ["; ".join(links)]
-            header = ["Timestamp", "Staff ID", "Staff Name", "Depot", "Route", "Bus Stop"] + all_questions + ["Photos"]
-            append_row(find_or_create_gsheet("survey_responses", FOLDER_ID), row, header)
-            st.balloons()
-            st.success("Submitted successfully!")
-            st.session_state.photos = []
-            st.session_state.responses = {q: None for q in all_questions}
-            time.sleep(2)
-            st.rerun()
+            append_row(find_or_create_gsheet("survey_responses", FOLDER_ID), row, ["Timestamp", "Staff ID", "Staff Name", "Depot", "Route", "Bus Stop"] + all_questions + ["Photos"])
+            st.balloons(); st.success("Submitted!"); st.session_state.photos = []; st.session_state.responses = {q: None for q in all_questions}
+            time.sleep(2); st.rerun()
