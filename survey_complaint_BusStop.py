@@ -144,32 +144,16 @@ allowed_stops.sort()
 
 # --------- Staff List Dictionary ---------
 staff_dict = {
-    "10005475": "MOHD RIZAL BIN RAMLI",
-    "10020779": "NUR FAEZAH BINTI HARUN",
-    "10014181": "NORAINSYIRAH BINTI ARIFFIN",
-    "10022768": "NORAZHA RAFFIZZI ZORKORNAINI",
-    "10022769": "NUR HANIM HANIL",
-    "10023845": "MUHAMMAD HAMKA BIN ROSLIM",
-    "10002059": "MUHAMAD NIZAM BIN IBRAHIM",
-    "10005562": "AZFAR NASRI BIN BURHAN",
-    "10010659": "MOHD SHAHFIEE BIN ABDULLAH",
-    "10008350": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN",
-    "10003214": "NIK MOHD FADIR BIN NIK MAT RAWI",
-    "10016370": "AHMAD AZIM BIN ISA",
-    "10022910": "NUR SHAHIDA BINTI MOHD TAMIJI",
-    "10023513": "MUHAMMAD SYAHMI BIN AZMEY",
-    "10023273": "MOHD IDZHAM BIN ABU BAKAR",
-    "10023577": "MOHAMAD NAIM MOHAMAD SAPRI",
-    "10023853": "MUHAMAD IMRAN BIN MOHD NASRUDDIN",
-    "10008842": "MIRAN NURSYAWALNI AMIR",
-    "10015662": "MUHAMMAD HANIF BIN HASHIM",
-    "10011944": "NUR HAZIRAH BINTI NAWI"
+    "8917": "MOHD RIZAL BIN RAMLI", "8918": "NUR FAEZAH BINTI HARUN", "8919": "NORAINSYIRAH BINTI ARIFFIN",
+    "8920": "NORAZHA RAFFIZZI ZORKORNAINI", "8921": "NUR HANIM HANIL", "8922": "MUHAMMAD HAMKA BIN ROSLIM",
+    "8923": "MUHAMAD NIZAM BIN IBRAHIM", "8924": "AZFAR NASRI BIN BURHAN", "8925": "MOHD SHAHFIEE BIN ABDULLAH",
+    "8926": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN", "8927": "NIK MOHD FADIR BIN NIK MAT RAWI", "8928": "AHMAD AZIM BIN ISA",
+    "8929": "NUR SHAHIDA BINTI MOHD TAMIJI", "8930": "MUHAMMAD SYAHMI BIN AZMEY", "8931": "MOHD IDZHAM BIN ABU BAKAR",
+    "8932": "MOHAMAD NAIM MOHAMAD SAPRI", "8933": "MUHAMAD IMRAN BIN MOHD NASRUDDIN", "8934": "MIRAN NURSYAWALNI AMIR",
+    "8935": "MUHAMMAD HANIF BIN HASHIM", "8936": "NUR HAZIRAH BINTI NAWI"
 }
 
 # --------- Session State ---------
-if "photos" not in st.session_state:
-    st.session_state.photos = []
-
 questions_a = [
     "1. BC menggunakan telefon bimbit?", "2. BC memperlahankan/memberhentikan bas?",
     "3. BC memandu di lorong 1 (kiri)?", "4. Bas penuh dengan penumpang?",
@@ -191,15 +175,8 @@ all_questions = questions_a + questions_b
 if "responses" not in st.session_state:
     st.session_state.responses = {q: None for q in all_questions}
 
-# --------- Flexible Staff ID Input ---------
-staff_id = st.selectbox(
-    "👤 Staff ID", 
-    options=list(staff_dict.keys()), 
-    index=None, 
-    placeholder="Select Staff ID..."
-)
-
-# Auto-appear Name
+# --------- Staff ID Input ---------
+staff_id = st.selectbox("👤 Staff ID", options=list(staff_dict.keys()), index=None, placeholder="Select Staff ID...")
 staff_name = ""
 if staff_id:
     staff_name = staff_dict[staff_id]
@@ -211,7 +188,6 @@ stop = st.selectbox("1️⃣ Bus Stop", allowed_stops, index=None, placeholder="
 # --------- Step 2: Auto-detect Depot and Route ---------
 current_route = ""
 current_depot = ""
-
 if stop:
     matched_stop_data = stops_df[stops_df["Stop Name"] == stop]
     matched_route_nums = matched_stop_data["Route Number"].unique()
@@ -237,15 +213,17 @@ for i, q in enumerate(questions_b):
     st.session_state.responses[q] = choice
     st.write("---")
 
-# --------- Photos ---------
-st.markdown("### 6️⃣ Photos (min 1, max 5)")
-photo = st.file_uploader("Upload Photo", type=["jpg", "png", "jpeg"])
-if photo and len(st.session_state.photos) < 5:
-    st.session_state.photos.append(photo)
+# --------- Photo Upload (STRICTLY 3) ---------
+st.markdown("### 6️⃣ Photos (MUST upload exactly 3)")
+uploaded_files = st.file_uploader("Take Photo or Choose from Gallery", type=["jpg", "png", "jpeg"], accept_multiple_files=True)
 
-cols = st.columns(5)
-for i, p in enumerate(st.session_state.photos):
-    cols[i].image(p, caption=f"Photo {i+1}")
+if uploaded_files:
+    if len(uploaded_files) != 3:
+        st.error(f"⚠️ You have selected {len(uploaded_files)} photos. Please select **EXACTLY 3** photos.")
+    else:
+        cols = st.columns(3)
+        for i, file in enumerate(uploaded_files):
+            cols[i].image(file, caption=f"Photo {i+1}", use_container_width=True)
 
 # --------- Submit ---------
 if st.button("✅ Submit Survey"):
@@ -253,26 +231,26 @@ if st.button("✅ Submit Survey"):
         st.warning("Sila pilih Staff ID.")
     elif not stop:
         st.warning("Sila pilih Hentian Bas.")
-    elif not st.session_state.photos:
-        st.warning("At least one photo required.")
+    elif not uploaded_files or len(uploaded_files) != 3:
+        st.warning("Sila muat naik TEPAT 3 keping gambar.")
     elif None in st.session_state.responses.values():
         st.warning("Sila lengkapkan semua soalan.")
     else:
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        photo_links = []
-        for i, img in enumerate(st.session_state.photos):
-            link = gdrive_upload_file(img.getvalue(), f"{timestamp}_{i}.jpg", "image/jpeg", FOLDER_ID)
-            photo_links.append(link)
+        with st.spinner("Uploading to Google Drive..."):
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            photo_links = []
+            for i, img in enumerate(uploaded_files):
+                link = gdrive_upload_file(img.getvalue(), f"{timestamp}_{i}.jpg", "image/jpeg", FOLDER_ID)
+                photo_links.append(link)
 
-        answers = [st.session_state.responses[q] for q in all_questions]
-        # Added staff_name to the row
-        row = [timestamp, staff_id, staff_name, current_depot, current_route, stop] + answers + ["; ".join(photo_links)]
-        header = ["Timestamp", "Staff ID", "Staff Name", "Depot", "Route", "Bus Stop"] + all_questions + ["Photos"]
+            answers = [st.session_state.responses[q] for q in all_questions]
+            row = [timestamp, staff_id, staff_name, current_depot, current_route, stop] + answers + ["; ".join(photo_links)]
+            header = ["Timestamp", "Staff ID", "Staff Name", "Depot", "Route", "Bus Stop"] + all_questions + ["Photos"]
 
-        sheet_id = find_or_create_gsheet("survey_responses", FOLDER_ID)
-        append_row(sheet_id, row, header)
+            sheet_id = find_or_create_gsheet("survey_responses", FOLDER_ID)
+            append_row(sheet_id, row, header)
 
-        st.success("✅ Submission successful!")
-        st.session_state.photos = []
-        st.session_state.responses = {q: None for q in all_questions}
-        st.rerun()
+            st.success("✅ Submission successful!")
+            time.sleep(2)
+            st.session_state.responses = {q: None for q in all_questions}
+            st.rerun()
