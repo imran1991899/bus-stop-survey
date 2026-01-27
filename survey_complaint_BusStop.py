@@ -2,10 +2,12 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from io import BytesIO
+import mimetypes
 import time
 import os
 import pickle
 from urllib.parse import urlencode
+
 from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
@@ -15,20 +17,61 @@ from google.auth.transport.requests import Request
 st.set_page_config(page_title="🚌 Bus Stop Survey", layout="wide")
 st.title("Bus Stop Complaints Survey")
 
-# --------- 1. DEFINE DATA FIRST (Fixes NameError) ---------
-# This must be defined BEFORE the selectbox is called
-allowed_stops = [
-    "AJ106 LRT AMPANG", "DAMANSARA INTAN", "ECOSKY RESIDENCE", "FAKULTI KEJURUTERAAN (UTARA)",
-    "FAKULTI PERNIAGAAN DAN PERAKAUNAN", "FAKULTI UNDANG-UNDANG", "KILANG PLASTIK EKSPEDISI EMAS (OPP)",
-    "KJ477 UTAR", "KJ560 SHELL SG LONG (OPP)", "KL107 LRT MASJID JAMEK", "KL1082 SK Methodist",
-    "KL117 BSN LEBUH AMPANG", "KL1217 ILP KUALA LUMPUR", "KL2247 KOMERSIAL KIP", "KL377 WISMA SISTEM",
-    "KOMERSIAL BURHANUDDIN (2)", "MASJID CYBERJAYA 10", "MRT SRI DELIMA PINTU C", "PERUMAHAN TTDI",
-    "PJ312 Medan Selera Seksyen 19", "PJ476 MASJID SULTAN ABDUL AZIZ", "PJ721 ONE UTAMA NEW WING",
-    "PPJ384 AURA RESIDENCE", "SA12 APARTMENT BAIDURI (OPP)", "SA26 PERUMAHAN SEKSYEN 11",
-    "SCLAND EMPORIS", "SJ602 BANDAR BUKIT PUCHONG BP1", "SMK SERI HARTAMAS", "SMK SULTAN ABD SAMAD (TIMUR)"
-]
-allowed_stops.sort()
+# --------- Enhanced "iPhone Style" Pill Button CSS ---------
+st.markdown("""
+    <style>
+    div[role="radiogroup"] {
+        display: flex;
+        flex-direction: row;
+        gap: 20,px;
+        background-color: transparent !important;
+    }
+    div[role="radiogroup"] label {
+        padding: 10px 25px !important;
+        border-radius: 50px !important; 
+        border: 2px solid #d1d1d6 !important;
+        background-color: white !important;
+        transition: all 0.3s ease;
+    }
+    div[role="radiogroup"] label div[data-testid="stMarkdownContainer"] p {
+        color: #333 !important;
+        font-weight: bold !important;
+        font-size: 16px !important;
+    }
+    div[role="radiogroup"] label:has(input[value="Yes"]):has(input:checked) {
+        background-color: #28a745 !important; 
+        border-color: #28a745 !important;
+    }
+    div[role="radiogroup"] label:has(input[value="Yes"]):has(input:checked) p {
+        color: white !important;
+    }
+    div[role="radiogroup"] label:has(input[value="No"]):has(input:checked) {
+        background-color: #dc3545 !important; 
+        border-color: #dc3545 !important;
+    }
+    div[role="radiogroup"] label:has(input[value="No"]):has(input:checked) p {
+        color: white !important;
+    }
+    div[role="radiogroup"] label:has(input[value="NA"]):has(input:checked) {
+        background-color: #6c757d !important;
+        border-color: #6c757d !important;
+    }
+    div[role="radiogroup"] label:has(input[value="NA"]):has(input:checked) p {
+        color: white !important;
+    }
+    div[role="radiogroup"] [data-testid="stWidgetSelectionVisualizer"] {
+        display: none !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
+# --------- Google Drive & OAuth Logic ---------
+# [Assuming your existing authentication and upload functions remain unchanged]
+
+# --------- Load Excel Data ---------
+# [Assuming routes_df and stops_df are loaded as per your previous code]
+
+# --------- Staff List Dictionary ---------
 staff_dict = {
     "8917": "MOHD RIZAL BIN RAMLI", "8918": "NUR FAEZAH BINTI HARUN", "8919": "NORAINSYIRAH BINTI ARIFFIN",
     "8920": "NORAZHA RAFFIZZI ZORKORNAINI", "8921": "NUR HANIM HANIL", "8922": "MUHAMMAD HAMKA BIN ROSLIM",
@@ -38,6 +81,15 @@ staff_dict = {
     "8932": "MOHAMAD NAIM MOHAMAD SAPRI", "8933": "MUHAMAD IMRAN BIN MOHD NASRUDDIN", "8934": "MIRAN NURSYAWALNI AMIR",
     "8935": "MUHAMMAD HANIF BIN HASHIM", "8936": "NUR HAZIRAH BINTI NAWI"
 }
+
+# --------- Session State Management ---------
+# Initialize photo list
+if "photos" not in st.session_state:
+    st.session_state.photos = []
+
+# Initialize Staff ID persistence
+if "saved_staff_id" not in st.session_state:
+    st.session_state.saved_staff_id = None
 
 questions_a = [
     "1. BC menggunakan telefon bimbit?", "2. BC memperlahankan/memberhentikan bas?",
@@ -54,74 +106,94 @@ questions_b = [
     "18. Penumpang leka/tidak peka? (NA jika tiada)", "19. Penumpang tiba lewat?",
     "20. Penumpang menunggu di luar kawasan hentian?"
 ]
+
 all_questions = questions_a + questions_b
 
-# --------- 2. SESSION STATE (Persistence Logic) ---------
-if "photos" not in st.session_state:
-    st.session_state.photos = []
-
-# This keeps the Staff ID even after reset
-if "persistent_staff_id" not in st.session_state:
-    st.session_state.persistent_staff_id = None
-
+# Initialize responses
 if "responses" not in st.session_state:
     st.session_state.responses = {q: None for q in all_questions}
 
-# --------- 3. UI: STAFF SELECTION ---------
+# --------- Staff ID (Maintained) ---------
+# We use st.session_state.saved_staff_id to set the index of the selectbox
 staff_options = list(staff_dict.keys())
-# Find the index of the previously selected ID so it stays selected
-try:
-    current_index = staff_options.index(st.session_state.persistent_staff_id)
-except ValueError:
-    current_index = None
+default_index = staff_options.index(st.session_state.saved_staff_id) if st.session_state.saved_staff_id in staff_options else None
 
-staff_id = st.selectbox(
+selected_staff = st.selectbox(
     "👤 Staff ID", 
     options=staff_options, 
-    index=current_index, 
+    index=default_index, 
     placeholder="Select Staff ID..."
 )
 
-# Save the selection to session state immediately
-st.session_state.persistent_staff_id = staff_id
+# Update the saved ID whenever the user changes it
+st.session_state.saved_staff_id = selected_staff
 
-if staff_id:
-    st.success(f"👤 **Staff Name:** {staff_dict[staff_id]}")
+staff_name = staff_dict[selected_staff] if selected_staff else ""
+if selected_staff: 
+    st.success(f"👤 **Staff Name:** {staff_name}")
 
-# --------- 4. SURVEY FORM ---------
-# Resetting the 'stop' selectbox to index=None is handled by st.rerun() after submission
+# --------- Step 1: Select Bus Stop ---------
+# We don't maintain the stop, so it resets to default
 stop = st.selectbox("1️⃣ Bus Stop", allowed_stops, index=None, placeholder="Pilih hentian bas...")
 
-# [Insert your Radio Buttons for Questions A & B here using st.session_state.responses]
+# [Depot and Route detection logic here...]
 
-# --------- 5. CAMERA & UPLOAD (3 Photos) ---------
-st.markdown("### 6️⃣ Photos (Exactly 3 Required)")
+# --------- Survey Sections ---------
+# Note: Using st.session_state.responses[q] to control radio indices for reset
+for i, q in enumerate(questions_a):
+    st.write(f"**{q}**")
+    opts = ["Yes", "No", "NA"] if i >= 4 else ["Yes", "No"]
+    
+    # Logic to find index based on saved response (helps with the reset)
+    current_val = st.session_state.responses.get(q)
+    idx = opts.index(current_val) if current_val in opts else None
+    
+    choice = st.radio(label=q, options=opts, index=idx, key=f"qa_{i}", horizontal=True, label_visibility="collapsed")
+    st.session_state.responses[q] = choice
+    st.write("---")
+
+# [Repeat similar radio logic for questions_b...]
+
+# --------- Photos (Reset logic integrated) ---------
+st.markdown("### 6️⃣ Photos (Exactly 3 Photos Required)")
+
 if len(st.session_state.photos) < 3:
-    c1, c2 = st.columns(2)
-    with c1:
-        cam = st.camera_input(f"📷 Take Photo #{len(st.session_state.photos) + 1}")
-        if cam:
-            st.session_state.photos.append(cam)
+    col_cam, col_file = st.columns(2)
+    with col_cam:
+        cam_p = st.camera_input(f"📷 Take Photo #{len(st.session_state.photos) + 1}")
+        if cam_p:
+            st.session_state.photos.append(cam_p)
             st.rerun()
-    with c2:
-        up = st.file_uploader(f"📁 Upload Photo #{len(st.session_state.photos) + 1}", type=["jpg", "png"])
-        if up:
-            st.session_state.photos.append(up)
+    with col_file:
+        up_p = st.file_uploader(f"📁 Upload Photo #{len(st.session_state.photos) + 1}", type=["png", "jpg", "jpeg"])
+        if up_p:
+            st.session_state.photos.append(up_p)
             st.rerun()
+else:
+    st.success("✅ 3 Photos Ready")
+    if st.button("🗑️ Clear Photos"):
+        st.session_state.photos = []
+        st.rerun()
 
-# --------- 6. SUBMIT & RESET FUNCTION ---------
+# --------- Submit Logic ---------
 if st.button("✅ Submit Survey"):
-    if not staff_id or not stop or len(st.session_state.photos) != 3:
-        st.warning("Please complete all fields and 3 photos.")
+    if not selected_staff:
+        st.warning("Sila pilih Staff ID.")
+    elif len(st.session_state.photos) != 3:
+        st.warning("Sila ambil tepat 3 keping gambar.")
+    elif None in st.session_state.responses.values():
+        st.warning("Sila lengkapkan semua soalan.")
     else:
-        with st.spinner("Uploading..."):
-            # ... [Your GDrive upload and Sheets logic here] ...
+        with st.spinner("Submitting..."):
+            # [Upload to GDrive and Append to Sheets Logic...]
             
-            # THE RESET:
-            # We clear photos and responses, but DO NOT touch st.session_state.persistent_staff_id
+            # --- THE RESET FUNCTION ---
+            # 1. Clear the photo list
             st.session_state.photos = []
+            # 2. Reset all survey answers to None
             st.session_state.responses = {q: None for q in all_questions}
+            # Note: We DO NOT clear st.session_state.saved_staff_id
             
-            st.success("✅ Submitted! Questions reset, Staff ID maintained.")
+            st.success("✅ Data Sent! Questions have been reset. Staff ID maintained.")
             time.sleep(2)
-            st.rerun() # This refreshes the page with the staff ID still there
+            st.rerun()
