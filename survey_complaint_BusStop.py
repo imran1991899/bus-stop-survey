@@ -125,16 +125,45 @@ def append_row(sheet_id, row, header):
         sheet.values().update(spreadsheetId=sheet_id, range="A1", valueInputOption="RAW", body={"values": [header]}).execute()
     sheet.values().append(spreadsheetId=sheet_id, range="A1", valueInputOption="RAW", insertDataOption="INSERT_ROWS", body={"values": [row]}).execute()
 
-# --------- Load Excel & Filter Kuantan ---------
+# --------- Load Excel ---------
 routes_df = pd.read_excel("bus_data.xlsx", sheet_name="routes")
 stops_df = pd.read_excel("bus_data.xlsx", sheet_name="stops")
 
-# --- FILTER LOGIC ---
-# Remove any routes belonging to Kuantan depot
-routes_df = routes_df[routes_df["Depot"].str.upper() != "KUANTAN"]
-# Only keep stops that belong to the filtered routes
-valid_routes = routes_df["Route Number"].unique()
-stops_df = stops_df[stops_df["Route Number"].isin(valid_routes)]
+# --------- FILTER BUS STOP NAME LIST ---------
+allowed_stops = [
+    "AJ106 LRT AMPANG",
+    "DAMANSARA INTAN",
+    "ECOSKY RESIDENCE",
+    "FAKULTI KEJURUTERAAN (UTARA)",
+    "FAKULTI PERNIAGAAN DAN PERAKAUNAN",
+    "FAKULTI UNDANG-UNDANG",
+    "KILANG PLASTIK EKSPEDISI EMAS (OPP)",
+    "KJ477 UTAR",
+    "KJ560 SHELL SG LONG (OPP)",
+    "KL107 LRT MASJID JAMEK",
+    "KL1082 SK Methodist",
+    "KL117 BSN LEBUH AMPANG",
+    "KL1217 ILP KUALA LUMPUR",
+    "KL2247 KOMERSIAL KIP",
+    "KL377 WISMA SISTEM",
+    "KOMERSIAL BURHANUDDIN (2)",
+    "MASJID CYBERJAYA 10",
+    "MRT SRI DELIMA PINTU C",
+    "PERUMAHAN TTDI",
+    "PJ312 Medan Selera Seksyen 19",
+    "PJ476 MASJID SULTAN ABDUL AZIZ",
+    "PJ721 ONE UTAMA NEW WING",
+    "PPJ384 AURA RESIDENCE",
+    "SA12 APARTMENT BAIDURI (OPP)",
+    "SA26 PERUMAHAN SEKSYEN 11",
+    "SCLAND EMPORIS",
+    "SJ602 BANDAR BUKIT PUCHONG BP1",
+    "SMK SERI HARTAMAS",
+    "SMK SULTAN ABD SAMAD (TIMUR)"
+]
+
+# Ensure we only use data for these allowed stops
+stops_df = stops_df[stops_df["Stop Name"].isin(allowed_stops)]
 
 # --------- Session State ---------
 if "photos" not in st.session_state:
@@ -174,9 +203,8 @@ if "responses" not in st.session_state:
 # --------- Staff ID ---------
 staff_id = st.text_input("👤 Staff ID (8 digits)")
 
-# --------- Step 1: Select Bus Stop ---------
-all_stops = stops_df["Stop Name"].dropna().unique()
-stop = st.selectbox("1️⃣ Bus Stop", all_stops, index=None, placeholder="Cari hentian bas...")
+# --------- Step 1: Select Bus Stop (Filtered) ---------
+stop = st.selectbox("1️⃣ Bus Stop", allowed_stops, index=None, placeholder="Pilih hentian bas...")
 
 # --------- Step 2: Auto-detect Depot and Route ---------
 current_route = ""
@@ -190,7 +218,7 @@ if stop:
     # Format Route Number with /
     current_route = " / ".join(map(str, matched_route_nums))
     
-    # Get Depots from routes_df based on matched routes
+    # Get Depots from routes_df
     matched_depot_names = routes_df[routes_df["Route Number"].isin(matched_route_nums)]["Depot"].unique()
     current_depot = " / ".join(map(str, matched_depot_names))
     
