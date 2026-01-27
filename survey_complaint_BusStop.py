@@ -168,11 +168,29 @@ if "responses" not in st.session_state:
 # --------- Staff ID ---------
 staff_id = st.text_input("👤 Staff ID (8 digits)")
 
-# --------- Depot / Route / Stop ---------
-depot = st.selectbox("1️⃣ Depot", routes_df["Depot"].dropna().unique())
-route = st.selectbox("2️⃣ Route Number", routes_df[routes_df["Depot"] == depot]["Route Number"].unique())
-stops = stops_df[stops_df["Route Number"] == route]["Stop Name"].dropna()
-stop = st.selectbox("3️⃣ Bus Stop", stops)
+# --------- NEW LOGIC: Select Bus Stop First ---------
+# 1. Select Bus Stop
+all_stops = stops_df["Stop Name"].dropna().unique()
+stop = st.selectbox("1️⃣ Bus Stop", all_stops, index=None, placeholder="Search for a bus stop...")
+
+# 2. Auto-find Route and Depot based on Stop
+if stop:
+    # Get all route numbers associated with this stop
+    matched_routes = stops_df[stops_df["Stop Name"] == stop]["Route Number"].unique()
+    route_display = " / ".join(map(str, matched_routes))
+    
+    # Get associated depots for these routes
+    matched_depots = routes_df[routes_df["Route Number"].isin(matched_routes)]["Depot"].unique()
+    depot_display = " / ".join(map(str, matched_depots))
+    
+    st.info(f"📍 **Route Number:** {route_display}  \n🏢 **Depot:** {depot_display}")
+    
+    # Store these for submission
+    current_route = route_display
+    current_depot = depot_display
+else:
+    current_route = ""
+    current_depot = ""
 
 # --------- A. KELAKUAN KAPTEN BAS ---------
 st.markdown("### 4️⃣ A. KELAKUAN KAPTEN BAS")
@@ -187,7 +205,6 @@ for i, q in enumerate(questions_a):
 st.markdown("### 5️⃣ B. KEADAAN HENTIAN BAS")
 for i, q in enumerate(questions_b):
     st.write(f"**{q}**")
-    # Questions 17 and 18 get NA
     options = ["Yes", "No", "NA"] if q in ["17. Penumpang beri isyarat menahan? (NA jika tiada)", "18. Penumpang leka/tidak peka? (NA jika tiada)"] else ["Yes", "No"]
     choice = st.radio(label=q, options=options, index=None, key=f"qb_{i}", horizontal=True, label_visibility="collapsed")
     st.session_state.responses[q] = choice
@@ -207,6 +224,8 @@ for i, p in enumerate(st.session_state.photos):
 if st.button("✅ Submit Survey"):
     if not staff_id.isdigit() or len(staff_id) != 8:
         st.warning("Staff ID must be 8 digits.")
+    elif not stop:
+        st.warning("Please select a Bus Stop.")
     elif not st.session_state.photos:
         st.warning("At least one photo required.")
     elif None in st.session_state.responses.values():
@@ -218,11 +237,10 @@ if st.button("✅ Submit Survey"):
             link = gdrive_upload_file(img.getvalue(), f"{timestamp}_{i}.jpg", "image/jpeg", FOLDER_ID)
             photo_links.append(link)
 
-        # Get all answers in order
         answers = [st.session_state.responses[q] for q in all_questions]
 
-        # Row construction without "Condition"
-        row = [timestamp, staff_id, depot, route, stop] + answers + ["; ".join(photo_links)]
+        # Use the auto-detected depot and route
+        row = [timestamp, staff_id, current_depot, current_route, stop] + answers + ["; ".join(photo_links)]
         header = ["Timestamp", "Staff ID", "Depot", "Route", "Bus Stop"] + all_questions + ["Photos"]
 
         sheet_id = find_or_create_gsheet("survey_responses", FOLDER_ID)
