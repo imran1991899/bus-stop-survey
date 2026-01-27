@@ -60,7 +60,7 @@ st.markdown("""
         margin: 0 !important;
     }
 
-    /* Text Formatting for Yes/No */
+    /* UPDATED: Text Formatting for Yes/No - BOLD DARK GRAY */
     div[role="radiogroup"] label p {
         font-size: 16px !important; 
         margin: 0 !important;
@@ -69,6 +69,8 @@ st.markdown("""
         overflow: visible !important;
         line-height: 1.2 !important;
         text-align: center !important;
+        color: #333333 !important; /* Dark Gray */
+        font-weight: 700 !important; /* Bold */
     }
 
     /* Selected State (The White Slide) */
@@ -77,10 +79,10 @@ st.markdown("""
         box-shadow: 0px 4px 12px rgba(0,0,0,0.15) !important;
     }
 
-    /* Selected Text Colors & Boldness */
-    div[role="radiogroup"] label:has(input[value="Yes"]):has(input:checked) p { color: #007AFF !important; font-weight: 700 !important; }
-    div[role="radiogroup"] label:has(input[value="No"]):has(input:checked) p { color: #FF3B30 !important; font-weight: 700 !important; }
-    div[role="radiogroup"] label:has(input[value="NA"]):has(input:checked) p { color: #8E8E93 !important; font-weight: 700 !important; }
+    /* Keep text dark even when selected */
+    div[role="radiogroup"] label:has(input:checked) p {
+        color: #1D1D1F !important; 
+    }
 
     /* Main Submit Button Styling */
     div.stButton > button {
@@ -104,7 +106,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --------- Logic Functions ---------
+# --------- Authentication & Drive Logic ---------
 FOLDER_ID = "1DjtLxgyQXwgjq_N6I_-rtYcBcnWhzMGp"
 CLIENT_SECRETS_FILE = "client_secrets2.json"
 SCOPES = ["https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/spreadsheets"]
@@ -188,13 +190,12 @@ if "responses" not in st.session_state: st.session_state.responses = {q: None fo
 # --------- Main App UI ---------
 st.title("🚌 Bus Stop Survey")
 
-# --- Section: Staff Information ---
+# Staff Section
 staff_id = st.selectbox("👤 Staff ID", options=list(staff_dict.keys()), index=None, placeholder="Pilih ID Staf...")
 if staff_id:
-    # Result Box for Staff Name - Blue Background (st.info)
     st.info(f"**Staff ID:** {staff_id} | **Staff Name:** {staff_dict[staff_id]}")
 
-# --- Section: Bus Stop Information ---
+# Bus Stop Section
 stop = st.selectbox("📍 Bus Stop", allowed_stops, index=None, placeholder="Pilih Hentian Bas...")
 
 current_route, current_depot = "", ""
@@ -202,12 +203,11 @@ if stop:
     matched_stop_data = stops_df[stops_df["Stop Name"] == stop]
     current_route = " / ".join(map(str, matched_stop_data["Route Number"].unique()))
     current_depot = " / ".join(map(str, routes_df[routes_df["Route Number"].isin(matched_stop_data["Route Number"].unique())]["Depot"].unique()))
-    # Result Box for Route/Depot - Blue Background (st.info)
     st.info(f"**Route:** {current_route} | **Depot:** {current_depot}")
 
 st.divider()
 
-# Question Rendering Logic (2-Column Grid)
+# Question Rendering Logic
 def render_grid_questions(q_list):
     for i in range(0, len(q_list), 2):
         col1, col2 = st.columns(2)
@@ -234,7 +234,7 @@ render_grid_questions(questions_b)
 
 st.divider()
 
-# --- Section: Evidence (Photos) ---
+# Photo Evidence
 st.subheader("📸 Evidence (3 Photos Required)")
 if len(st.session_state.photos) < 3:
     col_cam, col_up = st.columns(2)
@@ -256,7 +256,7 @@ if st.session_state.photos:
     for idx, pic in enumerate(st.session_state.photos):
         img_cols[idx].image(pic, use_container_width=True)
 
-# --- Section: Submit ---
+# Submit Logic - BALLOONS REMOVED
 if st.button("Submit Survey"):
     if not staff_id or not stop or len(st.session_state.photos) != 3 or None in st.session_state.responses.values():
         st.error("Sila pastikan semua soalan dijawab dan 3 keping gambar disediakan.")
@@ -273,7 +273,7 @@ if st.button("Submit Survey"):
             gsheet_id = find_or_create_gsheet("survey_responses", FOLDER_ID)
             append_row(gsheet_id, row_data, header_data)
             
-            st.balloons()
+            # Balloon animation removed as requested
             st.success("Tinjauan berjaya dihantar!")
             # Reset state
             st.session_state.photos = []
