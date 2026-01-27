@@ -281,7 +281,7 @@ if st.button("✅ Submit Survey"):
             sheet_id = find_or_create_gsheet("survey_responses", FOLDER_ID)
             append_row(sheet_id, row, header)
 
-            st.success("✅ Submission successful!")
+            st.success("✅ successful!")
             st.session_state.photos = []
             st.session_state.responses = {q: None for q in all_questions}
             time.sleep(2)
