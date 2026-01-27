@@ -142,13 +142,26 @@ allowed_stops = [
 allowed_stops.sort()
 
 staff_dict = {
-    "8917": "MOHD RIZAL BIN RAMLI", "8918": "NUR FAEZAH BINTI HARUN", "8919": "NORAINSYIRAH BINTI ARIFFIN",
-    "8920": "NORAZHA RAFFIZZI ZORKORNAINI", "8921": "NUR HANIM HANIL", "8922": "MUHAMMAD HAMKA BIN ROSLIM",
-    "8923": "MUHAMAD NIZAM BIN IBRAHIM", "8924": "AZFAR NASRI BIN BURHAN", "8925": "MOHD SHAHFIEE BIN ABDULLAH",
-    "8926": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN", "8927": "NIK MOHD FADIR BIN NIK MAT RAWI", "8928": "AHMAD AZIM BIN ISA",
-    "8929": "NUR SHAHIDA BINTI MOHD TAMIJI", "8930": "MUHAMMAD SYAHMI BIN AZMEY", "8931": "MOHD IDZHAM BIN ABU BAKAR",
-    "8932": "MOHAMAD NAIM MOHAMAD SAPRI", "8933": "MUHAMAD IMRAN BIN MOHD NASRUDDIN", "8934": "MIRAN NURSYAWALNI AMIR",
-    "8935": "MUHAMMAD HANIF BIN HASHIM", "8936": "NUR HAZIRAH BINTI NAWI"
+"10005475": "MOHD RIZAL BIN RAMLI",
+"10020779": "NUR FAEZAH BINTI HARUN",
+"10014181": "NORAINSYIRAH BINTI ARIFFIN",
+"10022768": "NORAZHA RAFFIZZI ZORKORNAINI",
+"10022769": "NUR HANIM HANIL",
+"10023845": "MUHAMMAD HAMKA BIN ROSLIM",
+"10002059": "MUHAMAD NIZAM BIN IBRAHIM",
+"10005562": "AZFAR NASRI BIN BURHAN",
+"10010659": "MOHD SHAHFIEE BIN ABDULLAH",
+"10008350": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN",
+"10003214": "NIK MOHD FADIR BIN NIK MAT RAWI",
+"10016370": "AHMAD AZIM BIN ISA",
+"10022910": "NUR SHAHIDA BINTI MOHD TAMIJI ",
+"10023513": "MUHAMMAD SYAHMI BIN AZMEY",
+"10023273": "MOHD IDZHAM BIN ABU BAKAR",
+"10023577": "MOHAMAD NAIM MOHAMAD SAPRI",
+"10023853": "MUHAMAD IMRAN BIN MOHD NASRUDDIN",
+"10008842": "MIRAN NURSYAWALNI AMIR",
+"10015662": "MUHAMMAD HANIF BIN HASHIM",
+"10011944": "NUR HAZIRAH BINTI NAWI"
 }
 
 # --------- Session State ---------
@@ -195,7 +208,7 @@ if stop:
     st.info(f"📍 **Route Number:** {current_route}  \n🏢 **Depot:** {current_depot}")
 
 # --------- Survey Sections ---------
-st.markdown("### 4️⃣ A. KELAKUAN KAPTEN BAS")
+st.markdown("### 2️⃣ A. KELAKUAN KAPTEN BAS")
 for i, q in enumerate(questions_a):
     st.write(f"**{q}**")
     options = ["Yes", "No", "NA"] if i >= 4 else ["Yes", "No"]
@@ -203,7 +216,7 @@ for i, q in enumerate(questions_a):
     st.session_state.responses[q] = choice
     st.write("---")
 
-st.markdown("### 5️⃣ B. KEADAAN HENTIAN BAS")
+st.markdown("### 3️⃣ B. KEADAAN HENTIAN BAS")
 for i, q in enumerate(questions_b):
     st.write(f"**{q}**")
     options = ["Yes", "No", "NA"] if q in ["17. Penumpang beri isyarat menahan? (NA jika tiada)", "18. Penumpang leka/tidak peka? (NA jika tiada)"] else ["Yes", "No"]
@@ -212,7 +225,7 @@ for i, q in enumerate(questions_b):
     st.write("---")
 
 # --------- CAMERA & UPLOAD PHOTOS SECTION ---------
-st.markdown("### 6️⃣ Photos (Exactly 3 Photos Required)")
+st.markdown("### 4️⃣ Photos (Exactly 3 Photos Required)")
 
 # Display current photo count and a clear list
 if len(st.session_state.photos) < 3:
@@ -273,4 +286,5 @@ if st.button("✅ Submit Survey"):
             st.session_state.responses = {q: None for q in all_questions}
             time.sleep(2)
             st.rerun()
+
 
