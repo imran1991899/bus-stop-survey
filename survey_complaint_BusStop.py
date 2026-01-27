@@ -133,17 +133,37 @@ stops_df = pd.read_excel("bus_data.xlsx", sheet_name="stops")
 if "photos" not in st.session_state:
     st.session_state.photos = []
 
-questions = [
+# Questions Lists
+questions_a = [
     "1. BC menggunakan telefon bimbit?",
     "2. BC memperlahankan/memberhentikan bas?",
     "3. BC memandu di lorong 1 (kiri)?",
     "4. Bas penuh dengan penumpang?",
-    "5. BC tidak mengambil penumpang?",
-    "6. BC berlaku tidak sopan?"
+    "5. BC tidak mengambil penumpang? (NA jika tiada)",
+    "6. BC berlaku tidak sopan? (NA jika tiada)"
 ]
 
-if "kelakuan_kapten" not in st.session_state:
-    st.session_state.kelakuan_kapten = {q: None for q in questions}
+questions_b = [
+    "7. Hentian terlindung dari pandangan BC?",
+    "8. Hentian terhalang oleh kenderaan parkir?",
+    "9. Persekitaran bahaya untuk bas berhenti?",
+    "10. Terdapat pembinaan berhampiran?",
+    "11. Mempunyai bumbung?",
+    "12. Mempunyai tiang?",
+    "13. Mempunyai petak hentian?",
+    "14. Mempunyai layby?",
+    "15. Terlindung dari pandangan BC? (Gerai/Pokok)",
+    "16. Pencahayaan baik?",
+    "17. Penumpang beri isyarat menahan? (NA jika tiada)",
+    "18. Penumpang leka/tidak peka? (NA jika tiada)",
+    "19. Penumpang tiba lewat?",
+    "20. Penumpang menunggu di luar kawasan hentian?"
+]
+
+all_questions = questions_a + questions_b
+
+if "responses" not in st.session_state:
+    st.session_state.responses = {q: None for q in all_questions}
 
 # --------- Staff ID ---------
 staff_id = st.text_input("👤 Staff ID (8 digits)")
@@ -156,22 +176,23 @@ stop = st.selectbox("3️⃣ Bus Stop", stops)
 
 condition = st.selectbox("4️⃣ Bus Stop Condition", ["1. Covered Bus Stop", "2. Pole Only", "3. Layby", "4. Non-Infrastructure"])
 
-# --------- Kelakuan Kapten Bas ---------
+# --------- A. KELAKUAN KAPTEN BAS ---------
 st.markdown("### 5️⃣ A. KELAKUAN KAPTEN BAS")
-
-for i, q in enumerate(questions):
+for i, q in enumerate(questions_a):
     st.write(f"**{q}**")
     options = ["Yes", "No", "NA"] if i >= 4 else ["Yes", "No"]
-    
-    choice = st.radio(
-        label=q,
-        options=options,
-        index=None,
-        key=f"q_radio_{i}",
-        horizontal=True,
-        label_visibility="collapsed"
-    )
-    st.session_state.kelakuan_kapten[q] = choice
+    choice = st.radio(label=q, options=options, index=None, key=f"qa_{i}", horizontal=True, label_visibility="collapsed")
+    st.session_state.responses[q] = choice
+    st.write("---")
+
+# --------- B. KEADAAN HENTIAN BAS ---------
+st.markdown("### 5️⃣ B. KEADAAN HENTIAN BAS")
+for i, q in enumerate(questions_b):
+    st.write(f"**{q}**")
+    # Questions 17 and 18 (indices 10 and 11 in this list) get NA
+    options = ["Yes", "No", "NA"] if q in ["17. Penumpang beri isyarat menahan? (NA jika tiada)", "18. Penumpang leka/tidak peka? (NA jika tiada)"] else ["Yes", "No"]
+    choice = st.radio(label=q, options=options, index=None, key=f"qb_{i}", horizontal=True, label_visibility="collapsed")
+    st.session_state.responses[q] = choice
     st.write("---")
 
 # --------- Photos ---------
@@ -190,8 +211,8 @@ if st.button("✅ Submit Survey"):
         st.warning("Staff ID must be 8 digits.")
     elif not st.session_state.photos:
         st.warning("At least one photo required.")
-    elif None in st.session_state.kelakuan_kapten.values():
-        st.warning("Please complete all Kelakuan Kapten Bas items.")
+    elif None in st.session_state.responses.values():
+        st.warning("Please complete all survey items.")
     else:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         photo_links = []
@@ -199,33 +220,16 @@ if st.button("✅ Submit Survey"):
             link = gdrive_upload_file(img.getvalue(), f"{timestamp}_{i}.jpg", "image/jpeg", FOLDER_ID)
             photo_links.append(link)
 
-        # Separate each answer into its own list element
-        answers = [st.session_state.kelakuan_kapten[q] for q in questions]
+        # Get all answers in order
+        answers = [st.session_state.responses[q] for q in all_questions]
 
-        # Construct Row: Basic Info + Each Answer + Photos
-        row = [
-            timestamp, 
-            staff_id, 
-            depot, 
-            route, 
-            stop, 
-            condition
-        ] + answers + ["; ".join(photo_links)]
-
-        # Construct Header: Basic Titles + Question Titles + Photos
-        header = [
-            "Timestamp", 
-            "Staff ID", 
-            "Depot", 
-            "Route", 
-            "Bus Stop", 
-            "Condition"
-        ] + questions + ["Photos"]
+        row = [timestamp, staff_id, depot, route, stop, condition] + answers + ["; ".join(photo_links)]
+        header = ["Timestamp", "Staff ID", "Depot", "Route", "Bus Stop", "Condition"] + all_questions + ["Photos"]
 
         sheet_id = find_or_create_gsheet("survey_responses", FOLDER_ID)
         append_row(sheet_id, row, header)
 
         st.success("✅ Submission successful!")
         st.session_state.photos = []
-        st.session_state.kelakuan_kapten = {q: None for q in questions}
+        st.session_state.responses = {q: None for q in all_questions}
         st.rerun()
