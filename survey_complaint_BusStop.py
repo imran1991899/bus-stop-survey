@@ -17,38 +17,69 @@ from google.auth.transport.requests import Request
 st.set_page_config(page_title="🚌 Bus Stop Survey", layout="wide")
 st.title("Bus Stop Complaints Survey")
 
-# --------- Custom iPhone-style Toggle CSS ---------
+# --------- Enhanced "iPhone Style" Pill Button CSS ---------
 st.markdown("""
     <style>
-    /* Styling for the radio buttons to look like segmented controls */
-    div[data-testid="stWidgetLabel"] p {
-        font-weight: bold;
-        font-size: 1.1rem;
-    }
+    /* Container for the radio group */
     div[role="radiogroup"] {
-        background-color: #f0f0f5;
-        border-radius: 12px;
-        padding: 4px;
         display: flex;
-        justify-content: flex-start;
-        gap: 10px;
+        flex-direction: row;
+        gap: 20px;
+        background-color: transparent !important;
     }
+
+    /* Target the labels (the buttons) */
     div[role="radiogroup"] label {
-        background-color: white;
-        border: 1px solid #d1d1d6;
-        padding: 8px 20px;
-        border-radius: 10px;
-        cursor: pointer;
-        transition: 0.2s;
-        box-shadow: 0px 2px 4px rgba(0,0,0,0.05);
+        padding: 10px 25px !important;
+        border-radius: 50px !important; /* Pill shape */
+        border: 2px solid #d1d1d6 !important;
+        background-color: white !important;
+        transition: all 0.3s ease;
     }
-    div[role="radiogroup"] label[data-baseweb="radio"]:hover {
-        background-color: #f9f9f9;
+
+    /* Force text to be visible and black by default */
+    div[role="radiogroup"] label div[data-testid="stMarkdownContainer"] p {
+        color: #333 !important;
+        font-weight: bold !important;
+        font-size: 16px !important;
     }
-    /* Style for when specific text is selected */
-    div[role="radiogroup"] label[data-checked="true"] {
-        border: 2px solid #007aff !important; /* iPhone Blue */
-        background-color: #e5f1ff !important;
+
+    /* Highlighting YES (Green) when selected */
+    div[role="radiogroup"] label:has(input[value="Yes"]) {
+        border-color: #d1d1d6;
+    }
+    div[role="radiogroup"] label:has(input[value="Yes"]):has(input:checked) {
+        background-color: #28a745 !important; /* Green */
+        border-color: #28a745 !important;
+    }
+    div[role="radiogroup"] label:has(input[value="Yes"]):has(input:checked) p {
+        color: white !important;
+    }
+
+    /* Highlighting NO (Red) when selected */
+    div[role="radiogroup"] label:has(input[value="No"]) {
+        border-color: #d1d1d6;
+    }
+    div[role="radiogroup"] label:has(input[value="No"]):has(input:checked) {
+        background-color: #dc3545 !important; /* Red */
+        border-color: #dc3545 !important;
+    }
+    div[role="radiogroup"] label:has(input[value="No"]):has(input:checked) p {
+        color: white !important;
+    }
+    
+    /* Highlighting NA (Gray) when selected */
+    div[role="radiogroup"] label:has(input[value="NA"]):has(input:checked) {
+        background-color: #6c757d !important;
+        border-color: #6c757d !important;
+    }
+    div[role="radiogroup"] label:has(input[value="NA"]):has(input:checked) p {
+        color: white !important;
+    }
+
+    /* Hide the actual radio circle */
+    div[role="radiogroup"] [data-testid="stWidgetSelectionVisualizer"] {
+        display: none !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -151,7 +182,6 @@ for i, q in enumerate(questions):
     st.write(f"**{q}**")
     options = ["Yes", "No", "NA"] if i >= 4 else ["Yes", "No"]
     
-    # We use a radio button which the CSS above will style into pills/toggles
     choice = st.radio(
         label=q,
         options=options,
@@ -161,7 +191,7 @@ for i, q in enumerate(questions):
         label_visibility="collapsed"
     )
     st.session_state.kelakuan_kapten[q] = choice
-    st.write("") # Padding
+    st.write("---") # Visual separator
 
 # --------- Photos ---------
 st.markdown("### 6️⃣ Photos (min 1, max 5)")
