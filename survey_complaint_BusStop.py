@@ -14,107 +14,127 @@ from googleapiclient.http import MediaIoBaseUpload
 from google.auth.transport.requests import Request
 
 # --------- Page Setup ---------
-st.set_page_config(page_title="🚌 Bus Stop Survey", layout="wide")
+st.set_page_config(page_title="Bus Stop Survey", layout="wide")
 
-# --------- THEME CSS WITH GLOW EFFECT ---------
+# --------- THEME CSS: CYBER-DARK GLOW EFFECT ---------
 st.markdown("""
     <style>
-    /* Main Background */
+    /* 1. Main Background - Deep Obsidian */
     .stApp {
         background-color: #050a05 !important;
         color: #39FF14 !important;
     }
 
-    /* Headers and Labels */
-    h1, h2, h3, p, label {
+    /* 2. Neon Green Text & Headers */
+    h1, h2, h3, p, span, label {
         color: #39FF14 !important;
-        font-family: 'Segoe UI', sans-serif !important;
+        font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
         text-transform: uppercase;
+        letter-spacing: 1px;
     }
 
-    /* Radio Buttons Container */
-    div[role="radiogroup"] {
-        gap: 20px;
-        padding: 10px 0;
-    }
-
-    /* Base Button Style */
-    div[role="radiogroup"] label {
-        padding: 15px 35px !important;
-        border-radius: 10px !important; 
-        border: 2px solid #1c331c !important;
+    /* 3. Dropdown/Selectbox Styling */
+    div[data-baseweb="select"] > div {
         background-color: #0d110d !important;
-        transition: all 0.3s ease-in-out;
-        cursor: pointer;
+        border: 1px solid #1c331c !important;
+        color: #39FF14 !important;
     }
 
-    /* YES GLOW - Green */
+    /* 4. YES / NO / NA BUTTONS - FULL GLOW ON SELECTION */
+    div[role="radiogroup"] {
+        display: flex;
+        flex-direction: row;
+        gap: 20px;
+        padding: 15px 0;
+    }
+
+    /* Base Button Design */
+    div[role="radiogroup"] label {
+        background-color: #0d110d !important;
+        border: 2px solid #1c331c !important;
+        border-radius: 8px !important;
+        padding: 15px 45px !important;
+        transition: all 0.3s ease-in-out !important;
+        cursor: pointer !important;
+        min-width: 120px;
+        text-align: center;
+    }
+
+    /* YES - Selected Glow Green */
     div[role="radiogroup"] label:has(input[value="Yes"]):has(input:checked) {
-        background-color: #39FF14 !important; 
+        background-color: #39FF14 !important;
         border-color: #39FF14 !important;
-        box-shadow: 0 0 20px #39FF14, 0 0 40px #1c331c !important;
+        box-shadow: 0 0 25px #39FF14, inset 0 0 10px rgba(0,0,0,0.5) !important;
     }
     div[role="radiogroup"] label:has(input[value="Yes"]):has(input:checked) p {
         color: #000000 !important;
-        font-weight: bold !important;
+        font-weight: 900 !important;
     }
 
-    /* NO GLOW - Red */
+    /* NO - Selected Glow Red */
     div[role="radiogroup"] label:has(input[value="No"]):has(input:checked) {
-        background-color: #ff0000 !important; 
-        border-color: #ff0000 !important;
-        box-shadow: 0 0 20px #ff0000, 0 0 40px #4a0000 !important;
+        background-color: #FF3131 !important;
+        border-color: #FF3131 !important;
+        box-shadow: 0 0 25px #FF3131, inset 0 0 10px rgba(0,0,0,0.5) !important;
     }
     div[role="radiogroup"] label:has(input[value="No"]):has(input:checked) p {
         color: #ffffff !important;
-        font-weight: bold !important;
+        font-weight: 900 !important;
     }
-    
-    /* NA GLOW - Gray */
+
+    /* NA - Selected Glow Gray */
     div[role="radiogroup"] label:has(input[value="NA"]):has(input:checked) {
-        background-color: #444444 !important; 
+        background-color: #444444 !important;
         border-color: #888888 !important;
         box-shadow: 0 0 15px #888888 !important;
     }
 
-    /* Selectbox Styling */
-    div[data-baseweb="select"] > div {
-        background-color: #0d110d !important;
-        border: 1px solid #1c331c !important;
+    /* Hide standard radio dot circles */
+    div[role="radiogroup"] [data-testid="stWidgetSelectionVisualizer"] {
+        display: none !important;
     }
 
-    /* Big Submit Button */
-    div.stButton > button:first-child {
+    /* 5. BIG SUBMIT BUTTON - DASHBOARD STYLE */
+    div.stButton > button {
         width: 100% !important;
-        height: 70px !important;
         background-color: #0d110d !important;
         color: #39FF14 !important;
         border: 2px solid #39FF14 !important;
-        font-size: 22px !important;
+        border-radius: 12px !important;
+        height: 80px !important;
+        font-size: 24px !important;
         font-weight: bold !important;
         text-transform: uppercase;
-        border-radius: 10px !important;
+        margin-top: 30px;
+        transition: 0.3s;
     }
-    div.stButton > button:first-child:hover {
+    div.stButton > button:hover {
         background-color: #39FF14 !important;
-        color: black !important;
+        color: #000000 !important;
         box-shadow: 0 0 30px #39FF14 !important;
     }
 
-    /* Hide standard radio circles */
-    div[role="radiogroup"] [data-testid="stWidgetSelectionVisualizer"] {
-        display: none !important;
+    /* Info Boxes and Alerts */
+    .stAlert {
+        background-color: #0d110d !important;
+        border: 1px solid #1c331c !important;
+        color: #39FF14 !important;
+    }
+    
+    hr {
+        border-color: #1c331c !important;
     }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("🚌 BUS STOP SURVEY")
+st.title("📟 BUS STOP SURVEY ENTRY")
 
-# --------- Google Drive & Logic ---------
+# --------- Google Integration Constants ---------
 FOLDER_ID = "1DjtLxgyQXwgjq_N6I_-rtYcBcnWhzMGp"
 SCOPES = ["https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/spreadsheets"]
 CLIENT_SECRETS_FILE = "client_secrets2.json"
 
+# --------- Authentication Logic ---------
 def save_credentials(credentials):
     with open("token.pickle", "wb") as token:
         pickle.dump(credentials, token)
@@ -142,11 +162,12 @@ def get_authenticated_service():
         creds = flow.credentials; save_credentials(creds)
     else:
         auth_url, _ = flow.authorization_url(prompt="consent")
-        st.markdown(f"[Authenticate here]({auth_url})"); st.stop()
+        st.markdown(f"[Authorize here]({auth_url})"); st.stop()
     return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
 
 drive_service, sheets_service = get_authenticated_service()
 
+# --------- Upload Helper Functions ---------
 def gdrive_upload_file(file_bytes, filename, mimetype, folder_id=None):
     media = MediaIoBaseUpload(BytesIO(file_bytes), mimetype)
     metadata = {"name": filename}
@@ -168,21 +189,11 @@ def append_row(sheet_id, row, header):
         sheet.values().update(spreadsheetId=sheet_id, range="A1", valueInputOption="RAW", body={"values": [header]}).execute()
     sheet.values().append(spreadsheetId=sheet_id, range="A1", valueInputOption="RAW", insertDataOption="INSERT_ROWS", body={"values": [row]}).execute()
 
-# --------- Load Data ---------
+# --------- Data Preparation ---------
 routes_df = pd.read_excel("bus_data.xlsx", sheet_name="routes")
 stops_df = pd.read_excel("bus_data.xlsx", sheet_name="stops")
 
-allowed_stops = [
-    "AJ106 LRT AMPANG", "DAMANSARA INTAN", "ECOSKY RESIDENCE", "FAKULTI KEJURUTERAAN (UTARA)",
-    "FAKULTI PERNIAGAAN DAN PERAKAUNAN", "FAKULTI UNDANG-UNDANG", "KILANG PLASTIK EKSPEDISI EMAS (OPP)",
-    "KJ477 UTAR", "KJ560 SHELL SG LONG (OPP)", "KL107 LRT MASJID JAMEK", "KL1082 SK Methodist",
-    "KL117 BSN LEBUH AMPANG", "KL1217 ILP KUALA LUMPUR", "KL2247 KOMERSIAL KIP", "KL377 WISMA SISTEM",
-    "KOMERSIAL BURHANUDDIN (2)", "MASJID CYBERJAYA 10", "MRT SRI DELIMA PINTU C", "PERUMAHAN TTDI",
-    "PJ312 Medan Selera Seksyen 19", "PJ476 MASJID SULTAN ABDUL AZIZ", "PJ721 ONE UTAMA NEW WING",
-    "PPJ384 AURA RESIDENCE", "SA12 APARTMENT BAIDURI (OPP)", "SA26 PERUMAHAN SEKSYEN 11",
-    "SCLAND EMPORIS", "SJ602 BANDAR BUKIT PUCHONG BP1", "SMK SERI HARTAMAS", "SMK SULTAN ABD SAMAD (TIMUR)"
-]
-allowed_stops.sort()
+allowed_stops = sorted(stops_df["Stop Name"].unique().tolist())
 
 staff_dict = {
     "8917": "MOHD RIZAL BIN RAMLI", "8918": "NUR FAEZAH BINTI HARUN", "8919": "NORAINSYIRAH BINTI ARIFFIN",
@@ -194,6 +205,7 @@ staff_dict = {
     "8935": "MUHAMMAD HANIF BIN HASHIM", "8936": "NUR HAZIRAH BINTI NAWI"
 }
 
+# --------- State Management ---------
 if "photos" not in st.session_state:
     st.session_state.photos = []
 
@@ -218,11 +230,11 @@ all_questions = questions_a + questions_b
 if "responses" not in st.session_state:
     st.session_state.responses = {q: None for q in all_questions}
 
-# --------- Main Form ---------
-staff_id = st.selectbox("👤 STAFF ID", options=list(staff_dict.keys()), index=None)
-if staff_id: st.info(f"NAME: {staff_dict[staff_id]}")
+# --------- Form Construction ---------
+staff_id = st.selectbox("👤 STAFF IDENTIFICATION", options=list(staff_dict.keys()), index=None, placeholder="Select ID...")
+if staff_id: st.success(f"NAME: {staff_dict[staff_id]}")
 
-stop = st.selectbox("📍 BUS STOP", allowed_stops, index=None)
+stop = st.selectbox("📍 BUS STOP LOCATION", allowed_stops, index=None, placeholder="Search stop...")
 current_route = ""
 current_depot = ""
 if stop:
@@ -231,59 +243,58 @@ if stop:
     current_route = " / ".join(map(str, matched_route_nums))
     matched_depot_names = routes_df[routes_df["Route Number"].isin(matched_route_nums)]["Depot"].unique()
     current_depot = " / ".join(map(str, matched_depot_names))
-    st.write(f"**Route:** {current_route} | **Depot:** {current_depot}")
+    st.info(f"ROUTE: {current_route}  |  DEPOT: {current_depot}")
 
 st.markdown("---")
-st.markdown("### A. KELAKUAN KAPTEN BAS")
+st.markdown("### 01. DRIVER CONDUCT")
 for i, q in enumerate(questions_a):
     st.write(f"**{q}**")
-    options = ["Yes", "No", "NA"] if i >= 4 else ["Yes", "No"]
-    st.session_state.responses[q] = st.radio(label=q, options=options, index=None, key=f"qa_{i}", horizontal=True, label_visibility="collapsed")
+    opts = ["Yes", "No", "NA"] if i >= 4 else ["Yes", "No"]
+    st.session_state.responses[q] = st.radio(q, options=opts, index=None, key=f"qa_{i}", horizontal=True, label_visibility="collapsed")
+    st.markdown("<br>", unsafe_allow_html=True)
 
 st.markdown("---")
-st.markdown("### B. KEADAAN HENTIAN BAS")
+st.markdown("### 02. INFRASTRUCTURE & ENVIRONMENT")
 for i, q in enumerate(questions_b):
     st.write(f"**{q}**")
-    options = ["Yes", "No", "NA"] if "NA" in q else ["Yes", "No"]
-    st.session_state.responses[q] = st.radio(label=q, options=options, index=None, key=f"qb_{i}", horizontal=True, label_visibility="collapsed")
+    opts = ["Yes", "No", "NA"] if "NA" in q else ["Yes", "No"]
+    st.session_state.responses[q] = st.radio(q, options=opts, index=None, key=f"qb_{i}", horizontal=True, label_visibility="collapsed")
+    st.markdown("<br>", unsafe_allow_html=True)
 
 st.markdown("---")
-st.markdown("### C. MEDIA")
+st.markdown("### 03. SCAN EVIDENCE (3 IMAGES)")
 if len(st.session_state.photos) < 3:
-    col1, col2 = st.columns(2)
-    with col1:
-        cam = st.camera_input(f"Capture {len(st.session_state.photos) + 1}")
-        if cam:
-            st.session_state.photos.append(cam); st.rerun()
-    with col2:
-        up = st.file_uploader(f"Upload {len(st.session_state.photos) + 1}", type=["png", "jpg", "jpeg"])
-        if up:
-            st.session_state.photos.append(up); st.rerun()
+    cam_in = st.camera_input(f"SCANNING IMAGE #{len(st.session_state.photos) + 1}")
+    if cam_in:
+        st.session_state.photos.append(cam_in)
+        st.rerun()
 else:
-    st.success("3 Images captured.")
-    if st.button("Reset Photos"):
-        st.session_state.photos = []; st.rerun()
+    st.success("ALL IMAGES CAPTURED")
+    if st.button("RESET IMAGES"):
+        st.session_state.photos = []
+        st.rerun()
 
-# --------- Submit ---------
-if st.button("SUBMIT SURVEY DATA"):
+# --------- Submission ---------
+if st.button("✅ SEND SURVEY DATA TO DATABASE"):
     if not staff_id or not stop or len(st.session_state.photos) != 3 or None in st.session_state.responses.values():
-        st.error("INCOMPLETE DATA.")
+        st.error("🚨 TRANSMISSION FAILED: INCOMPLETE FORM DATA")
     else:
-        with st.spinner("TRANSMITTING..."):
+        with st.spinner("UPLOADING..."):
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            photo_links = []
+            links = []
             for i, img in enumerate(st.session_state.photos):
-                link = gdrive_upload_file(img.getvalue(), f"{timestamp}_{i}.jpg", "image/jpeg", FOLDER_ID)
-                photo_links.append(link)
+                url = gdrive_upload_file(img.getvalue(), f"{timestamp}_{i}.jpg", "image/jpeg", FOLDER_ID)
+                links.append(url)
 
-            answers = [st.session_state.responses[q] for q in all_questions]
-            row = [timestamp, staff_id, staff_dict[staff_id], current_depot, current_route, stop] + answers + ["; ".join(photo_links)]
-            header = ["Timestamp", "Staff ID", "Staff Name", "Depot", "Route", "Bus Stop"] + all_questions + ["Photos"]
+            ans = [st.session_state.responses[q] for q in all_questions]
+            row_data = [timestamp, staff_id, staff_dict[staff_id], current_depot, current_route, stop] + ans + ["; ".join(links)]
+            headers = ["Timestamp", "Staff ID", "Name", "Depot", "Route", "Stop"] + all_questions + ["Photos"]
 
-            sheet_id = find_or_create_gsheet("survey_responses", FOLDER_ID)
-            append_row(sheet_id, row, header)
+            sheet_id = find_or_create_gsheet("Survey_Responses_Log", FOLDER_ID)
+            append_row(sheet_id, row_data, headers)
 
-            st.success("SUBMISSION SUCCESS.")
+            st.success("📡 SURVEY SUBMITTED SUCCESSFULLY")
             st.session_state.photos = []
             st.session_state.responses = {q: None for q in all_questions}
-            time.sleep(1); st.rerun()
+            time.sleep(2)
+            st.rerun()
