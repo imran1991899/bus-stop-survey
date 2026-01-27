@@ -15,55 +15,103 @@ from google.auth.transport.requests import Request
 
 # --------- Page Setup ---------
 st.set_page_config(page_title="🚌 Bus Stop Survey", layout="wide")
-st.title("Bus Stop Complaints Survey")
 
-# --------- Enhanced "iPhone Style" Pill Button CSS ---------
+# --------- Cyber-Dark Command Center Theme CSS ---------
 st.markdown("""
     <style>
+    /* Main Background and Text */
+    .stApp {
+        background-color: #0a0e0a !important;
+        color: #00ff41 !important;
+    }
+
+    /* Headers */
+    h1, h2, h3, p, label {
+        color: #00ff41 !important;
+        font-family: 'Courier New', Courier, monospace !important;
+        text-transform: uppercase;
+    }
+
+    /* Input Boxes and Selectboxes */
+    div[data-baseweb="select"] > div {
+        background-color: #1a1a1a !important;
+        border: 1px solid #00ff41 !important;
+        color: #00ff41 !important;
+    }
+
+    /* Radio Buttons / Pill Styling */
     div[role="radiogroup"] {
-        display: flex;
-        flex-direction: row;
         gap: 20px;
-        background-color: transparent !important;
     }
     div[role="radiogroup"] label {
         padding: 10px 25px !important;
-        border-radius: 50px !important; 
-        border: 2px solid #d1d1d6 !important;
-        background-color: white !important;
+        border-radius: 5px !important; 
+        border: 1px solid #00ff41 !important;
+        background-color: #111 !important;
         transition: all 0.3s ease;
     }
     div[role="radiogroup"] label div[data-testid="stMarkdownContainer"] p {
-        color: #333 !important;
+        color: #00ff41 !important;
         font-weight: bold !important;
-        font-size: 16px !important;
     }
+
+    /* Yes Selection - Neon Green */
     div[role="radiogroup"] label:has(input[value="Yes"]):has(input:checked) {
-        background-color: #28a745 !important; 
-        border-color: #28a745 !important;
+        background-color: #00ff41 !important; 
+        box-shadow: 0 0 10px #00ff41;
     }
     div[role="radiogroup"] label:has(input[value="Yes"]):has(input:checked) p {
-        color: white !important;
+        color: black !important;
     }
+
+    /* No Selection - Red Hot */
     div[role="radiogroup"] label:has(input[value="No"]):has(input:checked) {
-        background-color: #dc3545 !important; 
-        border-color: #dc3545 !important;
+        background-color: #ff003c !important; 
+        border-color: #ff003c !important;
+        box-shadow: 0 0 10px #ff003c;
     }
     div[role="radiogroup"] label:has(input[value="No"]):has(input:checked) p {
         color: white !important;
     }
-    div[role="radiogroup"] label:has(input[value="NA"]):has(input:checked) {
-        background-color: #6c757d !important;
-        border-color: #6c757d !important;
+
+    /* BIG SUBMIT BUTTON */
+    div.stButton > button:first-child {
+        width: 100% !important;
+        height: 80px !important;
+        background-color: transparent !important;
+        color: #00ff41 !important;
+        border: 2px solid #00ff41 !important;
+        font-size: 28px !important;
+        font-weight: bold !important;
+        border-radius: 10px !important;
+        text-transform: uppercase;
+        letter-spacing: 5px;
     }
-    div[role="radiogroup"] label:has(input[value="NA"]):has(input:checked) p {
-        color: white !important;
+    div.stButton > button:first-child:hover {
+        background-color: #00ff41 !important;
+        color: black !important;
+        box-shadow: 0 0 20px #00ff41;
     }
+
+    /* Information boxes */
+    .stAlert {
+        background-color: #111 !important;
+        border: 1px solid #00ff41 !important;
+        color: #00ff41 !important;
+    }
+
+    /* Hide standard radio circles */
     div[role="radiogroup"] [data-testid="stWidgetSelectionVisualizer"] {
         display: none !important;
     }
+    
+    hr {
+        border-color: #004411 !important;
+    }
     </style>
     """, unsafe_allow_html=True)
+
+st.title("📟 BUS STOP COMPLAINTS SYSTEM")
 
 # --------- Google Drive Folder ID ---------
 FOLDER_ID = "1DjtLxgyQXwgjq_N6I_-rtYcBcnWhzMGp"
@@ -125,7 +173,7 @@ def append_row(sheet_id, row, header):
         sheet.values().update(spreadsheetId=sheet_id, range="A1", valueInputOption="RAW", body={"values": [header]}).execute()
     sheet.values().append(spreadsheetId=sheet_id, range="A1", valueInputOption="RAW", insertDataOption="INSERT_ROWS", body={"values": [row]}).execute()
 
-# --------- Load Excel ---------
+# --------- Load Data ---------
 routes_df = pd.read_excel("bus_data.xlsx", sheet_name="routes")
 stops_df = pd.read_excel("bus_data.xlsx", sheet_name="stops")
 
@@ -142,26 +190,13 @@ allowed_stops = [
 allowed_stops.sort()
 
 staff_dict = {
-"10005475": "MOHD RIZAL BIN RAMLI",
-"10020779": "NUR FAEZAH BINTI HARUN",
-"10014181": "NORAINSYIRAH BINTI ARIFFIN",
-"10022768": "NORAZHA RAFFIZZI ZORKORNAINI",
-"10022769": "NUR HANIM HANIL",
-"10023845": "MUHAMMAD HAMKA BIN ROSLIM",
-"10002059": "MUHAMAD NIZAM BIN IBRAHIM",
-"10005562": "AZFAR NASRI BIN BURHAN",
-"10010659": "MOHD SHAHFIEE BIN ABDULLAH",
-"10008350": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN",
-"10003214": "NIK MOHD FADIR BIN NIK MAT RAWI",
-"10016370": "AHMAD AZIM BIN ISA",
-"10022910": "NUR SHAHIDA BINTI MOHD TAMIJI ",
-"10023513": "MUHAMMAD SYAHMI BIN AZMEY",
-"10023273": "MOHD IDZHAM BIN ABU BAKAR",
-"10023577": "MOHAMAD NAIM MOHAMAD SAPRI",
-"10023853": "MUHAMAD IMRAN BIN MOHD NASRUDDIN",
-"10008842": "MIRAN NURSYAWALNI AMIR",
-"10015662": "MUHAMMAD HANIF BIN HASHIM",
-"10011944": "NUR HAZIRAH BINTI NAWI"
+    "8917": "MOHD RIZAL BIN RAMLI", "8918": "NUR FAEZAH BINTI HARUN", "8919": "NORAINSYIRAH BINTI ARIFFIN",
+    "8920": "NORAZHA RAFFIZZI ZORKORNAINI", "8921": "NUR HANIM HANIL", "8922": "MUHAMMAD HAMKA BIN ROSLIM",
+    "8923": "MUHAMAD NIZAM BIN IBRAHIM", "8924": "AZFAR NASRI BIN BURHAN", "8925": "MOHD SHAHFIEE BIN ABDULLAH",
+    "8926": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN", "8927": "NIK MOHD FADIR BIN NIK MAT RAWI", "8928": "AHMAD AZIM BIN ISA",
+    "8929": "NUR SHAHIDA BINTI MOHD TAMIJI", "8930": "MUHAMMAD SYAHMI BIN AZMEY", "8931": "MOHD IDZHAM BIN ABU BAKAR",
+    "8932": "MOHAMAD NAIM MOHAMAD SAPRI", "8933": "MUHAMAD IMRAN BIN MOHD NASRUDDIN", "8934": "MIRAN NURSYAWALNI AMIR",
+    "8935": "MUHAMMAD HANIF BIN HASHIM", "8936": "NUR HAZIRAH BINTI NAWI"
 }
 
 # --------- Session State ---------
@@ -190,12 +225,12 @@ if "responses" not in st.session_state:
     st.session_state.responses = {q: None for q in all_questions}
 
 # --------- Staff ID ---------
-staff_id = st.selectbox("👤 Staff ID", options=list(staff_dict.keys()), index=None, placeholder="Select Staff ID...")
+staff_id = st.selectbox("👤 STAFF ID SELECTION", options=list(staff_dict.keys()), index=None, placeholder="Select Staff ID...")
 staff_name = staff_dict[staff_id] if staff_id else ""
-if staff_id: st.success(f"👤 **Staff Name:** {staff_name}")
+if staff_id: st.success(f"👤 **STAFF NAME:** {staff_name}")
 
 # --------- Step 1: Select Bus Stop ---------
-stop = st.selectbox("1️⃣ Bus Stop", allowed_stops, index=None, placeholder="Pilih hentian bas...")
+stop = st.selectbox("1️⃣ SELECT BUS STOP", allowed_stops, index=None, placeholder="Pilih hentian bas...")
 
 current_route = ""
 current_depot = ""
@@ -205,7 +240,7 @@ if stop:
     current_route = " / ".join(map(str, matched_route_nums))
     matched_depot_names = routes_df[routes_df["Route Number"].isin(matched_route_nums)]["Depot"].unique()
     current_depot = " / ".join(map(str, matched_depot_names))
-    st.info(f"📍 **Route Number:** {current_route}  \n🏢 **Depot:** {current_depot}")
+    st.info(f"📍 **ROUTE:** {current_route}  \n🏢 **DEPOT:** {current_depot}")
 
 # --------- Survey Sections ---------
 st.markdown("### 4️⃣ A. KELAKUAN KAPTEN BAS")
@@ -224,50 +259,44 @@ for i, q in enumerate(questions_b):
     st.session_state.responses[q] = choice
     st.write("---")
 
-# --------- CAMERA & UPLOAD PHOTOS SECTION ---------
-st.markdown("### 6️⃣ Photos (Exactly 3 Photos Required)")
+# --------- CAMERA & PHOTOS ---------
+st.markdown("### 6️⃣ VISUAL CAPTURE (3 REQUIRED)")
 
-# Display current photo count and a clear list
 if len(st.session_state.photos) < 3:
     col_cam, col_file = st.columns(2)
-    
     with col_cam:
-        # Camera Input
-        cam_photo = st.camera_input(f"📷 Take Photo #{len(st.session_state.photos) + 1}")
+        cam_photo = st.camera_input(f"📷 CAPTURE #{len(st.session_state.photos) + 1}")
         if cam_photo:
             st.session_state.photos.append(cam_photo)
             st.rerun()
-
     with col_file:
-        # File Uploader
-        up_photo = st.file_uploader(f"📁 Upload Photo #{len(st.session_state.photos) + 1}", type=["png", "jpg", "jpeg"])
+        up_photo = st.file_uploader(f"📁 UPLOAD #{len(st.session_state.photos) + 1}", type=["png", "jpg", "jpeg"])
         if up_photo:
             st.session_state.photos.append(up_photo)
             st.rerun()
 else:
-    st.success("✅ 3 Photos Captured/Uploaded.")
-    if st.button("🗑️ Reset Photos"):
+    st.success("✅ IMAGE SET COMPLETE.")
+    if st.button("🗑️ CLEAR IMAGES"):
         st.session_state.photos = []
         st.rerun()
 
-# Image Preview Logic
 if st.session_state.photos:
     cols = st.columns(3)
     for i, p in enumerate(st.session_state.photos):
-        cols[i].image(p, caption=f"Photo {i+1}", use_container_width=True)
+        cols[i].image(p, caption=f"DATA {i+1}", use_container_width=True)
 
 # --------- Submit ---------
-if st.button("✅ Submit Survey"):
+if st.button("✅ INITIALIZE SUBMISSION"):
     if not staff_id:
-        st.warning("Sila pilih Staff ID.")
+        st.warning("STAFF ID MISSING.")
     elif not stop:
-        st.warning("Sila pilih Hentian Bas.")
+        st.warning("BUS STOP NOT SELECTED.")
     elif len(st.session_state.photos) != 3:
-        st.warning("Sila ambil atau muat naik tepat 3 keping gambar.")
+        st.warning("DATA INCOMPLETE: 3 PHOTOS REQUIRED.")
     elif None in st.session_state.responses.values():
-        st.warning("Sila lengkapkan semua soalan.")
+        st.warning("SURVEY DATA INCOMPLETE.")
     else:
-        with st.spinner("Submitting... Please wait."):
+        with st.spinner("TRANSMITTING TO CLOUD..."):
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             photo_links = []
             for i, img in enumerate(st.session_state.photos):
@@ -281,10 +310,8 @@ if st.button("✅ Submit Survey"):
             sheet_id = find_or_create_gsheet("survey_responses", FOLDER_ID)
             append_row(sheet_id, row, header)
 
-            st.success("✅ Submission successful!")
+            st.success("📡 DATA TRANSMITTED SUCCESSFULLY!")
             st.session_state.photos = []
             st.session_state.responses = {q: None for q in all_questions}
             time.sleep(2)
             st.rerun()
-
-
