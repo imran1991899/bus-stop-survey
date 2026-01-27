@@ -111,7 +111,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-st.title("📟 BUS STOP COMPLAINTS SYSTEM")
+st.title("📟 BUS STOP COMPLAINTS SURVEY")
 
 # --------- Google Drive Folder ID ---------
 FOLDER_ID = "1DjtLxgyQXwgjq_N6I_-rtYcBcnWhzMGp"
@@ -328,4 +328,5 @@ if st.button("✅ INITIALIZE SUBMISSION"):
             st.session_state.responses = {q: None for q in all_questions}
             time.sleep(2)
             st.rerun()
+
 
