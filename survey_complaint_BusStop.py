@@ -15,104 +15,86 @@ from google.auth.transport.requests import Request
 
 # --------- Page Setup ---------
 st.set_page_config(page_title="🚌 Bus Stop Survey", layout="wide")
+st.title("Bus Stop Complaints Survey")
 
-# --------- DARK THEME & GLOWING BOX CSS ---------
+# --------- THE FINAL FIX: FORCE GLOWING BOXES & REMOVE CIRCLES ---------
 st.markdown("""
     <style>
-    /* Main Background */
-    .stApp {
-        background-color: #050a05 !important;
-        color: #39FF14 !important;
-    }
-
-    /* Hide standard radio circles */
+    /* 1. Remove the small radio circles entirely */
     [data-testid="stWidgetSelectionVisualizer"] {
         display: none !important;
+        visibility: hidden !important;
+        width: 0px !important;
+        height: 0px !important;
     }
 
-    /* Headers and Labels */
-    h1, h2, h3, p, label {
-        color: #39FF14 !important;
-        font-family: 'Segoe UI', sans-serif !important;
-        text-transform: uppercase;
-    }
-
-    /* Radio Group Container */
+    /* 2. Container for Yes/No buttons */
     div[role="radiogroup"] {
-        gap: 20px;
-        display: flex;
-        flex-direction: row;
+        display: flex !important;
+        flex-direction: row !important;
+        gap: 15px !important;
         background-color: transparent !important;
+        padding: 5px 0 !important;
     }
 
-    /* Base Box Frame Style (Unselected) */
+    /* 3. Base Button Box (Unselected) */
     div[role="radiogroup"] label {
-        padding: 15px 35px !important;
-        border-radius: 8px !important; 
-        border: 2px solid #1c331c !important;
         background-color: #0d110d !important;
-        transition: all 0.3s ease-in-out;
-        cursor: pointer;
-        min-width: 120px;
-        justify-content: center;
+        border: 2px solid #1c331c !important;
+        border-radius: 8px !important;
+        padding: 12px 30px !important;
+        min-width: 100px !important;
+        text-align: center !important;
+        transition: all 0.2s ease-in-out !important;
+        cursor: pointer !important;
     }
 
-    /* YES GLOW - Green Fill */
+    /* 4. Text color for unselected */
+    div[role="radiogroup"] label p {
+        color: #39FF14 !important;
+        font-weight: bold !important;
+        margin-bottom: 0px !important;
+    }
+
+    /* 5. YES - FULL GREEN BOX GLOW WHEN CHECKED */
     div[role="radiogroup"] label:has(input[value="Yes"]):has(input:checked) {
-        background-color: #39FF14 !important; 
+        background-color: #39FF14 !important;
         border-color: #39FF14 !important;
-        box-shadow: 0 0 20px #39FF14 !important;
+        box-shadow: 0 0 15px #39FF14, 0 0 5px #39FF14 !important;
     }
     div[role="radiogroup"] label:has(input[value="Yes"]):has(input:checked) p {
-        color: #000000 !important;
-        font-weight: bold !important;
+        color: #000000 !important; /* Black text on green background */
     }
 
-    /* NO GLOW - Red Fill */
+    /* 6. NO - FULL RED BOX GLOW WHEN CHECKED */
     div[role="radiogroup"] label:has(input[value="No"]):has(input:checked) {
-        background-color: #ff3131 !important; 
-        border-color: #ff3131 !important;
-        box-shadow: 0 0 20px #ff3131 !important;
+        background-color: #FF3131 !important;
+        border-color: #FF3131 !important;
+        box-shadow: 0 0 15px #FF3131, 0 0 5px #FF3131 !important;
     }
     div[role="radiogroup"] label:has(input[value="No"]):has(input:checked) p {
-        color: #ffffff !important;
-        font-weight: bold !important;
+        color: #ffffff !important; /* White text on red background */
     }
-    
-    /* NA GLOW - Gray Fill */
+
+    /* 7. NA - FULL GRAY BOX GLOW WHEN CHECKED */
     div[role="radiogroup"] label:has(input[value="NA"]):has(input:checked) {
-        background-color: #555555 !important; 
+        background-color: #555555 !important;
         border-color: #888888 !important;
-        box-shadow: 0 0 15px #888888 !important;
+        box-shadow: 0 0 10px #888888 !important;
     }
     div[role="radiogroup"] label:has(input[value="NA"]):has(input:checked) p {
         color: white !important;
     }
 
-    /* Custom Submit Button */
-    div.stButton > button {
-        width: 100% !important;
-        background-color: #0d110d !important;
-        color: #39FF14 !important;
-        border: 2px solid #39FF14 !important;
-        height: 60px !important;
-        font-weight: bold !important;
-        border-radius: 10px !important;
-    }
-    div.stButton > button:hover {
-        background-color: #39FF14 !important;
-        color: black !important;
-        box-shadow: 0 0 25px #39FF14 !important;
+    /* 8. Fix the overall Dashboard Background */
+    .stApp {
+        background-color: #050a05 !important;
     }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("Bus Stop Complaints Survey")
-
-# --------- Google Drive Folder ID ---------
+# --------- Google Drive & OAuth Logic (Unchanged) ---------
 FOLDER_ID = "1DjtLxgyQXwgjq_N6I_-rtYcBcnWhzMGp"
-
-# --------- OAuth Setup ---------
 SCOPES = ["https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/spreadsheets"]
 CLIENT_SECRETS_FILE = "client_secrets2.json"
 
@@ -169,7 +151,7 @@ def append_row(sheet_id, row, header):
         sheet.values().update(spreadsheetId=sheet_id, range="A1", valueInputOption="RAW", body={"values": [header]}).execute()
     sheet.values().append(spreadsheetId=sheet_id, range="A1", valueInputOption="RAW", insertDataOption="INSERT_ROWS", body={"values": [row]}).execute()
 
-# --------- Load Excel ---------
+# --------- Load Data ---------
 routes_df = pd.read_excel("bus_data.xlsx", sheet_name="routes")
 stops_df = pd.read_excel("bus_data.xlsx", sheet_name="stops")
 
@@ -195,9 +177,11 @@ staff_dict = {
 "10015662": "MUHAMMAD HANIF BIN HASHIM", "10011944": "NUR HAZIRAH BINTI NAWI"
 }
 
-# --------- Session State ---------
+# --------- State ---------
 if "photos" not in st.session_state:
     st.session_state.photos = []
+if "responses" not in st.session_state:
+    st.session_state.responses = {}
 
 questions_a = [
     "1. BC menggunakan telefon bimbit?", "2. BC memperlahankan/memberhentikan bas?",
@@ -214,22 +198,16 @@ questions_b = [
     "18. Penumpang leka/tidak peka? (NA jika tiada)", "19. Penumpang tiba lewat?",
     "20. Penumpang menunggu di luar kawasan hentian?"
 ]
-
 all_questions = questions_a + questions_b
 
-if "responses" not in st.session_state:
-    st.session_state.responses = {q: None for q in all_questions}
-
-# --------- Staff ID ---------
+# --------- UI Components ---------
 staff_id = st.selectbox("👤 Staff ID", options=list(staff_dict.keys()), index=None, placeholder="Select Staff ID...")
 staff_name = staff_dict[staff_id] if staff_id else ""
 if staff_id: st.success(f"👤 **Staff Name:** {staff_name}")
 
-# --------- Step 1: Select Bus Stop ---------
 stop = st.selectbox("1️⃣ Bus Stop", allowed_stops, index=None, placeholder="Pilih hentian bas...")
 
-current_route = ""
-current_depot = ""
+current_route, current_depot = "", ""
 if stop:
     matched_stop_data = stops_df[stops_df["Stop Name"] == stop]
     matched_route_nums = matched_stop_data["Route Number"].unique()
@@ -238,76 +216,50 @@ if stop:
     current_depot = " / ".join(map(str, matched_depot_names))
     st.info(f"📍 **Route Number:** {current_route}  \n🏢 **Depot:** {current_depot}")
 
-# --------- Survey Sections ---------
 st.markdown("### 4️⃣ A. KELAKUAN KAPTEN BAS")
 for i, q in enumerate(questions_a):
     st.write(f"**{q}**")
-    options = ["Yes", "No", "NA"] if i >= 4 else ["Yes", "No"]
-    choice = st.radio(label=q, options=options, index=None, key=f"qa_{i}", horizontal=True, label_visibility="collapsed")
-    st.session_state.responses[q] = choice
+    opts = ["Yes", "No", "NA"] if i >= 4 else ["Yes", "No"]
+    st.session_state.responses[q] = st.radio(q, opts, index=None, key=f"qa_{i}", horizontal=True, label_visibility="collapsed")
     st.write("---")
 
 st.markdown("### 5️⃣ B. KEADAAN HENTIAN BAS")
 for i, q in enumerate(questions_b):
     st.write(f"**{q}**")
-    options = ["Yes", "No", "NA"] if q in ["17. Penumpang beri isyarat menahan? (NA jika tiada)", "18. Penumpang leka/tidak peka? (NA jika tiada)"] else ["Yes", "No"]
-    choice = st.radio(label=q, options=options, index=None, key=f"qb_{i}", horizontal=True, label_visibility="collapsed")
-    st.session_state.responses[q] = choice
+    opts = ["Yes", "No", "NA"] if "(NA jika tiada)" in q else ["Yes", "No"]
+    st.session_state.responses[q] = st.radio(q, opts, index=None, key=f"qb_{i}", horizontal=True, label_visibility="collapsed")
     st.write("---")
 
-# --------- CAMERA & UPLOAD PHOTOS SECTION ---------
-st.markdown("### 6️⃣ Photos (Exactly 3 Photos Required)")
-
+st.markdown("### 6️⃣ Photos (Exactly 3 Required)")
 if len(st.session_state.photos) < 3:
-    col_cam, col_file = st.columns(2)
-    with col_cam:
-        cam_photo = st.camera_input(f"📷 Take Photo #{len(st.session_state.photos) + 1}")
-        if cam_photo:
-            st.session_state.photos.append(cam_photo)
-            st.rerun()
-    with col_file:
-        up_photo = st.file_uploader(f"📁 Upload Photo #{len(st.session_state.photos) + 1}", type=["png", "jpg", "jpeg"])
-        if up_photo:
-            st.session_state.photos.append(up_photo)
-            st.rerun()
+    col1, col2 = st.columns(2)
+    with col1:
+        cam = st.camera_input(f"📷 Photo #{len(st.session_state.photos) + 1}")
+        if cam: st.session_state.photos.append(cam); st.rerun()
+    with col2:
+        up = st.file_uploader(f"📁 Upload #{len(st.session_state.photos) + 1}", type=["png", "jpg", "jpeg"])
+        if up: st.session_state.photos.append(up); st.rerun()
 else:
-    st.success("✅ 3 Photos Captured/Uploaded.")
-    if st.button("🗑️ Reset Photos"):
-        st.session_state.photos = []
-        st.rerun()
+    st.success("✅ 3 Photos Ready.")
+    if st.button("🗑️ Reset Photos"): st.session_state.photos = []; st.rerun()
 
 if st.session_state.photos:
     cols = st.columns(3)
     for i, p in enumerate(st.session_state.photos):
-        cols[i].image(p, caption=f"Photo {i+1}", use_container_width=True)
+        cols[i].image(p, use_container_width=True)
 
 # --------- Submit ---------
 if st.button("✅ Submit Survey"):
-    if not staff_id:
-        st.warning("Sila pilih Staff ID.")
-    elif not stop:
-        st.warning("Sila pilih Hentian Bas.")
-    elif len(st.session_state.photos) != 3:
-        st.warning("Sila ambil atau muat naik tepat 3 keping gambar.")
-    elif None in st.session_state.responses.values():
-        st.warning("Sila lengkapkan semua soalan.")
+    if not staff_id or not stop or len(st.session_state.photos) != 3 or None in st.session_state.responses.values():
+        st.warning("Please complete all sections.")
     else:
-        with st.spinner("Submitting... Please wait."):
+        with st.spinner("Submitting..."):
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            photo_links = []
-            for i, img in enumerate(st.session_state.photos):
-                link = gdrive_upload_file(img.getvalue(), f"{timestamp}_{i}.jpg", "image/jpeg", FOLDER_ID)
-                photo_links.append(link)
-
-            answers = [st.session_state.responses[q] for q in all_questions]
-            row = [timestamp, staff_id, staff_name, current_depot, current_route, stop] + answers + ["; ".join(photo_links)]
+            links = [gdrive_upload_file(img.getvalue(), f"{timestamp}_{i}.jpg", "image/jpeg", FOLDER_ID) for i, img in enumerate(st.session_state.photos)]
+            ans = [st.session_state.responses[q] for q in all_questions]
+            row = [timestamp, staff_id, staff_name, current_depot, current_route, stop] + ans + ["; ".join(links)]
             header = ["Timestamp", "Staff ID", "Staff Name", "Depot", "Route", "Bus Stop"] + all_questions + ["Photos"]
-
-            sheet_id = find_or_create_gsheet("survey_responses", FOLDER_ID)
-            append_row(sheet_id, row, header)
-
-            st.success("✅ Submission successful!")
-            st.session_state.photos = []
-            st.session_state.responses = {q: None for q in all_questions}
-            time.sleep(2)
-            st.rerun()
+            append_row(find_or_create_gsheet("survey_responses", FOLDER_ID), row, header)
+            st.success("✅ Submitted!")
+            st.session_state.photos, st.session_state.responses = [], {}
+            time.sleep(2); st.rerun()
