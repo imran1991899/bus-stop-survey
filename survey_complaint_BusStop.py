@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from io import BytesIO
+import mimetypes
+import time
 import os
 import pickle
 from urllib.parse import urlencode
@@ -15,7 +17,7 @@ from google.auth.transport.requests import Request
 st.set_page_config(page_title="🚌 Bus Stop Survey", layout="wide")
 st.title("Bus Stop Complaints Survey")
 
-# --------- CSS: iPhone Style + High Contrast YES/NO Buttons ---------
+# --------- Enhanced "iPhone Style" Pill Button CSS ---------
 st.markdown("""
     <style>
     div[role="radiogroup"] {
@@ -25,33 +27,31 @@ st.markdown("""
         background-color: transparent !important;
     }
     div[role="radiogroup"] label {
-        padding: 12px 30px !important;
+        padding: 10px 25px !important;
         border-radius: 50px !important; 
         border: 2px solid #d1d1d6 !important;
         background-color: white !important;
         transition: all 0.3s ease;
     }
     div[role="radiogroup"] label div[data-testid="stMarkdownContainer"] p {
+        color: #333 !important;
         font-weight: bold !important;
         font-size: 16px !important;
     }
-    /* YES - Hijau Terang */
     div[role="radiogroup"] label:has(input[value="Yes"]):has(input:checked) {
-        background-color: #00FF00 !important;
-        border-color: #00FF00 !important;
+        background-color: #28a745 !important; 
+        border-color: #28a745 !important;
     }
     div[role="radiogroup"] label:has(input[value="Yes"]):has(input:checked) p {
-        color: black !important;
+        color: white !important;
     }
-    /* NO - Merah Terang */
     div[role="radiogroup"] label:has(input[value="No"]):has(input:checked) {
-        background-color: #FF0000 !important;
-        border-color: #FF0000 !important;
+        background-color: #dc3545 !important; 
+        border-color: #dc3545 !important;
     }
     div[role="radiogroup"] label:has(input[value="No"]):has(input:checked) p {
         color: white !important;
     }
-    /* NA - Kelabu */
     div[role="radiogroup"] label:has(input[value="NA"]):has(input:checked) {
         background-color: #6c757d !important;
         border-color: #6c757d !important;
@@ -65,8 +65,10 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --------- Google Drive & Sheets Integration ---------
+# --------- Google Drive Folder ID ---------
 FOLDER_ID = "1DjtLxgyQXwgjq_N6I_-rtYcBcnWhzMGp"
+
+# --------- OAuth Setup ---------
 SCOPES = ["https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/spreadsheets"]
 CLIENT_SECRETS_FILE = "client_secrets2.json"
 
@@ -97,7 +99,7 @@ def get_authenticated_service():
         creds = flow.credentials; save_credentials(creds)
     else:
         auth_url, _ = flow.authorization_url(prompt="consent")
-        st.markdown(f"[Klik Sini Untuk Authenticate]({auth_url})"); st.stop()
+        st.markdown(f"[Authenticate here]({auth_url})"); st.stop()
     return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
 
 drive_service, sheets_service = get_authenticated_service()
@@ -123,10 +125,11 @@ def append_row(sheet_id, row, header):
         sheet.values().update(spreadsheetId=sheet_id, range="A1", valueInputOption="RAW", body={"values": [header]}).execute()
     sheet.values().append(spreadsheetId=sheet_id, range="A1", valueInputOption="RAW", insertDataOption="INSERT_ROWS", body={"values": [row]}).execute()
 
-# --------- Load & Filter Data ---------
+# --------- Load Excel ---------
 routes_df = pd.read_excel("bus_data.xlsx", sheet_name="routes")
 stops_df = pd.read_excel("bus_data.xlsx", sheet_name="stops")
 
+# --------- FILTER BUS STOP NAME LIST ---------
 allowed_stops = [
     "AJ106 LRT AMPANG", "DAMANSARA INTAN", "ECOSKY RESIDENCE", "FAKULTI KEJURUTERAAN (UTARA)",
     "FAKULTI PERNIAGAAN DAN PERAKAUNAN", "FAKULTI UNDANG-UNDANG", "KILANG PLASTIK EKSPEDISI EMAS (OPP)",
@@ -138,7 +141,30 @@ allowed_stops = [
     "SCLAND EMPORIS", "SJ602 BANDAR BUKIT PUCHONG BP1", "SMK SERI HARTAMAS", "SMK SULTAN ABD SAMAD (TIMUR)"
 ]
 allowed_stops.sort()
-stops_df = stops_df[stops_df["Stop Name"].isin(allowed_stops)]
+
+# --------- Staff List Dictionary ---------
+staff_dict = {
+    "10005475": "MOHD RIZAL BIN RAMLI",
+    "10020779": "NUR FAEZAH BINTI HARUN",
+    "10014181": "NORAINSYIRAH BINTI ARIFFIN",
+    "10022768": "NORAZHA RAFFIZZI ZORKORNAINI",
+    "10022769": "NUR HANIM HANIL",
+    "10023845": "MUHAMMAD HAMKA BIN ROSLIM",
+    "10002059": "MUHAMAD NIZAM BIN IBRAHIM",
+    "10005562": "AZFAR NASRI BIN BURHAN",
+    "10010659": "MOHD SHAHFIEE BIN ABDULLAH",
+    "10008350": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN",
+    "10003214": "NIK MOHD FADIR BIN NIK MAT RAWI",
+    "10016370": "AHMAD AZIM BIN ISA",
+    "10022910": "NUR SHAHIDA BINTI MOHD TAMIJI",
+    "10023513": "MUHAMMAD SYAHMI BIN AZMEY",
+    "10023273": "MOHD IDZHAM BIN ABU BAKAR",
+    "10023577": "MOHAMAD NAIM MOHAMAD SAPRI",
+    "10023853": "MUHAMAD IMRAN BIN MOHD NASRUDDIN",
+    "10008842": "MIRAN NURSYAWALNI AMIR",
+    "10015662": "MUHAMMAD HANIF BIN HASHIM",
+    "10011944": "NUR HAZIRAH BINTI NAWI"
+}
 
 # --------- Session State ---------
 if "photos" not in st.session_state:
@@ -165,16 +191,27 @@ all_questions = questions_a + questions_b
 if "responses" not in st.session_state:
     st.session_state.responses = {q: None for q in all_questions}
 
-# --------- 1. Staff ID (Guna Text Input untuk elak ralat Merah) ---------
-st.markdown("### 👤 Staff ID")
-staff_id = st.text_input("Taip Staff ID anda (8 digit):", placeholder="Contoh: 11111111")
+# --------- Flexible Staff ID Input ---------
+staff_id = st.selectbox(
+    "👤 Staff ID", 
+    options=list(staff_dict.keys()), 
+    index=None, 
+    placeholder="Select Staff ID..."
+)
 
-# --------- 2. Bus Stop Selection ---------
+# Auto-appear Name
+staff_name = ""
+if staff_id:
+    staff_name = staff_dict[staff_id]
+    st.success(f"👤 **Staff Name:** {staff_name}")
+
+# --------- Step 1: Select Bus Stop ---------
 stop = st.selectbox("1️⃣ Bus Stop", allowed_stops, index=None, placeholder="Pilih hentian bas...")
 
-# --------- 3. Auto-detect Depot & Route ---------
+# --------- Step 2: Auto-detect Depot and Route ---------
 current_route = ""
 current_depot = ""
+
 if stop:
     matched_stop_data = stops_df[stops_df["Stop Name"] == stop]
     matched_route_nums = matched_stop_data["Route Number"].unique()
@@ -183,27 +220,26 @@ if stop:
     current_depot = " / ".join(map(str, matched_depot_names))
     st.info(f"📍 **Route Number:** {current_route}  \n🏢 **Depot:** {current_depot}")
 
-# --------- 4. Survey Sections ---------
-st.markdown("---")
+# --------- Survey Sections ---------
 st.markdown("### 4️⃣ A. KELAKUAN KAPTEN BAS")
 for i, q in enumerate(questions_a):
     st.write(f"**{q}**")
     options = ["Yes", "No", "NA"] if i >= 4 else ["Yes", "No"]
     choice = st.radio(label=q, options=options, index=None, key=f"qa_{i}", horizontal=True, label_visibility="collapsed")
     st.session_state.responses[q] = choice
+    st.write("---")
 
-st.markdown("---")
 st.markdown("### 5️⃣ B. KEADAAN HENTIAN BAS")
 for i, q in enumerate(questions_b):
     st.write(f"**{q}**")
     options = ["Yes", "No", "NA"] if q in ["17. Penumpang beri isyarat menahan? (NA jika tiada)", "18. Penumpang leka/tidak peka? (NA jika tiada)"] else ["Yes", "No"]
     choice = st.radio(label=q, options=options, index=None, key=f"qb_{i}", horizontal=True, label_visibility="collapsed")
     st.session_state.responses[q] = choice
+    st.write("---")
 
-# --------- 5. Photo Upload ---------
-st.markdown("---")
+# --------- Photos ---------
 st.markdown("### 6️⃣ Photos (min 1, max 5)")
-photo = st.file_uploader("Upload Gambar", type=["jpg", "png", "jpeg"])
+photo = st.file_uploader("Upload Photo", type=["jpg", "png", "jpeg"])
 if photo and len(st.session_state.photos) < 5:
     st.session_state.photos.append(photo)
 
@@ -211,32 +247,32 @@ cols = st.columns(5)
 for i, p in enumerate(st.session_state.photos):
     cols[i].image(p, caption=f"Photo {i+1}")
 
-# --------- 6. Submit ---------
+# --------- Submit ---------
 if st.button("✅ Submit Survey"):
-    if not staff_id or len(staff_id) < 5:
-        st.error("Sila masukkan Staff ID yang sah.")
+    if not staff_id:
+        st.warning("Sila pilih Staff ID.")
     elif not stop:
-        st.error("Sila pilih Hentian Bas.")
+        st.warning("Sila pilih Hentian Bas.")
     elif not st.session_state.photos:
-        st.error("Sila muat naik sekurang-kurangnya 1 gambar.")
+        st.warning("At least one photo required.")
     elif None in st.session_state.responses.values():
-        st.error("Sila jawab semua soalan survey.")
+        st.warning("Sila lengkapkan semua soalan.")
     else:
-        with st.spinner("Sedang menghantar data..."):
-            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            photo_links = []
-            for i, img in enumerate(st.session_state.photos):
-                link = gdrive_upload_file(img.getvalue(), f"{timestamp}_{i}.jpg", "image/jpeg", FOLDER_ID)
-                photo_links.append(link)
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        photo_links = []
+        for i, img in enumerate(st.session_state.photos):
+            link = gdrive_upload_file(img.getvalue(), f"{timestamp}_{i}.jpg", "image/jpeg", FOLDER_ID)
+            photo_links.append(link)
 
-            answers = [st.session_state.responses[q] for q in all_questions]
-            row = [timestamp, staff_id, current_depot, current_route, stop] + answers + ["; ".join(photo_links)]
-            header = ["Timestamp", "Staff ID", "Depot", "Route", "Bus Stop"] + all_questions + ["Photos"]
+        answers = [st.session_state.responses[q] for q in all_questions]
+        # Added staff_name to the row
+        row = [timestamp, staff_id, staff_name, current_depot, current_route, stop] + answers + ["; ".join(photo_links)]
+        header = ["Timestamp", "Staff ID", "Staff Name", "Depot", "Route", "Bus Stop"] + all_questions + ["Photos"]
 
-            sheet_id = find_or_create_gsheet("survey_responses", FOLDER_ID)
-            append_row(sheet_id, row, header)
+        sheet_id = find_or_create_gsheet("survey_responses", FOLDER_ID)
+        append_row(sheet_id, row, header)
 
-            st.success("✅ Survey Berjaya Dihantar!")
-            st.session_state.photos = []
-            st.session_state.responses = {q: None for q in all_questions}
-            st.rerun()
+        st.success("✅ Submission successful!")
+        st.session_state.photos = []
+        st.session_state.responses = {q: None for q in all_questions}
+        st.rerun()
