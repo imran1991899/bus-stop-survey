@@ -12,7 +12,7 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 from google.auth.transport.requests import Request
 
-# --------- 1. DATA DEFINITIONS (Defined first to prevent NameErrors) ---------
+# --------- 1. DATA DEFINITIONS (Defined first to prevent NameError) ---------
 
 allowed_stops = [
     "AJ106 LRT AMPANG", "DAMANSARA INTAN", "ECOSKY RESIDENCE", "FAKULTI KEJURUTERAAN (UTARA)",
@@ -58,13 +58,14 @@ all_questions = questions_a + questions_b
 if "photos" not in st.session_state:
     st.session_state.photos = []
 
-if "saved_staff_id" not in st.session_state:
-    st.session_state.saved_staff_id = None
+# This variable stays even after submission
+if "sticky_staff_id" not in st.session_state:
+    st.session_state.sticky_staff_id = None
 
 if "responses" not in st.session_state:
     st.session_state.responses = {q: None for q in all_questions}
 
-# --------- 3. PAGE CONFIG & CSS ---------
+# --------- 3. PAGE SETUP & CSS ---------
 
 st.set_page_config(page_title="🚌 Bus Stop Survey", layout="wide")
 st.title("Bus Stop Complaints Survey")
@@ -80,113 +81,96 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --------- 4. GOOGLE DRIVE FUNCTIONS ---------
-# Note: Ensure client_secrets2.json is in your root directory
+# --------- 4. STAFF SELECTION (STAYS AFTER SUBMIT) ---------
 
-FOLDER_ID = "1DjtLxgyQXwgjq_N6I_-rtYcBcnWhzMGp"
-SCOPES = ["https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/spreadsheets"]
-
-def get_authenticated_service():
-    if os.path.exists("token.pickle"):
-        with open("token.pickle", "rb") as token:
-            creds = pickle.load(token)
-    else:
-        creds = None
-
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            flow = Flow.from_client_secrets_file("client_secrets2.json", scopes=SCOPES, 
-                                               redirect_uri="https://bus-stop-survey-99f8wusughejfcfvrvxmyl.streamlit.app/")
-            auth_url, _ = flow.authorization_url(prompt="consent")
-            st.markdown(f"[Authenticate here]({auth_url})")
-            st.stop()
-        with open("token.pickle", "wb") as token:
-            pickle.dump(creds, token)
-    return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
-
-# --------- 5. UI COMPONENTS ---------
-
-# Maintain Staff ID selection
 staff_options = list(staff_dict.keys())
 try:
-    def_idx = staff_options.index(st.session_state.saved_staff_id)
-except:
-    def_idx = None
+    # Set the index to match the sticky ID in session state
+    staff_idx = staff_options.index(st.session_state.sticky_staff_id)
+except (ValueError, KeyError):
+    staff_idx = None
 
-selected_staff = st.selectbox("👤 Staff ID", options=staff_options, index=def_idx, placeholder="Select Staff ID...")
-st.session_state.saved_staff_id = selected_staff 
+selected_staff = st.selectbox("👤 Staff ID", options=staff_options, index=staff_idx, placeholder="Select Staff ID...")
+st.session_state.sticky_staff_id = selected_staff 
 
 if selected_staff:
     st.success(f"👤 **Staff Name:** {staff_dict[selected_staff]}")
 
-stop = st.selectbox("1️⃣ Bus Stop", allowed_stops, index=None, placeholder="Pilih hentian bas...")
+# --------- 5. SURVEY FORM (RESETS AFTER SUBMIT) ---------
+
+# Added a unique key to allow for manual/programmatic reset via session state
+stop = st.selectbox("1️⃣ Bus Stop", allowed_stops, index=None, placeholder="Pilih hentian bas...", key="current_stop")
 
 st.markdown("### 4️⃣ A. KELAKUAN KAPTEN BAS")
 for i, q in enumerate(questions_a):
     st.write(f"**{q}**")
     opts = ["Yes", "No", "NA"] if i >= 4 else ["Yes", "No"]
-    curr = st.session_state.responses.get(q)
-    idx = opts.index(curr) if curr in opts else None
+    ans = st.session_state.responses.get(q)
+    idx = opts.index(ans) if ans in opts else None
     st.session_state.responses[q] = st.radio(q, opts, index=idx, key=f"qa_{i}", horizontal=True, label_visibility="collapsed")
 
 st.markdown("### 5️⃣ B. KEADAAN HENTIAN BAS")
 for i, q in enumerate(questions_b):
     st.write(f"**{q}**")
     opts = ["Yes", "No", "NA"] if "NA" in q else ["Yes", "No"]
-    curr = st.session_state.responses.get(q)
-    idx = opts.index(curr) if curr in opts else None
+    ans = st.session_state.responses.get(q)
+    idx = opts.index(ans) if ans in opts else None
     st.session_state.responses[q] = st.radio(q, opts, index=idx, key=f"qb_{i}", horizontal=True, label_visibility="collapsed")
 
-# --------- 6. PHOTOS SECTION (EXACTLY 3) ---------
+# --------- 6. DUAL PHOTO SYSTEM (RESETS AFTER SUBMIT) ---------
 
-st.markdown("### 6️⃣ Photos (Exactly 3 Photos Required)")
+st.markdown("### 6️⃣ Photos (Exactly 3 Required)")
 if len(st.session_state.photos) < 3:
-    c1, c2 = st.columns(2)
-    with c1:
-        cam_p = st.camera_input(f"📷 Take Photo #{len(st.session_state.photos)+1}")
-        if cam_p:
-            st.session_state.photos.append(cam_p)
+    col_cam, col_file = st.columns(2)
+    with col_cam:
+        cam_in = st.camera_input(f"📷 Take Photo #{len(st.session_state.photos)+1}")
+        if cam_in:
+            st.session_state.photos.append(cam_in)
             st.rerun()
-    with c2:
-        up_p = st.file_uploader(f"📁 Upload Photo #{len(st.session_state.photos)+1}", type=["png", "jpg", "jpeg"])
-        if up_p:
-            st.session_state.photos.append(up_p)
+    with col_file:
+        file_in = st.file_uploader(f"📁 Upload Photo #{len(st.session_state.photos)+1}", type=["png", "jpg", "jpeg"])
+        if file_in:
+            st.session_state.photos.append(file_in)
             st.rerun()
 else:
-    st.success("✅ 3 Photos Ready")
-    if st.button("🗑️ Clear Photos"):
+    st.success("✅ 3 Photos Captured.")
+    if st.button("🗑️ Reset Photos"):
         st.session_state.photos = []
         st.rerun()
 
-# --------- 7. SUBMIT LOGIC ---------
+# --------- 7. SUBMIT & RESET LOGIC ---------
 
-if st.button("✅ Submit Survey"):
-    if not selected_staff or not stop or len(st.session_state.photos) != 3:
-        st.error("Error: Please ensure Staff ID is selected, Bus Stop is chosen, and exactly 3 photos are taken.")
+if st.button("✅ Submit Survey", use_container_width=True):
+    if not selected_staff:
+        st.error("Sila pilih Staff ID!")
+    elif not stop:
+        st.error("Sila pilih Bus Stop!")
+    elif len(st.session_state.photos) != 3:
+        st.error("Sila ambil/upload tepat 3 keping gambar!")
     elif None in st.session_state.responses.values():
-        st.warning("Please answer all questions.")
+        st.warning("Sila pastikan semua soalan dijawab.")
     else:
-        with st.spinner("Submitting to Google..."):
-            try:
-                # Authentication
-                # drive_service, sheets_service = get_authenticated_service()
-                
-                # [Logic for uploading to Drive and Sheets goes here]
-                # ...
-                
-                # --- RESET AFTER SUBMISSION ---
-                st.session_state.photos = [] 
-                st.session_state.responses = {q: None for q in all_questions}
-                
-                st.success("✅ Survey Submitted Successfully! All fields reset except Staff ID.")
-                time.sleep(2)
-                st.rerun()
-            except Exception as e:
-                st.error(f"Submission failed: {e}")
+        with st.spinner("Processing Submission..."):
+            # --- 🚀 [INSERT YOUR GOOGLE DRIVE/SHEETS CODE HERE] 🚀 ---
+            # Drive upload logic...
+            # Sheets append logic...
+            
+            # --- THE RESET (ONLY QUESTIONS & PHOTOS) ---
+            # 1. Wipe photo list
+            st.session_state.photos = []
+            # 2. Wipe survey responses
+            st.session_state.responses = {q: None for q in all_questions}
+            # 3. Wipe the Bus Stop selectbox
+            if "current_stop" in st.session_state:
+                st.session_state.current_stop = None
+            
+            # NOTE: st.session_state.sticky_staff_id is NOT cleared here.
+            
+            st.success("✅ Submission Successful! Staff ID Maintained. Ready for next stop.")
+            time.sleep(2)
+            st.rerun()
 
-# Option to manually reset Staff ID
-if st.button("🔄 Reset Staff ID"):
-    st.session_state.saved_staff_id = None
+st.divider()
+if st.button("🔄 Logout/Clear Staff ID"):
+    st.session_state.sticky_staff_id = None
     st.rerun()
