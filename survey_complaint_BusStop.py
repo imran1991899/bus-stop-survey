@@ -131,67 +131,34 @@ stops_df = pd.read_excel("bus_data.xlsx", sheet_name="stops")
 
 # --------- FILTER BUS STOP NAME LIST ---------
 allowed_stops = [
-    "AJ106 LRT AMPANG",
-    "DAMANSARA INTAN",
-    "ECOSKY RESIDENCE",
-    "FAKULTI KEJURUTERAAN (UTARA)",
-    "FAKULTI PERNIAGAAN DAN PERAKAUNAN",
-    "FAKULTI UNDANG-UNDANG",
-    "KILANG PLASTIK EKSPEDISI EMAS (OPP)",
-    "KJ477 UTAR",
-    "KJ560 SHELL SG LONG (OPP)",
-    "KL107 LRT MASJID JAMEK",
-    "KL1082 SK Methodist",
-    "KL117 BSN LEBUH AMPANG",
-    "KL1217 ILP KUALA LUMPUR",
-    "KL2247 KOMERSIAL KIP",
-    "KL377 WISMA SISTEM",
-    "KOMERSIAL BURHANUDDIN (2)",
-    "MASJID CYBERJAYA 10",
-    "MRT SRI DELIMA PINTU C",
-    "PERUMAHAN TTDI",
-    "PJ312 Medan Selera Seksyen 19",
-    "PJ476 MASJID SULTAN ABDUL AZIZ",
-    "PJ721 ONE UTAMA NEW WING",
-    "PPJ384 AURA RESIDENCE",
-    "SA12 APARTMENT BAIDURI (OPP)",
-    "SA26 PERUMAHAN SEKSYEN 11",
-    "SCLAND EMPORIS",
-    "SJ602 BANDAR BUKIT PUCHONG BP1",
-    "SMK SERI HARTAMAS",
-    "SMK SULTAN ABD SAMAD (TIMUR)"
+    "AJ106 LRT AMPANG", "DAMANSARA INTAN", "ECOSKY RESIDENCE", "FAKULTI KEJURUTERAAN (UTARA)",
+    "FAKULTI PERNIAGAAN DAN PERAKAUNAN", "FAKULTI UNDANG-UNDANG", "KILANG PLASTIK EKSPEDISI EMAS (OPP)",
+    "KJ477 UTAR", "KJ560 SHELL SG LONG (OPP)", "KL107 LRT MASJID JAMEK", "KL1082 SK Methodist",
+    "KL117 BSN LEBUH AMPANG", "KL1217 ILP KUALA LUMPUR", "KL2247 KOMERSIAL KIP", "KL377 WISMA SISTEM",
+    "KOMERSIAL BURHANUDDIN (2)", "MASJID CYBERJAYA 10", "MRT SRI DELIMA PINTU C", "PERUMAHAN TTDI",
+    "PJ312 Medan Selera Seksyen 19", "PJ476 MASJID SULTAN ABDUL AZIZ", "PJ721 ONE UTAMA NEW WING",
+    "PPJ384 AURA RESIDENCE", "SA12 APARTMENT BAIDURI (OPP)", "SA26 PERUMAHAN SEKSYEN 11",
+    "SCLAND EMPORIS", "SJ602 BANDAR BUKIT PUCHONG BP1", "SMK SERI HARTAMAS", "SMK SULTAN ABD SAMAD (TIMUR)"
 ]
-
-# Ensure we only use data for these allowed stops
-stops_df = stops_df[stops_df["Stop Name"].isin(allowed_stops)]
+allowed_stops.sort() # Sorting for easier navigation
 
 # --------- Session State ---------
 if "photos" not in st.session_state:
     st.session_state.photos = []
 
 questions_a = [
-    "1. BC menggunakan telefon bimbit?",
-    "2. BC memperlahankan/memberhentikan bas?",
-    "3. BC memandu di lorong 1 (kiri)?",
-    "4. Bas penuh dengan penumpang?",
-    "5. BC tidak mengambil penumpang? (NA jika tiada)",
-    "6. BC berlaku tidak sopan? (NA jika tiada)"
+    "1. BC menggunakan telefon bimbit?", "2. BC memperlahankan/memberhentikan bas?",
+    "3. BC memandu di lorong 1 (kiri)?", "4. Bas penuh dengan penumpang?",
+    "5. BC tidak mengambil penumpang? (NA jika tiada)", "6. BC berlaku tidak sopan? (NA jika tiada)"
 ]
 
 questions_b = [
-    "7. Hentian terlindung dari pandangan BC?",
-    "8. Hentian terhalang oleh kenderaan parkir?",
-    "9. Persekitaran bahaya untuk bas berhenti?",
-    "10. Terdapat pembinaan berhampiran?",
-    "11. Mempunyai bumbung?",
-    "12. Mempunyai tiang?",
-    "13. Mempunyai petak hentian?",
-    "14. Mempunyai layby?",
-    "15. Terlindung dari pandangan BC? (Gerai/Pokok)",
-    "16. Pencahayaan baik?",
-    "17. Penumpang beri isyarat menahan? (NA jika tiada)",
-    "18. Penumpang leka/tidak peka? (NA jika tiada)",
-    "19. Penumpang tiba lewat?",
+    "7. Hentian terlindung dari pandangan BC?", "8. Hentian terhalang oleh kenderaan parkir?",
+    "9. Persekitaran bahaya untuk bas berhenti?", "10. Terdapat pembinaan berhampiran?",
+    "11. Mempunyai bumbung?", "12. Mempunyai tiang?", "13. Mempunyai petak hentian?",
+    "14. Mempunyai layby?", "15. Terlindung dari pandangan BC? (Gerai/Pokok)",
+    "16. Pencahayaan baik?", "17. Penumpang beri isyarat menahan? (NA jika tiada)",
+    "18. Penumpang leka/tidak peka? (NA jika tiada)", "19. Penumpang tiba lewat?",
     "20. Penumpang menunggu di luar kawasan hentian?"
 ]
 
@@ -200,10 +167,17 @@ all_questions = questions_a + questions_b
 if "responses" not in st.session_state:
     st.session_state.responses = {q: None for q in all_questions}
 
-# --------- Staff ID ---------
-staff_id = st.text_input("👤 Staff ID (8 digits)")
+# --------- Flexible Staff ID Input ---------
+# selectbox with index=None allows users to type custom values
+staff_id_options = ["1111111", "22222", "33333"]
+staff_id = st.selectbox(
+    "👤 Staff ID", 
+    staff_id_options, 
+    index=None, 
+    placeholder="Pilih atau Taip ID 8-digit anda..."
+)
 
-# --------- Step 1: Select Bus Stop (Filtered) ---------
+# --------- Step 1: Select Bus Stop ---------
 stop = st.selectbox("1️⃣ Bus Stop", allowed_stops, index=None, placeholder="Pilih hentian bas...")
 
 # --------- Step 2: Auto-detect Depot and Route ---------
@@ -211,20 +185,14 @@ current_route = ""
 current_depot = ""
 
 if stop:
-    # Filter stops_df for selected stop
     matched_stop_data = stops_df[stops_df["Stop Name"] == stop]
     matched_route_nums = matched_stop_data["Route Number"].unique()
-    
-    # Format Route Number with /
     current_route = " / ".join(map(str, matched_route_nums))
-    
-    # Get Depots from routes_df
     matched_depot_names = routes_df[routes_df["Route Number"].isin(matched_route_nums)]["Depot"].unique()
     current_depot = " / ".join(map(str, matched_depot_names))
-    
     st.info(f"📍 **Route Number:** {current_route}  \n🏢 **Depot:** {current_depot}")
 
-# --------- A. KELAKUAN KAPTEN BAS ---------
+# --------- Survey Sections ---------
 st.markdown("### 4️⃣ A. KELAKUAN KAPTEN BAS")
 for i, q in enumerate(questions_a):
     st.write(f"**{q}**")
@@ -233,7 +201,6 @@ for i, q in enumerate(questions_a):
     st.session_state.responses[q] = choice
     st.write("---")
 
-# --------- B. KEADAAN HENTIAN BAS ---------
 st.markdown("### 5️⃣ B. KEADAAN HENTIAN BAS")
 for i, q in enumerate(questions_b):
     st.write(f"**{q}**")
@@ -254,8 +221,11 @@ for i, p in enumerate(st.session_state.photos):
 
 # --------- Submit ---------
 if st.button("✅ Submit Survey"):
-    if not staff_id.isdigit() or len(staff_id) != 8:
-        st.warning("Staff ID must be 8 digits.")
+    # Validation for Staff ID
+    if not staff_id:
+        st.warning("Sila masukkan Staff ID.")
+    elif staff_id not in staff_id_options and (not staff_id.isdigit() or len(staff_id) != 8):
+        st.warning("Manual Staff ID mestilah 8 digit nombor.")
     elif not stop:
         st.warning("Sila pilih Hentian Bas.")
     elif not st.session_state.photos:
@@ -270,7 +240,6 @@ if st.button("✅ Submit Survey"):
             photo_links.append(link)
 
         answers = [st.session_state.responses[q] for q in all_questions]
-
         row = [timestamp, staff_id, current_depot, current_route, stop] + answers + ["; ".join(photo_links)]
         header = ["Timestamp", "Staff ID", "Depot", "Route", "Bus Stop"] + all_questions + ["Photos"]
 
