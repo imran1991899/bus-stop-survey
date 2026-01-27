@@ -174,10 +174,8 @@ route = st.selectbox("2️⃣ Route Number", routes_df[routes_df["Depot"] == dep
 stops = stops_df[stops_df["Route Number"] == route]["Stop Name"].dropna()
 stop = st.selectbox("3️⃣ Bus Stop", stops)
 
-condition = st.selectbox("4️⃣ Bus Stop Condition", ["1. Covered Bus Stop", "2. Pole Only", "3. Layby", "4. Non-Infrastructure"])
-
 # --------- A. KELAKUAN KAPTEN BAS ---------
-st.markdown("### 5️⃣ A. KELAKUAN KAPTEN BAS")
+st.markdown("### 4️⃣ A. KELAKUAN KAPTEN BAS")
 for i, q in enumerate(questions_a):
     st.write(f"**{q}**")
     options = ["Yes", "No", "NA"] if i >= 4 else ["Yes", "No"]
@@ -189,7 +187,7 @@ for i, q in enumerate(questions_a):
 st.markdown("### 5️⃣ B. KEADAAN HENTIAN BAS")
 for i, q in enumerate(questions_b):
     st.write(f"**{q}**")
-    # Questions 17 and 18 (indices 10 and 11 in this list) get NA
+    # Questions 17 and 18 get NA
     options = ["Yes", "No", "NA"] if q in ["17. Penumpang beri isyarat menahan? (NA jika tiada)", "18. Penumpang leka/tidak peka? (NA jika tiada)"] else ["Yes", "No"]
     choice = st.radio(label=q, options=options, index=None, key=f"qb_{i}", horizontal=True, label_visibility="collapsed")
     st.session_state.responses[q] = choice
@@ -223,8 +221,9 @@ if st.button("✅ Submit Survey"):
         # Get all answers in order
         answers = [st.session_state.responses[q] for q in all_questions]
 
-        row = [timestamp, staff_id, depot, route, stop, condition] + answers + ["; ".join(photo_links)]
-        header = ["Timestamp", "Staff ID", "Depot", "Route", "Bus Stop", "Condition"] + all_questions + ["Photos"]
+        # Row construction without "Condition"
+        row = [timestamp, staff_id, depot, route, stop] + answers + ["; ".join(photo_links)]
+        header = ["Timestamp", "Staff ID", "Depot", "Route", "Bus Stop"] + all_questions + ["Photos"]
 
         sheet_id = find_or_create_gsheet("survey_responses", FOLDER_ID)
         append_row(sheet_id, row, header)
