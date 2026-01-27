@@ -16,16 +16,16 @@ from google.auth.transport.requests import Request
 # --------- Page Setup ---------
 st.set_page_config(page_title="🚌 Bus Stop Survey", layout="wide")
 
-# --------- EXACT PRS THEME CSS ---------
+# --------- EXACT DASHBOARD THEME CSS ---------
 st.markdown("""
     <style>
-    /* 1. Main Background - Deep PRS Dark */
+    /* 1. Main Background - Deep Dark */
     .stApp {
         background-color: #050a05 !important;
         color: #39FF14 !important;
     }
 
-    /* 2. Headers and Labels - Neon Green/Cyan tint */
+    /* 2. Headers and Labels - Neon Green */
     h1, h2, h3, p, label {
         color: #39FF14 !important;
         font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
@@ -40,7 +40,7 @@ st.markdown("""
         color: #39FF14 !important;
     }
     
-    /* 4. YES / NO PILL FUNCTION (Full Color on Selection) */
+    /* 4. YES / NO / NA BUTTONS - Full Color on Selection */
     div[role="radiogroup"] {
         gap: 15px;
     }
@@ -75,7 +75,7 @@ st.markdown("""
         color: #ffffff !important;
     }
 
-    /* 5. BIG SUBMIT BUTTON - PRS Styled */
+    /* 5. BIG SUBMIT BUTTON - Large & Centered Style */
     div.stButton > button:first-child {
         width: 100% !important;
         height: 85px !important;
@@ -100,7 +100,7 @@ st.markdown("""
         display: none !important;
     }
     
-    /* 6. Info Boxes and Success Messages */
+    /* 6. Info Boxes and Alerts */
     .stAlert {
         background-color: #0d110d !important;
         border: 1px solid #1c331c !important;
@@ -113,7 +113,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-st.title("📟 PRS | SURVEY ENTRY SYSTEM")
+st.title("🚌 BUS STOP SURVEY ENTRY")
 
 # --------- Google Drive Folder ID ---------
 FOLDER_ID = "1DjtLxgyQXwgjq_N6I_-rtYcBcnWhzMGp"
@@ -194,7 +194,7 @@ allowed_stops.sort()
 staff_dict = {
     "8917": "MOHD RIZAL BIN RAMLI", "8918": "NUR FAEZAH BINTI HARUN", "8919": "NORAINSYIRAH BINTI ARIFFIN",
     "8920": "NORAZHA RAFFIZZI ZORKORNAINI", "8921": "NUR HANIM HANIL", "8922": "MUHAMMAD HAMKA BIN ROSLIM",
-    "8923": "MUHAMAD NIZAM BIN IBRAHIM", "8924": "AZFAR NASRI BIN BURHAN", "8925": "MOHD SHAHFIEE BIN ABDULLAH",
+    "8923": "MUHAMAD NIZAM BIN IBRAHIM", "8924": "AZFAR NASRI BIN BURHAN", "8925": "MOHD SHHFIEE BIN ABDULLAH",
     "8926": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN", "8927": "NIK MOHD FADIR BIN NIK MAT RAWI", "8928": "AHMAD AZIM BIN ISA",
     "8929": "NUR SHAHIDA BINTI MOHD TAMIJI", "8930": "MUHAMMAD SYAHMI BIN AZMEY", "8931": "MOHD IDZHAM BIN ABU BAKAR",
     "8932": "MOHAMAD NAIM MOHAMAD SAPRI", "8933": "MUHAMAD IMRAN BIN MOHD NASRUDDIN", "8934": "MIRAN NURSYAWALNI AMIR",
@@ -285,7 +285,7 @@ if st.session_state.photos:
         cols[i].image(p, caption=f"IMG_{i+1}", use_container_width=True)
 
 # --------- Submit ---------
-if st.button("✅ SUBMIT TO PRS DATABASE"):
+if st.button("✅ SUBMIT SURVEY DATA"):
     if not staff_id or not stop or len(st.session_state.photos) != 3 or None in st.session_state.responses.values():
         st.warning("⚠️ CRITICAL ERROR: REQUIRED FIELDS MISSING.")
     else:
