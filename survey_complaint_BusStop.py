@@ -1,5 +1,5 @@
 import streamlit as st
-import pd as pd
+import pandas as pd
 from datetime import datetime
 from io import BytesIO
 import mimetypes
@@ -17,10 +17,9 @@ from google.auth.transport.requests import Request
 st.set_page_config(page_title="🚌 Bus Stop Survey", layout="wide")
 st.title("Bus Stop Complaints Survey")
 
-# --------- Updated CSS for Bigger Submit Button & Pill Buttons ---------
+# --------- Enhanced "iPhone Style" Pill Button CSS ---------
 st.markdown("""
     <style>
-    /* 1. Pill Button Styling */
     div[role="radiogroup"] {
         display: flex;
         flex-direction: row;
@@ -63,35 +62,13 @@ st.markdown("""
     div[role="radiogroup"] [data-testid="stWidgetSelectionVisualizer"] {
         display: none !important;
     }
-
-    /* 2. BIGGER SUBMIT BUTTON STYLING */
-    div.stButton > button:first-child {
-        width: 100%;
-        height: 80px !important;
-        font-size: 28px !important;
-        font-weight: bold !important;
-        background-color: #28a745 !important;
-        color: white !important;
-        border-radius: 15px !important;
-        border: none !important;
-        transition: all 0.3s ease;
-        margin-top: 20px;
-    }
-    
-    div.stButton > button:first-child:hover {
-        background-color: #218838 !important;
-        transform: scale(1.02);
-    }
-    
-    /* Ensuring regular buttons (like Reset) stay normal size */
-    div.stButton > button:not(:first-child) {
-        font-size: 14px;
-    }
     </style>
     """, unsafe_allow_html=True)
 
-# --------- OAuth / Google Functions (Logic remains as you provided) ---------
+# --------- Google Drive Folder ID ---------
 FOLDER_ID = "1DjtLxgyQXwgjq_N6I_-rtYcBcnWhzMGp"
+
+# --------- OAuth Setup ---------
 SCOPES = ["https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/spreadsheets"]
 CLIENT_SECRETS_FILE = "client_secrets2.json"
 
@@ -148,7 +125,7 @@ def append_row(sheet_id, row, header):
         sheet.values().update(spreadsheetId=sheet_id, range="A1", valueInputOption="RAW", body={"values": [header]}).execute()
     sheet.values().append(spreadsheetId=sheet_id, range="A1", valueInputOption="RAW", insertDataOption="INSERT_ROWS", body={"values": [row]}).execute()
 
-# --------- Load Data ---------
+# --------- Load Excel ---------
 routes_df = pd.read_excel("bus_data.xlsx", sheet_name="routes")
 stops_df = pd.read_excel("bus_data.xlsx", sheet_name="stops")
 
@@ -174,7 +151,7 @@ staff_dict = {
     "8935": "MUHAMMAD HANIF BIN HASHIM", "8936": "NUR HAZIRAH BINTI NAWI"
 }
 
-# --------- Session State Initialization ---------
+# --------- Session State ---------
 if "photos" not in st.session_state:
     st.session_state.photos = []
 
@@ -215,7 +192,7 @@ if stop:
     current_route = " / ".join(map(str, matched_route_nums))
     matched_depot_names = routes_df[routes_df["Route Number"].isin(matched_route_nums)]["Depot"].unique()
     current_depot = " / ".join(map(str, matched_depot_names))
-    st.info(f"📍 **Route Number:** {current_route} \n🏢 **Depot:** {current_depot}")
+    st.info(f"📍 **Route Number:** {current_route}  \n🏢 **Depot:** {current_depot}")
 
 # --------- Survey Sections ---------
 st.markdown("### 4️⃣ A. KELAKUAN KAPTEN BAS")
@@ -229,9 +206,7 @@ for i, q in enumerate(questions_a):
 st.markdown("### 5️⃣ B. KEADAAN HENTIAN BAS")
 for i, q in enumerate(questions_b):
     st.write(f"**{q}**")
-    # Specific logic for NA options
-    is_na_question = q in ["17. Penumpang beri isyarat menahan? (NA jika tiada)", "18. Penumpang leka/tidak peka? (NA jika tiada)"]
-    options = ["Yes", "No", "NA"] if is_na_question else ["Yes", "No"]
+    options = ["Yes", "No", "NA"] if q in ["17. Penumpang beri isyarat menahan? (NA jika tiada)", "18. Penumpang leka/tidak peka? (NA jika tiada)"] else ["Yes", "No"]
     choice = st.radio(label=q, options=options, index=None, key=f"qb_{i}", horizontal=True, label_visibility="collapsed")
     st.session_state.responses[q] = choice
     st.write("---")
@@ -239,27 +214,36 @@ for i, q in enumerate(questions_b):
 # --------- CAMERA & UPLOAD PHOTOS SECTION ---------
 st.markdown("### 6️⃣ Photos (Exactly 3 Photos Required)")
 
+# Display current photo count and a clear list
 if len(st.session_state.photos) < 3:
     col_cam, col_file = st.columns(2)
+    
     with col_cam:
+        # Camera Input
         cam_photo = st.camera_input(f"📷 Take Photo #{len(st.session_state.photos) + 1}")
         if cam_photo:
-            st.session_state.photos.append(cam_photo); st.rerun()
+            st.session_state.photos.append(cam_photo)
+            st.rerun()
+
     with col_file:
+        # File Uploader
         up_photo = st.file_uploader(f"📁 Upload Photo #{len(st.session_state.photos) + 1}", type=["png", "jpg", "jpeg"])
         if up_photo:
-            st.session_state.photos.append(up_photo); st.rerun()
+            st.session_state.photos.append(up_photo)
+            st.rerun()
 else:
     st.success("✅ 3 Photos Captured/Uploaded.")
     if st.button("🗑️ Reset Photos"):
-        st.session_state.photos = []; st.rerun()
+        st.session_state.photos = []
+        st.rerun()
 
+# Image Preview Logic
 if st.session_state.photos:
     cols = st.columns(3)
     for i, p in enumerate(st.session_state.photos):
         cols[i].image(p, caption=f"Photo {i+1}", use_container_width=True)
 
-# --------- Submit (The Big Button) ---------
+# --------- Submit ---------
 if st.button("✅ Submit Survey"):
     if not staff_id:
         st.warning("Sila pilih Staff ID.")
@@ -287,4 +271,6 @@ if st.button("✅ Submit Survey"):
             st.success("✅ Submission successful!")
             st.session_state.photos = []
             st.session_state.responses = {q: None for q in all_questions}
-            time.sleep(2); st.rerun()
+            time.sleep(2)
+            st.rerun()
+
