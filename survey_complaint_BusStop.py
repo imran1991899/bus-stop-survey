@@ -125,15 +125,21 @@ def append_row(sheet_id, row, header):
         sheet.values().update(spreadsheetId=sheet_id, range="A1", valueInputOption="RAW", body={"values": [header]}).execute()
     sheet.values().append(spreadsheetId=sheet_id, range="A1", valueInputOption="RAW", insertDataOption="INSERT_ROWS", body={"values": [row]}).execute()
 
-# --------- Load Excel ---------
+# --------- Load Excel & Filter Kuantan ---------
 routes_df = pd.read_excel("bus_data.xlsx", sheet_name="routes")
 stops_df = pd.read_excel("bus_data.xlsx", sheet_name="stops")
+
+# --- FILTER LOGIC ---
+# Remove any routes belonging to Kuantan depot
+routes_df = routes_df[routes_df["Depot"].str.upper() != "KUANTAN"]
+# Only keep stops that belong to the filtered routes
+valid_routes = routes_df["Route Number"].unique()
+stops_df = stops_df[stops_df["Route Number"].isin(valid_routes)]
 
 # --------- Session State ---------
 if "photos" not in st.session_state:
     st.session_state.photos = []
 
-# Questions Lists
 questions_a = [
     "1. BC menggunakan telefon bimbit?",
     "2. BC memperlahankan/memberhentikan bas?",
@@ -168,29 +174,27 @@ if "responses" not in st.session_state:
 # --------- Staff ID ---------
 staff_id = st.text_input("👤 Staff ID (8 digits)")
 
-# --------- NEW LOGIC: Select Bus Stop First ---------
-# 1. Select Bus Stop
+# --------- Step 1: Select Bus Stop ---------
 all_stops = stops_df["Stop Name"].dropna().unique()
-stop = st.selectbox("1️⃣ Bus Stop", all_stops, index=None, placeholder="Search for a bus stop...")
+stop = st.selectbox("1️⃣ Bus Stop", all_stops, index=None, placeholder="Cari hentian bas...")
 
-# 2. Auto-find Route and Depot based on Stop
+# --------- Step 2: Auto-detect Depot and Route ---------
+current_route = ""
+current_depot = ""
+
 if stop:
-    # Get all route numbers associated with this stop
-    matched_routes = stops_df[stops_df["Stop Name"] == stop]["Route Number"].unique()
-    route_display = " / ".join(map(str, matched_routes))
+    # Filter stops_df for selected stop
+    matched_stop_data = stops_df[stops_df["Stop Name"] == stop]
+    matched_route_nums = matched_stop_data["Route Number"].unique()
     
-    # Get associated depots for these routes
-    matched_depots = routes_df[routes_df["Route Number"].isin(matched_routes)]["Depot"].unique()
-    depot_display = " / ".join(map(str, matched_depots))
+    # Format Route Number with /
+    current_route = " / ".join(map(str, matched_route_nums))
     
-    st.info(f"📍 **Route Number:** {route_display}  \n🏢 **Depot:** {depot_display}")
+    # Get Depots from routes_df based on matched routes
+    matched_depot_names = routes_df[routes_df["Route Number"].isin(matched_route_nums)]["Depot"].unique()
+    current_depot = " / ".join(map(str, matched_depot_names))
     
-    # Store these for submission
-    current_route = route_display
-    current_depot = depot_display
-else:
-    current_route = ""
-    current_depot = ""
+    st.info(f"📍 **Route Number:** {current_route}  \n🏢 **Depot:** {current_depot}")
 
 # --------- A. KELAKUAN KAPTEN BAS ---------
 st.markdown("### 4️⃣ A. KELAKUAN KAPTEN BAS")
@@ -225,11 +229,11 @@ if st.button("✅ Submit Survey"):
     if not staff_id.isdigit() or len(staff_id) != 8:
         st.warning("Staff ID must be 8 digits.")
     elif not stop:
-        st.warning("Please select a Bus Stop.")
+        st.warning("Sila pilih Hentian Bas.")
     elif not st.session_state.photos:
         st.warning("At least one photo required.")
     elif None in st.session_state.responses.values():
-        st.warning("Please complete all survey items.")
+        st.warning("Sila lengkapkan semua soalan.")
     else:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         photo_links = []
@@ -239,7 +243,6 @@ if st.button("✅ Submit Survey"):
 
         answers = [st.session_state.responses[q] for q in all_questions]
 
-        # Use the auto-detected depot and route
         row = [timestamp, staff_id, current_depot, current_route, stop] + answers + ["; ".join(photo_links)]
         header = ["Timestamp", "Staff ID", "Depot", "Route", "Bus Stop"] + all_questions + ["Photos"]
 
