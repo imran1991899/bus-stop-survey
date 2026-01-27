@@ -20,55 +20,38 @@ st.title("Bus Stop Complaints Survey")
 # --------- Enhanced "iPhone Style" Pill Button CSS ---------
 st.markdown("""
     <style>
-    /* Container for the radio group */
     div[role="radiogroup"] {
         display: flex;
         flex-direction: row;
         gap: 20px;
         background-color: transparent !important;
     }
-
-    /* Target the labels (the buttons) */
     div[role="radiogroup"] label {
         padding: 10px 25px !important;
-        border-radius: 50px !important; /* Pill shape */
+        border-radius: 50px !important; 
         border: 2px solid #d1d1d6 !important;
         background-color: white !important;
         transition: all 0.3s ease;
     }
-
-    /* Force text to be visible and black by default */
     div[role="radiogroup"] label div[data-testid="stMarkdownContainer"] p {
         color: #333 !important;
         font-weight: bold !important;
         font-size: 16px !important;
     }
-
-    /* Highlighting YES (Green) when selected */
-    div[role="radiogroup"] label:has(input[value="Yes"]) {
-        border-color: #d1d1d6;
-    }
     div[role="radiogroup"] label:has(input[value="Yes"]):has(input:checked) {
-        background-color: #28a745 !important; /* Green */
+        background-color: #28a745 !important; 
         border-color: #28a745 !important;
     }
     div[role="radiogroup"] label:has(input[value="Yes"]):has(input:checked) p {
         color: white !important;
     }
-
-    /* Highlighting NO (Red) when selected */
-    div[role="radiogroup"] label:has(input[value="No"]) {
-        border-color: #d1d1d6;
-    }
     div[role="radiogroup"] label:has(input[value="No"]):has(input:checked) {
-        background-color: #dc3545 !important; /* Red */
+        background-color: #dc3545 !important; 
         border-color: #dc3545 !important;
     }
     div[role="radiogroup"] label:has(input[value="No"]):has(input:checked) p {
         color: white !important;
     }
-    
-    /* Highlighting NA (Gray) when selected */
     div[role="radiogroup"] label:has(input[value="NA"]):has(input:checked) {
         background-color: #6c757d !important;
         border-color: #6c757d !important;
@@ -76,8 +59,6 @@ st.markdown("""
     div[role="radiogroup"] label:has(input[value="NA"]):has(input:checked) p {
         color: white !important;
     }
-
-    /* Hide the actual radio circle */
     div[role="radiogroup"] [data-testid="stWidgetSelectionVisualizer"] {
         display: none !important;
     }
@@ -153,12 +134,12 @@ if "photos" not in st.session_state:
     st.session_state.photos = []
 
 questions = [
-    "1. Adakah BC menggunakan telefon bimbit semasa pemanduan?",
-    "2. Adakah BC memperlahankan dan/atau memberhentikan bas ketika menghampiri hentian bas?",
-    "3. Adakah BC memandu di lorong 1 (kiri) ketika menghampiri hentian bas?",
-    "4. Adakah bas penuh dengan penumpang semasa tiba di hentian?",
-    "5. Adakah BC tidak mengambil penumpang di hentian bas (Jika tiada penumpang menunggu, pilih 'NA')",
-    "6. Adakah BC berlaku tidak sopan terhadap penumpang? (Jika tiada penumpang menunggu, pilih 'NA')"
+    "1. BC menggunakan telefon bimbit?",
+    "2. BC memperlahankan/memberhentikan bas?",
+    "3. BC memandu di lorong 1 (kiri)?",
+    "4. Bas penuh dengan penumpang?",
+    "5. BC tidak mengambil penumpang?",
+    "6. BC berlaku tidak sopan?"
 ]
 
 if "kelakuan_kapten" not in st.session_state:
@@ -191,7 +172,7 @@ for i, q in enumerate(questions):
         label_visibility="collapsed"
     )
     st.session_state.kelakuan_kapten[q] = choice
-    st.write("---") # Visual separator
+    st.write("---")
 
 # --------- Photos ---------
 st.markdown("### 6️⃣ Photos (min 1, max 5)")
@@ -218,9 +199,28 @@ if st.button("✅ Submit Survey"):
             link = gdrive_upload_file(img.getvalue(), f"{timestamp}_{i}.jpg", "image/jpeg", FOLDER_ID)
             photo_links.append(link)
 
-        behaviour_text = "; ".join([f"{k}: {v}" for k, v in st.session_state.kelakuan_kapten.items()])
-        row = [timestamp, staff_id, depot, route, stop, condition, behaviour_text, "; ".join(photo_links)]
-        header = ["Timestamp", "Staff ID", "Depot", "Route", "Bus Stop", "Condition", "Kelakuan Kapten Bas", "Photos"]
+        # Separate each answer into its own list element
+        answers = [st.session_state.kelakuan_kapten[q] for q in questions]
+
+        # Construct Row: Basic Info + Each Answer + Photos
+        row = [
+            timestamp, 
+            staff_id, 
+            depot, 
+            route, 
+            stop, 
+            condition
+        ] + answers + ["; ".join(photo_links)]
+
+        # Construct Header: Basic Titles + Question Titles + Photos
+        header = [
+            "Timestamp", 
+            "Staff ID", 
+            "Depot", 
+            "Route", 
+            "Bus Stop", 
+            "Condition"
+        ] + questions + ["Photos"]
 
         sheet_id = find_or_create_gsheet("survey_responses", FOLDER_ID)
         append_row(sheet_id, row, header)
