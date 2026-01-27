@@ -155,15 +155,18 @@ stops_df = pd.read_excel("bus_data.xlsx", sheet_name="stops")
 if "photos" not in st.session_state:
     st.session_state.photos = []
 
-if "driver_behaviour" not in st.session_state:
-    st.session_state.driver_behaviour = {
-        "Guna telefon bimbit semasa memandu": "",
-        "Sikap terhadap pelanggan": "",
-        "Bas penuh": "",
-        "Kekeliruan hentian (hentian baru / papan tanda tidak jelas / tiang tercabut)": "",
-        "Memandu secara selamat (kelajuan, brek, lorong)": "",
-        "Berhenti sepenuhnya di hentian": "",
-    }
+# New Questions List
+questions = [
+    "1. Adakah BC menggunakan telefon bimbit semasa pemanduan?",
+    "2. Adakah BC memperlahankan dan/atau memberhentikan bas ketika menghampiri hentian bas?",
+    "3. Adakah BC memandu di lorong 1 (kiri) ketika menghampiri hentian bas?",
+    "4. Adakah bas penuh dengan penumpang semasa tiba di hentian?",
+    "5. Adakah BC tidak mengambil penumpang di hentian bas (Jika tiada penumpang menunggu semasa pemerhatian, sila pilih 'NA')",
+    "6. Adakah BC berlaku tidak sopan terhadap penumpang? (Jika tiada penumpang menunggu semasa pemerhatian, sila pilih 'NA')"
+]
+
+if "kelakuan_kapten" not in st.session_state:
+    st.session_state.kelakuan_kapten = {q: None for q in questions}
 
 # --------- Staff ID ---------
 staff_id = st.text_input("👤 Staff ID (8 digits)")
@@ -189,24 +192,24 @@ condition = st.selectbox(
     ],
 )
 
-# --------- Driver Behaviour ---------
-st.markdown("### 5️⃣ TINGKAH LAKU PEMANDU")
+# --------- Kelakuan Kapten Bas ---------
+st.markdown("### 5️⃣ A. KELAKUAN KAPTEN BAS")
 
-for item in st.session_state.driver_behaviour:
-    c1, c2, c3 = st.columns([6, 2, 2])
-    c1.write(item)
-
-    comply = c2.checkbox("Comply", key=f"{item}_c")
-    not_comply = c3.checkbox("Not Comply", key=f"{item}_n")
-
-    if comply:
-        st.session_state.driver_behaviour[item] = "Comply"
-        st.session_state[f"{item}_n"] = False
-    elif not_comply:
-        st.session_state.driver_behaviour[item] = "Not Comply"
-        st.session_state[f"{item}_c"] = False
-    else:
-        st.session_state.driver_behaviour[item] = ""
+for i, q in enumerate(questions):
+    st.write(f"**{q}**")
+    
+    # Questions 5 and 6 (index 4 and 5) get the NA option
+    options = ["Yes", "No", "NA"] if i >= 4 else ["Yes", "No"]
+    
+    choice = st.radio(
+        f"Select for Q{i}",
+        options,
+        index=None, 
+        key=f"q_radio_{i}",
+        horizontal=True,
+        label_visibility="collapsed"
+    )
+    st.session_state.kelakuan_kapten[q] = choice
 
 # --------- Photos ---------
 st.markdown("### 6️⃣ Photos (min 1, max 5)")
@@ -223,8 +226,8 @@ if st.button("✅ Submit Survey"):
         st.warning("Staff ID must be 8 digits.")
     elif not st.session_state.photos:
         st.warning("At least one photo required.")
-    elif "" in st.session_state.driver_behaviour.values():
-        st.warning("Please complete all Tingkah Laku Pemandu items.")
+    elif None in st.session_state.kelakuan_kapten.values():
+        st.warning("Please complete all Kelakuan Kapten Bas items.")
     else:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -237,7 +240,7 @@ if st.button("✅ Submit Survey"):
             photo_links.append(link)
 
         behaviour_text = "; ".join(
-            f"{k}: {v}" for k, v in st.session_state.driver_behaviour.items()
+            f"{k}: {v}" for k, v in st.session_state.kelakuan_kapten.items()
         )
 
         row = [
@@ -258,7 +261,7 @@ if st.button("✅ Submit Survey"):
             "Route",
             "Bus Stop",
             "Condition",
-            "Tingkah Laku Pemandu",
+            "Kelakuan Kapten Bas",
             "Photos",
         ]
 
@@ -266,7 +269,7 @@ if st.button("✅ Submit Survey"):
         append_row(sheet_id, row, header)
 
         st.success("✅ Submission successful!")
+        # Clear session state
         st.session_state.photos = []
-        st.session_state.driver_behaviour = {
-            k: "" for k in st.session_state.driver_behaviour
-        }
+        st.session_state.kelakuan_kapten = {q: None for q in questions}
+        st.rerun()
