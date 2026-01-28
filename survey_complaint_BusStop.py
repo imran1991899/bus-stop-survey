@@ -18,7 +18,6 @@ st.set_page_config(page_title="Bus Stop Survey", layout="wide")
 
 # --------- THEME LOADER ---------
 def load_external_theme(file_path="theme.txt"):
-    """Reads CSS from theme.txt in your repository."""
     if os.path.exists(file_path):
         with open(file_path, "r") as f:
             return f.read()
@@ -33,6 +32,12 @@ st.markdown(f"""
         background-color: #F5F5F7 !important;
         color: #1D1D1F !important;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+    }}
+
+    /* TARGETING SPECIFIC LABELS FOR DARK GRAY BOLD */
+    label[data-testid="stWidgetLabel"] p {{
+        color: #444444 !important;
+        font-weight: 800 !important;
     }}
 
     div[role="radiogroup"] {{
@@ -83,10 +88,6 @@ st.markdown(f"""
         box-shadow: 0px 4px 12px rgba(0,0,0,0.15) !important;
     }}
 
-    div[role="radiogroup"] label:has(input:checked) p {{
-        color: #000000 !important; 
-    }}
-
     div.stButton > button {{
         width: 100% !important;
         background-color: #007AFF !important;
@@ -99,7 +100,6 @@ st.markdown(f"""
         margin-top: 30px;
     }}
 
-    /* INJECT EXTERNAL THEME HERE */
     {external_css}
     </style>
     """, unsafe_allow_html=True)
@@ -177,75 +177,41 @@ allowed_stops = sorted([str(x) for x in raw_stops])
 
 staff_dict = {"10005475": "MOHD RIZAL BIN RAMLI", "10020779": "NUR FAEZAH BINTI HARUN", "10014181": "NORAINSYIRAH BINTI ARIFFIN", "10022768": "NORAZHA RAFFIZZI ZORKORNAINI", "10022769": "NUR HANIM HANIL", "10023845": "MUHAMMAD HAMKA BIN ROSLIM", "10002059": "MUHAMAD NIZAM BIN IBRAHIM", "10005562": "AZFAR NASRI BIN BURHAN", "10010659": "MOHD SHAHFIEE BIN ABDULLAH", "10008350": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN", "10003214": "NIK MOHD FADIR BIN NIK MAT RAWI", "10016370": "AHMAD AZIM BIN ISA", "10022910": "NUR SHAHIDA BINTI MOHD TAMIJI ", "10023513": "MUHAMMAD SYAHMI BIN AZMEY", "10023273": "MOHD IDZHAM BIN ABU BAKAR", "10023577": "MOHAMAD NAIM MOHAMAD SAPRI", "10023853": "MUHAMAD IMRAN BIN MOHD NASRUDDIN", "10008842": "MIRAN NURSYAWALNI AMIR", "10015662": "MUHAMMAD HANIF BIN HASHIM", "10011944": "NUR HAZIRAH BINTI NAWI"}
 
-# Session State for tracking progress
 if "photos" not in st.session_state: st.session_state.photos = []
 if "responses" not in st.session_state: st.session_state.responses = {}
 if "persistent_staff_id" not in st.session_state: st.session_state.persistent_staff_id = None
 if "reset_key" not in st.session_state: st.session_state.reset_key = 0
 
-# Adjusted Question Groups
-questions_a = [
-    "1. BC menggunakan telefon bimbit?", 
-    "2. BC memperlahankan/memberhentikan bas?", 
-    "3. BC memandu di lorong 1 (kiri)?", 
-    "4. Bas penuh dengan penumpang?", 
-    "5. BC tidak mengambil penumpang? (NA jika tiada)", 
-    "6. BC berlaku tidak sopan? (NA jika tiada)"
-]
+questions_a = ["1. BC menggunakan telefon bimbit?", "2. BC memperlahankan/memberhentikan bas?", "3. BC memandu di lorong 1 (kiri)?", "4. Bas penuh dengan penumpang?", "5. BC tidak mengambil penumpang? (NA jika tiada)", "6. BC berlaku tidak sopan? (NA jika tiada)"]
+questions_b = ["7. Penumpang beri isyarat menahan? (NA jika tiada)", "8. Penumpang leka/tidak peka? (NA jika tiada)", "9. Penumpang tiba lewat?", "10. Penumpang menunggu di luar kawasan hentian?"]
+questions_c = ["11. Hentian terlindung dari pandangan BC?", "12. Hentian terhalang oleh kenderaan parkir?", "13. Persekitaran bahaya untuk bas berhenti?", "14. Terdapat pembinaan berhampiran?", "15. Mempunyai bumbung?", "16. Mempunyai tiang?", "17. Mempunyai petak hentian?", "18. Mempunyai layby?", "19. Terlindung dari pandangan BC? (Gerai/Pokok)", "20. Pencahayaan baik (jika malam)?"]
 
-questions_b = [
-    "7. Penumpang beri isyarat menahan? (NA jika tiada)", 
-    "8. Penumpang leka/tidak peka? (NA jika tiada)", 
-    "9. Penumpang tiba lewat?", 
-    "10. Penumpang menunggu di luar kawasan hentian?"
-]
-
-questions_c = [
-    "11. Hentian terlindung dari pandangan BC?", 
-    "12. Hentian terhalang oleh kenderaan parkir?", 
-    "13. Persekitaran bahaya untuk bas berhenti?", 
-    "14. Terdapat pembinaan berhampiran?", 
-    "15. Mempunyai bumbung?", 
-    "16. Mempunyai tiang?", 
-    "17. Mempunyai petak hentian?", 
-    "18. Mempunyai layby?", 
-    "19. Terlindung dari pandangan BC? (Gerai/Pokok)", 
-    "20. Pencahayaan baik (jika malam)?"
-]
-
-# Order for processing - Note: "Ada penumpang?" is between A and B
 full_question_order = questions_a + ["Ada penumpang?"] + questions_b + questions_c
 
 # --------- Main App UI ---------
 st.title("BC and Bus Stop Survey")
 
-# Section 1: Staff (Persistent)
 col_staff, col_stop = st.columns(2)
 with col_staff:
     staff_options = list(staff_dict.keys())
     def_idx = staff_options.index(st.session_state.persistent_staff_id) if st.session_state.persistent_staff_id in staff_options else None
-    
     staff_id = st.selectbox("👤 Staff ID", options=staff_options, index=def_idx, placeholder="Pilih ID Staf...")
     st.session_state.persistent_staff_id = staff_id
-    
-    if staff_id:
-        st.info(f"**Nama:** {staff_dict[staff_id]}")
+    if staff_id: st.info(f"**Nama:** {staff_dict[staff_id]}")
 
-# Resettable Container Key
 form_key = st.session_state.reset_key
 
 with col_stop:
-    stop = st.selectbox("📍 Bus Stop", allowed_stops, index=None, placeholder="Pilih Hentian Bas...", key=f"stop_selector_{form_key}")
+    stop = st.selectbox("📍 Bus Stop", allowed_stops, index=None, placeholder="Pilih Hentian Bas...", key=f"stop_{form_key}")
     current_route, current_depot = "", ""
     if stop:
-        matched_stop_data = stops_df[stops_df["Stop Name"] == stop]
-        current_route = " / ".join(map(str, matched_stop_data["Route Number"].unique()))
-        current_depot = " / ".join(map(str, routes_df[routes_df["Route Number"].isin(matched_stop_data["Route Number"].unique())]["Depot"].unique()))
+        matched = stops_df[stops_df["Stop Name"] == stop]
+        current_route = " / ".join(map(str, matched["Route Number"].unique()))
+        current_depot = " / ".join(map(str, routes_df[routes_df["Route Number"].isin(matched["Route Number"].unique())]["Depot"].unique()))
         st.info(f"**Route:** {current_route} | **Depot:** {current_depot}")
 
 st.divider()
 
-# Question Rendering Logic
 def render_grid_questions(q_list, suffix):
     for i in range(0, len(q_list), 2):
         col1, col2 = st.columns(2)
@@ -253,33 +219,30 @@ def render_grid_questions(q_list, suffix):
             q = q_list[i]
             st.markdown(f"**{q}**")
             opts = ["Yes", "No", "NA"] if "NA" in q else ["Yes", "No"]
-            st.session_state.responses[q] = st.radio(label=q, options=opts, index=None, key=f"r_{q}_{suffix}", horizontal=True, label_visibility="collapsed")
+            st.session_state.responses[q] = st.radio(q, opts, index=None, key=f"r_{q}_{suffix}", horizontal=True, label_visibility="collapsed")
         if i + 1 < len(q_list):
             with col2:
                 q = q_list[i+1]
                 st.markdown(f"**{q}**")
                 opts = ["Yes", "No", "NA"] if "NA" in q else ["Yes", "No"]
-                st.session_state.responses[q] = st.radio(label=q, options=opts, index=None, key=f"r_{q}_{suffix}", horizontal=True, label_visibility="collapsed")
+                st.session_state.responses[q] = st.radio(q, opts, index=None, key=f"r_{q}_{suffix}", horizontal=True, label_visibility="collapsed")
 
 # Section A
 st.subheader("A. KELAKUAN KAPTEN BAS")
-selected_bus = st.selectbox("🚌 Pilih No. Pendaftaran Bas", options=bus_list, index=None, placeholder="Pilih no pendaftaran bas...", key=f"bus_selector_{form_key}")
+selected_bus = st.selectbox("🚌 No. Bas", options=bus_list, index=None, placeholder="Pilih no bas...", key=f"bus_{form_key}")
 render_grid_questions(questions_a, form_key)
 
 st.divider()
 
 # Section B
 st.subheader("B. PENUMPANG")
-# Question: Ada penumpang?
 ada_p = st.radio("Ada penumpang?", ["Yes", "No"], index=None, key=f"ada_p_{form_key}", horizontal=True)
 st.session_state.responses["Ada penumpang?"] = ada_p
 
 if ada_p == "Yes":
     render_grid_questions(questions_b, form_key)
 else:
-    # Auto-fill NA if No is selected
-    for q in questions_b:
-        st.session_state.responses[q] = "NA"
+    for q in questions_b: st.session_state.responses[q] = "NA"
 
 st.divider()
 
@@ -289,7 +252,7 @@ render_grid_questions(questions_c, form_key)
 
 st.divider()
 
-# Photo Capture
+# Photos
 st.subheader("📸 Take Photo (3 Photos Required)")
 if len(st.session_state.photos) < 3:
     col_cam, col_up = st.columns(2)
@@ -301,43 +264,28 @@ if len(st.session_state.photos) < 3:
         if file_in: st.session_state.photos.append(file_in); st.rerun()
 else:
     st.success("3 Gambar berjaya dirakam.")
-    if st.button("Reset Gambar"):
-        st.session_state.photos = []; st.rerun()
+    if st.button("Reset Gambar"): st.session_state.photos = []; st.rerun()
 
 if st.session_state.photos:
     img_cols = st.columns(3)
-    for idx, pic in enumerate(st.session_state.photos):
-        img_cols[idx].image(pic, use_container_width=True)
+    for idx, pic in enumerate(st.session_state.photos): img_cols[idx].image(pic, use_container_width=True)
 
-# Submit Logic
+# Submit
 if st.button("Submit Survey"):
-    # Check if all required questions (including conditional ones) are answered
-    required_answered = True
-    for q in full_question_order:
-        if st.session_state.responses.get(q) is None:
-            required_answered = False
-            break
-
+    required_answered = all(st.session_state.responses.get(q) is not None for q in full_question_order)
     if not staff_id or not stop or not selected_bus or len(st.session_state.photos) != 3 or not required_answered:
-        st.error("Sila pastikan semua soalan dijawab, No. Bas dipilih, dan 3 keping gambar disediakan.")
+        st.error("Sila pastikan semua soalan dijawab dan 3 keping gambar disediakan.")
     else:
         with st.spinner("Menghantar data..."):
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             photo_urls = [gdrive_upload_file(p.getvalue(), f"{timestamp}_{idx}.jpg", "image/jpeg", FOLDER_ID) for idx, p in enumerate(st.session_state.photos)]
-            
-            # Map responses in the order: A -> Ada Penumpang -> B -> C
             ordered_responses = [st.session_state.responses.get(q) for q in full_question_order]
             
             row_data = [timestamp, staff_id, staff_dict[staff_id], current_depot, current_route, stop, selected_bus] + ordered_responses + ["; ".join(photo_urls)]
-            header_data = ["Timestamp", "Staff ID", "Staff Name", "Depot", "Route", "Bus Stop", "Bus Register No"] + full_question_order + ["Photos"]
+            header_data = ["Timestamp", "Staff ID", "Staff Name", "Depot", "Route", "Bus Stop", "Bus No"] + full_question_order + ["Photos"]
             
             append_row(find_or_create_gsheet("survey_responses", FOLDER_ID), row_data, header_data)
-            
             st.success("Tinjauan berjaya dihantar!")
-            
-            st.session_state.photos = []
-            st.session_state.responses = {}
+            st.session_state.photos, st.session_state.responses = [], {}
             st.session_state.reset_key += 1
-            
-            time.sleep(2)
-            st.rerun()
+            time.sleep(2); st.rerun()
