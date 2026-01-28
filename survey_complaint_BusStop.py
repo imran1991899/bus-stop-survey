@@ -25,7 +25,6 @@ st.markdown("""
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
     }
 
-    /* Centering the Submit Button and Remove Buttons */
     .stButton {
         display: flex;
         justify-content: center;
@@ -83,7 +82,6 @@ st.markdown("""
         color: #000000 !important; 
     }
 
-    /* Standard Button Styling */
     div.stButton > button {
         background-color: #007AFF !important;
         color: white !important;
@@ -95,9 +93,8 @@ st.markdown("""
         padding: 0 40px !important;
     }
     
-    /* Styling for the centered Take Photo text inside camera component */
     [data-testid="stCameraInput"] label div {
-        color: #FFD700 !important; /* Yellow */
+        color: #FFD700 !important; 
         font-weight: bold !important;
     }
 
@@ -192,12 +189,16 @@ allowed_stops = sorted([
     "SCLAND EMPORIS", "SJ602 BANDAR BUKIT PUCHONG BP1", "SMK SERI HARTAMAS", "SMK SULTAN ABD SAMAD (TIMUR)"
 ])
 
-staff_dict = {"10005475": "MOHD RIZAL BIN RAMLI", "10020779": "NUR FAEZAH BINTI HARUN", "10014181": "NORAINSYIRAH BINTI ARIFFIN", "10022768": "NORAZHA RAFFIZZI ZORKORNAINI", "10022769": "NUR HANIM HANIL", "10023845": "MUHAMMAD HAMKA BIN ROSLIM", "10002059": "MUHAMAD NIZAM BIN IBRAHIM", "10005562": "AZFAR NASRI BIN BURHAN", "10010659": "MOHD SHAHFIEE BIN ABDULLAH", "10008350": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN", "10003214": "NIK MOHD FADIR BIN NIK MAT RAWI", "10016370": "AHMAD AZIM BIN ISA", "10022910": "NUR SHAHIDA BINTI MOHD TAMIJI ", "10023513": "MUHAMMAD SYAHMI BIN AZMEY", "10023273": "MOHD IDZHAM BIN ABU BAKAR", "10023577": "MOHAMAD NAIM MOHAMAD SAPRI", "10023853": "MUHAMAD IMRAN BIN MOHD NASRUDDIN", "10008842": "MIRAN NURSYAWALNI AMIR", "10015662": "MUHAMMAD HANIF BIN HASHIM", "10011944": "NUR HAZIRAH BINTI NAWI"}
+staff_dict = {"10005475": "MOHD RIZAL BIN RAMLI", "10020779": "NUR FAEZAH BINTI HARUN", "10014181": "NORAINSYIRAH BINTI ARIFFIN", "10022768": "NORAZHA RAFFIZZI ZORKORNAINI", "10022769": "NUR HANIM HANIL", "10023845": "MUHAMMAD HAMKA BIN ROSLIM", "10002059": "MUHAMAD NIZAM BIN IBRAHIM", "10005562": "AZFAR NASRI BIN BURHAN", "10010659": "MOHD SHAHFIEE BIN ABDULLAH", "10008350": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN", "10003214": "NIK MOHD FADIR BIN NIK MAT RAWI", "10016370": "AHMAD AZIM BIN ISA", "10022910": "NUR SHAHIDA BINTI MOHD TAMIJI ", "10023513": "MUHAMMAD SYAHMI BIN AZMEY", "10023273": "MOHD IDZHAM BIN ABU BAKAR", "10023577": "MOHAMAD NAIM MOHAMAD SAPRI", "10023853": "MUHAMAD IMRAN BIN MOHD NASRUDDIN", "10008842": "MIRAN NURSYAWALNI AMIR", "10015662": "MUHAMMAD HANDIF BIN HASHIM", "10011944": "NUR HAZIRAH BINTI NAWI"}
 
 if "photos" not in st.session_state: st.session_state.photos = []
+
+# Updated Question Lists
 questions_a = ["1. BC menggunakan telefon bimbit?", "2. BC memperlahankan/memberhentikan bas?", "3. BC memandu di lorong 1 (kiri)?", "4. Bas penuh dengan penumpang?", "5. BC tidak mengambil penumpang? (NA jika tiada)", "6. BC berlaku tidak sopan? (NA jika tiada)"]
-questions_b = ["7. Hentian terlindung dari pandangan BC?", "8. Hentian terhalang oleh kenderaan parkir?", "9. Persekitaran bahaya untuk bas berhenti?", "10. Terdapat pembinaan berhampiran?", "11. Mempunyai bumbung?", "12. Mempunyai tiang?", "13. Mempunyai petak hentian?", "14. Mempunyai layby?", "15. Terlindung dari pandangan BC? (Gerai/Pokok)", "16. Pencahayaan baik?", "17. Penumpang beri isyarat menahan? (NA jika tiada)", "18. Penumpang leka/tidak peka? (NA jika tiada)", "19. Penumpang tiba lewat?", "20. Penumpang menunggu di luar kawasan hentian?"]
-all_questions = questions_a + questions_b
+questions_c = ["7. Penumpang beri isyarat menahan? (NA jika tiada)", "8. Penumpang leka/tidak peka? (NA jika tiada)", "9. Penumpang tiba lewat?", "10. Penumpang menunggu di luar kawasan hentian?"]
+questions_b = ["11. Hentian terlindung dari pandangan BC? (semak, pokok, Gerai, lain2)", "12. Hentian terhalang oleh kenderaan parkir?", "13. Persekitaran bahaya untuk bas behenate?", "14. Terdapat pembinaan berhampiran?", "15. Mempunyai bumbung?", "16. Mempunyai tiang?", "17. Mempunyai petak hentian?", "18. Mempunyai layby?"]
+
+all_questions = questions_a + ["Ada Penumpang?"] + questions_c + questions_b
 if "responses" not in st.session_state: st.session_state.responses = {q: None for q in all_questions}
 
 # --------- Main App UI ---------
@@ -216,7 +217,6 @@ with col_stop:
         matched_stop_data = stops_df[stops_df["Stop Name"] == stop]
         current_route = " / ".join(map(str, matched_stop_data["Route Number"].unique()))
         current_depot = " / ".join(map(str, routes_df[routes_df["Route Number"].isin(matched_stop_data["Route Number"].unique())]["Depot"].unique()))
-        # Removed st.info here for Bus Stop but keeping the variables for GSheet
 
 st.divider()
 
@@ -236,18 +236,35 @@ def render_grid_questions(q_list):
                 opts = ["Yes", "No", "NA"] if "NA" in q else ["Yes", "No"]
                 st.session_state.responses[q] = st.radio(label=q, options=opts, index=None, key=f"r_{q}", horizontal=True, label_visibility="collapsed")
 
+# SECTION A
 st.subheader("A. KELAKUAN KAPTEN BAS")
 selected_bus = st.selectbox("🚌 Pilih No. Bas", options=bus_list, index=None, placeholder="Pilih no pendaftaran bas...")
 render_grid_questions(questions_a)
 
 st.divider()
 
+# SECTION C (Conditional)
+st.subheader("C. PENUMPANG")
+st.markdown("**ada penumpang?**")
+has_passengers = st.radio("ada penumpang?", options=["Yes", "No"], index=None, key="has_pax", horizontal=True, label_visibility="collapsed")
+st.session_state.responses["Ada Penumpang?"] = has_passengers
+
+if has_passengers == "Yes":
+    render_grid_questions(questions_c)
+else:
+    # Reset Section C responses if No
+    for q in questions_c:
+        st.session_state.responses[q] = "No Passenger"
+
+st.divider()
+
+# SECTION B
 st.subheader("B. KEADAAN HENTIAN BAS")
 render_grid_questions(questions_b)
 
 st.divider()
 
-# --------- Adjusted Photo Capture Section ---------
+# --------- Photo Section ---------
 st.subheader("📸 Take Photo (3 Photos Required)")
 if len(st.session_state.photos) < 3:
     col_cam, col_up = st.columns(2)
@@ -273,21 +290,31 @@ if st.session_state.photos:
 
 st.divider()
 
-# --------- Centered Submit Survey Button ---------
+# --------- Submit ---------
 c1, c2, c3 = st.columns([1, 2, 1])
 with c2:
     if st.button("Submit Survey"):
-        if not staff_id or not stop or not selected_bus or len(st.session_state.photos) != 3 or None in st.session_state.responses.values():
+        # Validation
+        check_responses = [st.session_state.responses[q] for q in questions_a + ["Ada Penumpang?"] + questions_b]
+        if has_passengers == "Yes":
+            check_responses += [st.session_state.responses[q] for q in questions_c]
+            
+        if not staff_id or not stop or not selected_bus or len(st.session_state.photos) != 3 or None in check_responses:
             st.error("Sila pastikan semua soalan dijawab, No. Bas dipilih, dan 3 keping gambar disediakan.")
         else:
             with st.spinner("Menghantar data ke Google Drive..."):
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 photo_urls = [gdrive_upload_file(p.getvalue(), f"{timestamp}_{idx}.jpg", "image/jpeg", FOLDER_ID) for idx, p in enumerate(st.session_state.photos)]
+                
+                # Arrange data for row
                 row_data = [timestamp, staff_id, staff_dict[staff_id], current_depot, current_route, stop, selected_bus] + \
                            [st.session_state.responses[q] for q in all_questions] + ["; ".join(photo_urls)]
+                
                 header_data = ["Timestamp", "Staff ID", "Staff Name", "Depot", "Route", "Bus Stop", "Bus Register No"] + all_questions + ["Photos"]
+                
                 gsheet_id = find_or_create_gsheet("survey_responses", FOLDER_ID)
                 append_row(gsheet_id, row_data, header_data)
+                
                 st.success("Tinjauan berjaya dihantar!")
                 st.session_state.photos = []
                 st.session_state.responses = {q: None for q in all_questions}
