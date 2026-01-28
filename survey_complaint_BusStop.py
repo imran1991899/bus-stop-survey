@@ -204,23 +204,19 @@ if "responses" not in st.session_state: st.session_state.responses = {q: None fo
 st.title("BC and Bus Stop Survey")
 
 col_staff, col_stop = st.columns(2)
-# Initialize hidden data for GSheet
-staff_name = ""
-current_route = ""
-current_depot = ""
-
 with col_staff:
     staff_id = st.selectbox("👤 Staff ID", options=list(staff_dict.keys()), index=None, placeholder="Pilih ID Staf...")
     if staff_id:
-        staff_name = staff_dict[staff_id] # Stored for GSheet, not shown in UI
+        st.info(f"**Nama:** {staff_dict[staff_id]}")
 
 with col_stop:
     stop = st.selectbox("📍 Bus Stop", allowed_stops, index=None, placeholder="Pilih Hentian Bas...")
+    current_route, current_depot = "", ""
     if stop:
         matched_stop_data = stops_df[stops_df["Stop Name"] == stop]
         current_route = " / ".join(map(str, matched_stop_data["Route Number"].unique()))
         current_depot = " / ".join(map(str, routes_df[routes_df["Route Number"].isin(matched_stop_data["Route Number"].unique())]["Depot"].unique()))
-        # Data stored for GSheet, not shown in UI
+        # Removed st.info here for Bus Stop but keeping the variables for GSheet
 
 st.divider()
 
@@ -266,7 +262,6 @@ if len(st.session_state.photos) < 3:
             st.session_state.photos.append(file_in)
             st.rerun()
 
-# Display photos and centered Remove button
 if st.session_state.photos:
     img_cols = st.columns(3)
     for idx, pic in enumerate(st.session_state.photos):
@@ -288,7 +283,7 @@ with c2:
             with st.spinner("Menghantar data ke Google Drive..."):
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 photo_urls = [gdrive_upload_file(p.getvalue(), f"{timestamp}_{idx}.jpg", "image/jpeg", FOLDER_ID) for idx, p in enumerate(st.session_state.photos)]
-                row_data = [timestamp, staff_id, staff_name, current_depot, current_route, stop, selected_bus] + \
+                row_data = [timestamp, staff_id, staff_dict[staff_id], current_depot, current_route, stop, selected_bus] + \
                            [st.session_state.responses[q] for q in all_questions] + ["; ".join(photo_urls)]
                 header_data = ["Timestamp", "Staff ID", "Staff Name", "Depot", "Route", "Bus Stop", "Bus Register No"] + all_questions + ["Photos"]
                 gsheet_id = find_or_create_gsheet("survey_responses", FOLDER_ID)
