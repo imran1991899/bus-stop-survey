@@ -58,7 +58,7 @@ st.markdown(f"""
         border: none !important;
         padding: 14px 0px !important; 
         border-radius: 11px !important;
-        transition: all i0.2s ease-in-out !important;
+        transition: all 0.2s ease-in-out !important;
         flex: 1 !important;
         display: flex !important;
         justify-content: center !important;
@@ -213,7 +213,8 @@ questions_c = [
     "20. Pencahayaan baik (jika malam)?"
 ]
 
-all_questions = ["Ada penumpang?"] + questions_a + questions_b + questions_c
+# Order for processing - Note: "Ada penumpang?" is between A and B
+full_question_order = questions_a + ["Ada penumpang?"] + questions_b + questions_c
 
 # --------- Main App UI ---------
 st.title("BC and Bus Stop Survey")
@@ -269,13 +270,14 @@ st.divider()
 
 # Section B
 st.subheader("B. PENUMPANG")
+# Question: Ada penumpang?
 ada_p = st.radio("Ada penumpang?", ["Yes", "No"], index=None, key=f"ada_p_{form_key}", horizontal=True)
 st.session_state.responses["Ada penumpang?"] = ada_p
 
 if ada_p == "Yes":
     render_grid_questions(questions_b, form_key)
 else:
-    # If No, auto-set hidden questions to NA to satisfy submission requirements
+    # Auto-fill NA if No is selected
     for q in questions_b:
         st.session_state.responses[q] = "NA"
 
@@ -309,9 +311,9 @@ if st.session_state.photos:
 
 # Submit Logic
 if st.button("Submit Survey"):
-    # Check if everything including conditional Section B is answered
+    # Check if all required questions (including conditional ones) are answered
     required_answered = True
-    for q in all_questions:
+    for q in full_question_order:
         if st.session_state.responses.get(q) is None:
             required_answered = False
             break
@@ -323,11 +325,11 @@ if st.button("Submit Survey"):
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             photo_urls = [gdrive_upload_file(p.getvalue(), f"{timestamp}_{idx}.jpg", "image/jpeg", FOLDER_ID) for idx, p in enumerate(st.session_state.photos)]
             
-            # Gather responses in order
-            ordered_responses = [st.session_state.responses.get(q) for q in all_questions]
+            # Map responses in the order: A -> Ada Penumpang -> B -> C
+            ordered_responses = [st.session_state.responses.get(q) for q in full_question_order]
             
             row_data = [timestamp, staff_id, staff_dict[staff_id], current_depot, current_route, stop, selected_bus] + ordered_responses + ["; ".join(photo_urls)]
-            header_data = ["Timestamp", "Staff ID", "Staff Name", "Depot", "Route", "Bus Stop", "Bus Register No"] + all_questions + ["Photos"]
+            header_data = ["Timestamp", "Staff ID", "Staff Name", "Depot", "Route", "Bus Stop", "Bus Register No"] + full_question_order + ["Photos"]
             
             append_row(find_or_create_gsheet("survey_responses", FOLDER_ID), row_data, header_data)
             
