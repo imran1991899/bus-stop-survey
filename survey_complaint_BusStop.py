@@ -18,7 +18,6 @@ st.set_page_config(page_title="Bus Stop Survey", layout="wide")
 
 # --------- THEME LOADER ---------
 def load_external_theme(file_path="theme.txt"):
-    """Reads CSS from theme.txt in your repository."""
     if os.path.exists(file_path):
         with open(file_path, "r") as f:
             return f.read()
@@ -34,7 +33,6 @@ st.markdown(f"""
         color: #1D1D1F !important;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
     }}
-
     div[role="radiogroup"] {{
         background-color: #E3E3E8 !important; 
         padding: 6px !important; 
@@ -48,75 +46,40 @@ st.markdown(f"""
         max-width: 360px; 
         min-height: 58px !important; 
     }}
-
-    [data-testid="stWidgetSelectionVisualizer"] {{
-        display: none !important;
-    }}
-
+    [data-testid="stWidgetSelectionVisualizer"] {{ display: none !important; }}
     div[role="radiogroup"] label {{
         background-color: transparent !important;
-        border: none !important;
-        padding: 14px 0px !important; 
-        border-radius: 11px !important;
-        transition: all 0.2s ease-in-out !important;
         flex: 1 !important;
         display: flex !important;
         justify-content: center !important;
-        align-items: center !important;
-        margin: 0 !important;
     }}
-
-    div[role="radiogroup"] label p {{
-        font-size: 16px !important; 
-        margin: 0 !important;
-        padding: 0 20px !important;
-        white-space: nowrap !important; 
-        overflow: visible !important;
-        line-height: 1.2 !important;
-        text-align: center !important;
-        color: #444444 !important; 
-        font-weight: 700 !important; 
-    }}
-
     div[role="radiogroup"] label:has(input:checked) {{
         background-color: #FFFFFF !important;
+        border-radius: 11px !important;
         box-shadow: 0px 4px 12px rgba(0,0,0,0.15) !important;
     }}
-
-    div[role="radiogroup"] label:has(input:checked) p {{
-        color: #000000 !important; 
-    }}
-
     div.stButton > button {{
         width: 100% !important;
         background-color: #007AFF !important;
         color: white !important;
-        border: none !important;
         height: 60px !important;
-        font-weight: 600 !important;
         border-radius: 16px !important;
-        font-size: 18px !important;
-        margin-top: 30px;
     }}
-
-    /* INJECT EXTERNAL THEME HERE */
     {external_css}
     </style>
     """, unsafe_allow_html=True)
 
-# --------- Google API Configuration ---------
+# --------- Google API (Standardized) ---------
 FOLDER_ID = "1DjtLxgyQXwgjq_N6I_-rtYcBcnWhzMGp"
 CLIENT_SECRETS_FILE = "client_secrets2.json"
 SCOPES = ["https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/spreadsheets"]
 
 def save_credentials(credentials):
-    with open("token.pickle", "wb") as token:
-        pickle.dump(credentials, token)
+    with open("token.pickle", "wb") as token: pickle.dump(credentials, token)
 
 def load_credentials():
     if os.path.exists("token.pickle"):
-        with open("token.pickle", "rb") as token:
-            return pickle.load(token)
+        with open("token.pickle", "rb") as token: return pickle.load(token)
     return None
 
 def get_authenticated_service():
@@ -126,17 +89,13 @@ def get_authenticated_service():
     if creds and creds.expired and creds.refresh_token:
         creds.refresh(Request()); save_credentials(creds)
         return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
-    
-    flow = Flow.from_client_secrets_file(CLIENT_SECRETS_FILE, scopes=SCOPES, 
-                                       redirect_uri="https://bus-stop-survey-99f8wusughejfcfvrvxmyl.streamlit.app/")
-    query_params = st.query_params
-    if "code" in query_params:
-        full_url = "https://bus-stop-survey-99f8wusughejfcfvrvxmyl.streamlit.app/?" + urlencode(query_params)
-        flow.fetch_token(authorization_response=full_url)
+    flow = Flow.from_client_secrets_file(CLIENT_SECRETS_FILE, scopes=SCOPES, redirect_uri="https://bus-stop-survey-99f8wusughejfcfvrvxmyl.streamlit.app/")
+    if "code" in st.query_params:
+        flow.fetch_token(authorization_response="https://bus-stop-survey-99f8wusughejfcfvrvxmyl.streamlit.app/?" + urlencode(st.query_params))
         creds = flow.credentials; save_credentials(creds)
     else:
         auth_url, _ = flow.authorization_url(prompt="consent")
-        st.markdown(f"### Authentication Required\n[Please log in with Google]({auth_url})"); st.stop()
+        st.markdown(f"### Authentication Required\n[Log in with Google]({auth_url})"); st.stop()
     return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
 
 drive_service, sheets_service = get_authenticated_service()
@@ -145,15 +104,7 @@ def gdrive_upload_file(file_bytes, filename, mimetype, folder_id=None):
     media = MediaIoBaseUpload(BytesIO(file_bytes), mimetype)
     metadata = {"name": filename}
     if folder_id: metadata["parents"] = [folder_id]
-    uploaded = drive_service.files().create(body=metadata, media_body=media, fields="id, webViewLink", supportsAllDrives=True).execute()
-    return uploaded["webViewLink"]
-
-def find_or_create_gsheet(name, folder_id):
-    query = f"'{folder_id}' in parents and name='{name}' and mimeType='application/vnd.google-apps.spreadsheet'"
-    res = drive_service.files().list(q=query, fields="files(id)").execute()
-    if res.get("files"): return res["files"][0]["id"]
-    file = drive_service.files().create(body={"name": name, "mimeType": "application/vnd.google-apps.spreadsheet", "parents": [folder_id]}, fields="id").execute()
-    return file["id"]
+    return drive_service.files().create(body=metadata, media_body=media, fields="id, webViewLink", supportsAllDrives=True).execute()["webViewLink"]
 
 def append_row(sheet_id, row, header):
     sheet = sheets_service.spreadsheets()
@@ -162,168 +113,135 @@ def append_row(sheet_id, row, header):
         sheet.values().update(spreadsheetId=sheet_id, range="A1", valueInputOption="RAW", body={"values": [header]}).execute()
     sheet.values().append(spreadsheetId=sheet_id, range="A1", valueInputOption="RAW", insertDataOption="INSERT_ROWS", body={"values": [row]}).execute()
 
+def find_or_create_gsheet(name, folder_id):
+    query = f"'{folder_id}' in parents and name='{name}' and mimeType='application/vnd.google-apps.spreadsheet'"
+    res = drive_service.files().list(q=query, fields="files(id)").execute()
+    if res.get("files"): return res["files"][0]["id"]
+    return drive_service.files().create(body={"name": name, "mimeType": "application/vnd.google-apps.spreadsheet", "parents": [folder_id]}, fields="id").execute()["id"]
+
 # --------- Data Preparation ---------
 routes_df = pd.read_excel("bus_data.xlsx", sheet_name="routes")
 stops_df = pd.read_excel("bus_data.xlsx", sheet_name="stops")
 
 try:
     bus_df = pd.read_excel("bus_list.xlsx", sheet_name="bus list", usecols=[1])
-    # Clean data to avoid TypeError
     bus_list = sorted([str(x) for x in bus_df.iloc[:, 0].dropna().unique()])
 except:
     bus_list = []
 
-# Clean allowed stops to avoid TypeError
-raw_stops = ["AJ106 LRT AMPANG", "DAMANSARA INTAN", "ECOSKY RESIDENCE", "FAKULTI KEJURUTERAAN (UTARA)", "FAKULTI PERNIAGAAN DAN PERAKAUNAN", "FAKULTI UNDANG-UNDANG", "KILANG PLASTIK EKSPEDISI EMAS (OPP)", "KJ477 UTAR", "KJ560 SHELL SG LONG (OPP)", "KL107 LRT MASJID JAMEK", "KL1082 SK Methodist", "KL117 BSN LEBUH AMPANG", "KL1217 ILP KUALA LUMPUR", "KL2247 KOMERSIAL KIP", "KL377 WISMA SISTEM", "KOMERSIAL BURHANUDDIN (2)", "MASJID CYBERJAYA 10", "MRT SRI DELIMA PINTU C", "PERUMAHAN TTDI", "PJ312 Medan Selera Seksyen 19", "PJ476 MASJID SULTAN ABDUL AZIZ", "PJ721 ONE UTAMA NEW WING", "PPJ384 AURA RESIDENCE", "SA12 APARTMENT BAIDURI (OPP)", "SA26 PERUMAHAN SEKSYEN 11", "SCLAND EMPORIS", "SJ602 BANDAR BUKIT PUCHONG BP1", "SMK SERI HARTAMAS", "SMK SULTAN ABD SAMAD (TIMUR)"]
-allowed_stops = sorted([str(x) for x in raw_stops])
+allowed_stops = sorted([str(x) for x in ["AJ106 LRT AMPANG", "DAMANSARA INTAN", "ECOSKY RESIDENCE", "FAKULTI KEJURUTERAAN (UTARA)", "FAKULTI PERNIAGAAN DAN PERAKAUNAN", "FAKULTI UNDANG-UNDANG", "KILANG PLASTIK EKSPEDISI EMAS (OPP)", "KJ477 UTAR", "KJ560 SHELL SG LONG (OPP)", "KL107 LRT MASJID JAMEK", "KL1082 SK Methodist", "KL117 BSN LEBUH AMPANG", "KL1217 ILP KUALA LUMPUR", "KL2247 KOMERSIAL KIP", "KL377 WISMA SISTEM", "KOMERSIAL BURHANUDDIN (2)", "MASJID CYBERJAYA 10", "MRT SRI DELIMA PINTU C", "PERUMAHAN TTDI", "PJ312 Medan Selera Seksyen 19", "PJ476 MASJID SULTAN ABDUL AZIZ", "PJ721 ONE UTAMA NEW WING", "PPJ384 AURA RESIDENCE", "SA12 APARTMENT BAIDURI (OPP)", "SA26 PERUMAHAN SEKSYEN 11", "SCLAND EMPORIS", "SJ602 BANDAR BUKIT PUCHONG BP1", "SMK SERI HARTAMAS", "SMK SULTAN ABD SAMAD (TIMUR)"]])
 
 staff_dict = {"10005475": "MOHD RIZAL BIN RAMLI", "10020779": "NUR FAEZAH BINTI HARUN", "10014181": "NORAINSYIRAH BINTI ARIFFIN", "10022768": "NORAZHA RAFFIZZI ZORKORNAINI", "10022769": "NUR HANIM HANIL", "10023845": "MUHAMMAD HAMKA BIN ROSLIM", "10002059": "MUHAMAD NIZAM BIN IBRAHIM", "10005562": "AZFAR NASRI BIN BURHAN", "10010659": "MOHD SHAHFIEE BIN ABDULLAH", "10008350": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN", "10003214": "NIK MOHD FADIR BIN NIK MAT RAWI", "10016370": "AHMAD AZIM BIN ISA", "10022910": "NUR SHAHIDA BINTI MOHD TAMIJI ", "10023513": "MUHAMMAD SYAHMI BIN AZMEY", "10023273": "MOHD IDZHAM BIN ABU BAKAR", "10023577": "MOHAMAD NAIM MOHAMAD SAPRI", "10023853": "MUHAMAD IMRAN BIN MOHD NASRUDDIN", "10008842": "MIRAN NURSYAWALNI AMIR", "10015662": "MUHAMMAD HANIF BIN HASHIM", "10011944": "NUR HAZIRAH BINTI NAWI"}
 
-# Session State for tracking progress
+# Session State
 if "photos" not in st.session_state: st.session_state.photos = []
 if "responses" not in st.session_state: st.session_state.responses = {}
 if "persistent_staff_id" not in st.session_state: st.session_state.persistent_staff_id = None
 if "reset_key" not in st.session_state: st.session_state.reset_key = 0
 
-# Adjusted Question Groups
-questions_a = [
-    "1. BC menggunakan telefon bimbit?", 
-    "2. BC memperlahankan/memberhentikan bas?", 
-    "3. BC memandu di lorong 1 (kiri)?", 
-    "4. Bas penuh dengan penumpang?", 
-    "5. BC tidak mengambil penumpang? (NA jika tiada)", 
-    "6. BC berlaku tidak sopan? (NA jika tiada)"
-]
+# Question Config
+questions_a = ["1. BC menggunakan telefon bimbit?", "2. BC memperlahankan/memberhentikan bas?", "3. BC memandu di lorong 1 (kiri)?", "4. Bas penuh dengan penumpang?", "5. BC tidak mengambil penumpang? (NA jika tiada)", "6. BC berlaku tidak sopan? (NA jika tiada)"]
+questions_b = ["7. Penumpang beri isyarat menahan? (NA jika tiada)", "8. Penumpang leka/tidak peka? (NA jika tiada)", "9. Penumpang tiba lewat?", "10. Penumpang menunggu di luar kawasan hentian?"]
+questions_c = ["11. Hentian terlindung dari pandangan BC?", "12. Hentian terhalang oleh kenderaan parkir?", "13. Persekitaran bahaya untuk bas berhenti?", "14. Terdapat pembinaan berhampiran?", "15. Mempunyai bumbung?", "16. Mempunyai tiang?", "17. Mempunyai petak hentian?", "18. Mempunyai layby?", "19. Terlindung dari pandangan BC? (Gerai/Pokok)", "20. Pencahayaan baik (jika malam)?"]
 
-questions_b = [
-    "7. Penumpang beri isyarat menahan? (NA jika tiada)", 
-    "8. Penumpang leka/tidak peka? (NA jika tiada)", 
-    "9. Penumpang tiba lewat?", 
-    "10. Penumpang menunggu di luar kawasan hentian?"
-]
-
-questions_c = [
-    "11. Hentian terlindung dari pandangan BC?", 
-    "12. Hentian terhalang oleh kenderaan parkir?", 
-    "13. Persekitaran bahaya untuk bas berhenti?", 
-    "14. Terdapat pembinaan berhampiran?", 
-    "15. Mempunyai bumbung?", 
-    "16. Mempunyai tiang?", 
-    "17. Mempunyai petak hentian?", 
-    "18. Mempunyai layby?", 
-    "19. Terlindung dari pandangan BC? (Gerai/Pokok)", 
-    "20. Pencahayaan baik (jika malam)?"
-]
-
-all_questions = questions_a + questions_b + questions_c
-
-# --------- Main App UI ---------
+# --------- Main UI ---------
 st.title("BC and Bus Stop Survey")
 
-# Section 1: Staff (Persistent)
-col_staff, col_stop = st.columns(2)
-with col_staff:
-    staff_options = list(staff_dict.keys())
-    def_idx = staff_options.index(st.session_state.persistent_staff_id) if st.session_state.persistent_staff_id in staff_options else None
-    
-    staff_id = st.selectbox("👤 Staff ID", options=staff_options, index=def_idx, placeholder="Pilih ID Staf...")
-    st.session_state.persistent_staff_id = staff_id
-    
-    if staff_id:
-        st.info(f"**Nama:** {staff_dict[staff_id]}")
+# PERSISTENT STAFF SECTION
+staff_opts = list(staff_dict.keys())
+def_idx = staff_opts.index(st.session_state.persistent_staff_id) if st.session_state.persistent_staff_id in staff_opts else None
+staff_id = st.selectbox("👤 Staff ID", options=staff_opts, index=def_idx, placeholder="Pilih ID Staf...")
+st.session_state.persistent_staff_id = staff_id
+if staff_id: st.info(f"**Nama:** {staff_dict[staff_id]}")
 
-# Resettable Container Key
-form_key = st.session_state.reset_key
+st.divider()
 
-with col_stop:
-    stop = st.selectbox("📍 Bus Stop", allowed_stops, index=None, placeholder="Pilih Hentian Bas...", key=f"stop_selector_{form_key}")
+# RESETTABLE FORM SECTION
+f_key = st.session_state.reset_key
+col_l, col_r = st.columns(2)
+with col_l:
+    stop = st.selectbox("📍 Bus Stop", allowed_stops, index=None, key=f"stop_{f_key}")
     current_route, current_depot = "", ""
     if stop:
-        matched_stop_data = stops_df[stops_df["Stop Name"] == stop]
-        current_route = " / ".join(map(str, matched_stop_data["Route Number"].unique()))
-        current_depot = " / ".join(map(str, routes_df[routes_df["Route Number"].isin(matched_stop_data["Route Number"].unique())]["Depot"].unique()))
+        matched = stops_df[stops_df["Stop Name"] == stop]
+        current_route = " / ".join(map(str, matched["Route Number"].unique()))
+        current_depot = " / ".join(map(str, routes_df[routes_df["Route Number"].isin(matched["Route Number"].unique())]["Depot"].unique()))
         st.info(f"**Route:** {current_route} | **Depot:** {current_depot}")
 
-st.divider()
+with col_r:
+    selected_bus = st.selectbox("🚌 Pilih No. Pendaftaran Bas", options=bus_list, index=None, key=f"bus_{f_key}")
 
-# Question Rendering Logic
-def render_grid_questions(q_list, suffix):
-    for i in range(0, len(q_list), 2):
-        col1, col2 = st.columns(2)
-        with col1:
-            q = q_list[i]
-            st.markdown(f"**{q}**")
-            opts = ["Yes", "No", "NA"] if "NA" in q else ["Yes", "No"]
-            st.session_state.responses[q] = st.radio(label=q, options=opts, index=None, key=f"r_{q}_{suffix}", horizontal=True, label_visibility="collapsed")
-        if i + 1 < len(q_list):
-            with col2:
-                q = q_list[i+1]
-                st.markdown(f"**{q}**")
-                opts = ["Yes", "No", "NA"] if "NA" in q else ["Yes", "No"]
-                st.session_state.responses[q] = st.radio(label=q, options=opts, index=None, key=f"r_{q}_{suffix}", horizontal=True, label_visibility="collapsed")
-
-# Section A
+# --- Section A ---
 st.subheader("A. KELAKUAN KAPTEN BAS")
-selected_bus = st.selectbox("🚌 Pilih No. Pendaftaran Bas", options=bus_list, index=None, placeholder="Pilih no pendaftaran bas...", key=f"bus_selector_{form_key}")
-render_grid_questions(questions_a, form_key)
+for q in questions_a:
+    st.markdown(f"**{q}**")
+    opts = ["Yes", "No", "NA"] if "NA" in q else ["Yes", "No"]
+    st.session_state.responses[q] = st.radio(q, opts, index=None, key=f"r_{q}_{f_key}", horizontal=True, label_visibility="collapsed")
 
 st.divider()
 
-# Section B
+# --- Section B (Conditional) ---
 st.subheader("B. PENUMPANG")
-render_grid_questions(questions_b, form_key)
+ada_penumpang = st.radio("Ada penumpang?", ["Yes", "No"], index=None, key=f"ada_p_{f_key}", horizontal=True)
+st.session_state.responses["Ada penumpang?"] = ada_penumpang
+
+if ada_penumpang == "Yes":
+    for q in questions_b:
+        st.markdown(f"**{q}**")
+        opts = ["Yes", "No", "NA"] if "NA" in q else ["Yes", "No"]
+        st.session_state.responses[q] = st.radio(q, opts, index=None, key=f"r_{q}_{f_key}", horizontal=True, label_visibility="collapsed")
+else:
+    # Auto-fill NA if no passengers are present
+    for q in questions_b: st.session_state.responses[q] = "NA"
 
 st.divider()
 
-# Section C
+# --- Section C ---
 st.subheader("C. KEADAAN HENTIAN BAS")
-render_grid_questions(questions_c, form_key)
+for q in questions_c:
+    st.markdown(f"**{q}**")
+    opts = ["Yes", "No", "NA"] if "NA" in q else ["Yes", "No"]
+    st.session_state.responses[q] = st.radio(q, opts, index=None, key=f"r_{q}_{f_key}", horizontal=True, label_visibility="collapsed")
 
 st.divider()
 
 # Photo Capture
 st.subheader("📸 Take Photo (3 Photos Required)")
 if len(st.session_state.photos) < 3:
-    col_cam, col_up = st.columns(2)
-    with col_cam:
-        cam_in = st.camera_input(f"Ambil Gambar #{len(st.session_state.photos)+1}")
-        if cam_in: st.session_state.photos.append(cam_in); st.rerun()
-    with col_up:
-        file_in = st.file_uploader(f"Upload Gambar #{len(st.session_state.photos)+1}", type=["jpg", "png", "jpeg"])
-        if file_in: st.session_state.photos.append(file_in); st.rerun()
+    col_c, col_u = st.columns(2)
+    with col_c:
+        cam = st.camera_input(f"Ambil Gambar #{len(st.session_state.photos)+1}")
+        if cam: st.session_state.photos.append(cam); st.rerun()
+    with col_u:
+        up = st.file_uploader(f"Upload Gambar #{len(st.session_state.photos)+1}", type=["jpg", "png", "jpeg"])
+        if up: st.session_state.photos.append(up); st.rerun()
 else:
     st.success("3 Gambar berjaya dirakam.")
-    if st.button("Reset Gambar"):
-        st.session_state.photos = []; st.rerun()
+    if st.button("Reset Gambar"): st.session_state.photos = []; st.rerun()
 
 if st.session_state.photos:
-    img_cols = st.columns(3)
-    for idx, pic in enumerate(st.session_state.photos):
-        img_cols[idx].image(pic, use_container_width=True)
+    cols = st.columns(3)
+    for i, p in enumerate(st.session_state.photos): cols[i].image(p, use_container_width=True)
 
-# Submit Logic
+# Submit
 if st.button("Submit Survey"):
-    if not staff_id or not stop or not selected_bus or len(st.session_state.photos) != 3 or None in st.session_state.responses.values():
-        st.error("Sila pastikan semua soalan dijawab, No. Bas dipilih, dan 3 keping gambar disediakan.")
+    all_qs_answered = all(st.session_state.responses.get(q) is not None for q in questions_a + (questions_b if ada_penumpang == "Yes" else []) + questions_c)
+    if not staff_id or not stop or not selected_bus or len(st.session_state.photos) != 3 or not all_qs_answered or ada_penumpang is None:
+        st.error("Sila pastikan semua soalan dijawab dan 3 gambar disediakan.")
     else:
-        with st.spinner("Menghantar data..."):
+        with st.spinner("Submitting..."):
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            photo_urls = [gdrive_upload_file(p.getvalue(), f"{timestamp}_{idx}.jpg", "image/jpeg", FOLDER_ID) for idx, p in enumerate(st.session_state.photos)]
+            urls = [gdrive_upload_file(p.getvalue(), f"{timestamp}_{i}.jpg", "image/jpeg", FOLDER_ID) for i, p in enumerate(st.session_state.photos)]
             
-            # Gather responses in order of questions
-            ordered_responses = [st.session_state.responses.get(q) for q in all_questions]
+            row = [timestamp, staff_id, staff_dict[staff_id], current_depot, current_route, stop, selected_bus, st.session_state.responses["Ada penumpang?"]] + \
+                  [st.session_state.responses[q] for q in questions_a + questions_b + questions_c] + ["; ".join(urls)]
             
-            row_data = [timestamp, staff_id, staff_dict[staff_id], current_depot, current_route, stop, selected_bus] + ordered_responses + ["; ".join(photo_urls)]
-            header_data = ["Timestamp", "Staff ID", "Staff Name", "Depot", "Route", "Bus Stop", "Bus Register No"] + all_questions + ["Photos"]
+            header = ["Timestamp", "Staff ID", "Staff Name", "Depot", "Route", "Bus Stop", "Bus No", "Ada Penumpang?"] + questions_a + questions_b + questions_c + ["Photos"]
+            append_row(find_or_create_gsheet("survey_responses", FOLDER_ID), row, header)
             
-            append_row(find_or_create_gsheet("survey_responses", FOLDER_ID), row_data, header_data)
-            
-            st.success("Tinjauan berjaya dihantar!")
-            
-            # RESET STATE - Increments reset_key to clear widgets
+            st.success("Success!")
             st.session_state.photos = []
             st.session_state.responses = {}
             st.session_state.reset_key += 1
-            
             time.sleep(2)
             st.rerun()
