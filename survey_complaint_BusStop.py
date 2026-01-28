@@ -19,7 +19,6 @@ st.set_page_config(page_title="Bus Stop Survey", layout="wide")
 # --------- APPLE UI GRID THEME CSS ---------
 st.markdown("""
     <style>
-    /* Global App Background */
     .stApp {
         background-color: #F5F5F7 !important;
         color: #1D1D1F !important;
@@ -41,12 +40,8 @@ st.markdown("""
         min-height: 58px !important; 
     }
 
-    /* Hide standard radio circles */
-    [data-testid="stWidgetSelectionVisualizer"] {
-        display: none !important;
-    }
+    [data-testid="stWidgetSelectionVisualizer"] { display: none !important; }
 
-    /* Individual Radio Item Label */
     div[role="radiogroup"] label {
         background-color: transparent !important;
         border: none !important;
@@ -57,60 +52,40 @@ st.markdown("""
         display: flex !important;
         justify-content: center !important;
         align-items: center !important;
-        margin: 0 !important;
     }
 
-    /* Text Formatting for Yes/No - BOLD DARK GRAY */
     div[role="radiogroup"] label p {
         font-size: 16px !important; 
-        margin: 0 !important;
-        padding: 0 20px !important;
-        white-space: nowrap !important; 
-        line-height: 1.2 !important;
-        text-align: center !important;
         color: #444444 !important; 
         font-weight: 700 !important; 
     }
 
-    /* Selected State (The White Slide) */
     div[role="radiogroup"] label:has(input:checked) {
         background-color: #FFFFFF !important;
         box-shadow: 0px 4px 12px rgba(0,0,0,0.15) !important;
     }
 
-    /* Selected State Text */
-    div[role="radiogroup"] label:has(input:checked) p {
-        color: #000000 !important; 
-    }
+    div[role="radiogroup"] label:has(input:checked) p { color: #000000 !important; }
 
-    /* Main Submit Button Styling */
+    /* Submit Button */
     div.stButton > button {
         width: 100% !important;
         background-color: #007AFF !important;
         color: white !important;
-        border: none !important;
         height: 60px !important;
         font-weight: 600 !important;
         border-radius: 16px !important;
         font-size: 18px !important;
-        margin-top: 30px;
     }
 
-    /* Specific Colors for Action Buttons */
-    div[data-testid="column"]:has(button:contains("Retake")) button {
-        background-color: #007AFF !important;
-        color: white !important;
-    }
-    div[data-testid="column"]:has(button:contains("Remove")) button {
-        background-color: #FF3B30 !important;
-        color: white !important;
-    }
+    /* Info Box Styling */
+    .stAlert { border-radius: 12px !important; border: none !important; }
 
-    /* Consistency for Info Boxes */
-    .stAlert {
-        border-radius: 12px !important;
-        border: none !important;
-        margin-top: 10px !important;
+    /* Small Action Buttons (Retake/Remove) */
+    .stButton button[kind="secondary"] {
+        height: 35px !important;
+        padding: 0 10px !important;
+        font-size: 14px !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -202,7 +177,6 @@ st.title("🚌 Bus Stop Survey")
 # Staff Section
 staff_id = st.selectbox("👤 Staff ID", options=list(staff_dict.keys()), index=None, placeholder="Pilih ID Staf...")
 if staff_id:
-    # JUST SHOW NAME ONLY
     st.info(f"**{staff_dict[staff_id]}**")
 
 # Bus Stop Section
@@ -225,7 +199,6 @@ def render_grid_questions(q_list):
             st.markdown(f"**{q}**")
             opts = ["Yes", "No", "NA"] if "NA" in q else ["Yes", "No"]
             st.session_state.responses[q] = st.radio(label=q, options=opts, index=None, key=f"r_{q}", horizontal=True, label_visibility="collapsed")
-        
         if i + 1 < len(q_list):
             with col2:
                 q = q_list[i+1]
@@ -240,13 +213,15 @@ st.subheader("B. KEADAAN HENTIAN BAS")
 render_grid_questions(questions_b)
 st.divider()
 
-# Photo Evidence Section
+# --------- UPDATED PHOTO SECTION WITH RETAKE/REMOVE ---------
 st.subheader("📸 Evidence (3 Photos Required)")
+
 photo_cols = st.columns(3)
 
 for idx in range(3):
     with photo_cols[idx]:
         if st.session_state.photos[idx] is None:
+            # Slot is empty
             st.markdown(f"**Photo {idx+1}**")
             cam_in = st.camera_input(f"Camera {idx}", key=f"cam_{idx}", label_visibility="collapsed")
             file_in = st.file_uploader(f"Upload {idx}", type=["jpg","png","jpeg"], key=f"file_{idx}", label_visibility="collapsed")
@@ -258,7 +233,9 @@ for idx in range(3):
                 st.session_state.photos[idx] = file_in
                 st.rerun()
         else:
+            # Slot is filled - Show Image and Buttons
             st.image(st.session_state.photos[idx], use_container_width=True)
+            
             btn_col1, btn_col2 = st.columns(2)
             if btn_col1.button(f"🔄 Retake", key=f"retake_{idx}"):
                 st.session_state.photos[idx] = None
@@ -271,11 +248,13 @@ st.divider()
 
 # Submit Logic
 if st.button("Submit Survey"):
+    # Check if all 3 photos are filled
     if not staff_id or not stop or None in st.session_state.photos or None in st.session_state.responses.values():
         st.error("Sila pastikan semua soalan dijawab dan 3 keping gambar disediakan.")
     else:
         with st.spinner("Menghantar..."):
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            # Upload files
             photo_urls = []
             for i, p in enumerate(st.session_state.photos):
                 url = gdrive_upload_file(p.getvalue(), f"{timestamp}_p{i+1}.jpg", "image/jpeg", FOLDER_ID)
@@ -290,6 +269,7 @@ if st.button("Submit Survey"):
             append_row(gsheet_id, row_data, header_data)
             
             st.success("Tinjauan berjaya dihantar!")
+            # Reset state
             st.session_state.photos = [None, None, None]
             st.session_state.responses = {q: None for q in all_questions}
             time.sleep(2)
