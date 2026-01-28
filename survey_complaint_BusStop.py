@@ -160,10 +160,10 @@ def append_row(sheet_id, row, header):
 routes_df = pd.read_excel("bus_data.xlsx", sheet_name="routes")
 stops_df = pd.read_excel("bus_data.xlsx", sheet_name="stops")
 
-# 2. Load Bus List from 'bus list.xlsx' -> Sheet 'Bus' -> Column B (index 1)
+# 2. Load Bus List from 'bus_list.xlsx' -> Sheet 'Bus' -> Column B (index 1)
 try:
     # usecols=[1] targets Column B (0-indexed logic)
-    df_bus = pd.read_excel("bus list.xlsx", sheet_name="Bus", usecols=[1])
+    df_bus = pd.read_excel("bus_list.xlsx", sheet_name="Bus", usecols=[1])
     # iloc[:, 0] selects the first available column from our usecols selection
     bus_list = sorted(df_bus.iloc[:, 0].dropna().astype(str).unique().tolist())
 except Exception as e:
@@ -284,3 +284,4 @@ if st.button("Submit Survey"):
             st.session_state.responses = {q: None for q in all_questions}
             time.sleep(2)
             st.rerun()
+
