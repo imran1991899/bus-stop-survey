@@ -102,15 +102,18 @@ FOLDER_ID = "1DjtLxgyQXwgjq_N6I_-rtYcBcnWhzMGp"
 CLIENT_SECRETS_FILE = "client_secrets2.json"
 SCOPES = ["https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/spreadsheets"]
 
-# Updated logic: Load from local Excel instead of GitHub
+# FIXED GITHUB URL - Using raw.githubusercontent.com
+# Note: URL encoding %20 is used for the space in "bus%20list.xlsx"
+GITHUB_RAW_URL = "https://raw.githubusercontent.com/imran1991899/bus-stop-survey/main/bus%20list.xlsx"
+
 @st.cache_data
-def load_bus_list_from_excel(file_path):
+def load_github_bus_list(url):
     try:
-        # Assumes sheet name is "Bus" and column is "bus_register_no"
-        df = pd.read_excel(file_path, sheet_name="Bus")
+        # Loading from sheet "Bus" and Column B (bus_register_no)
+        df = pd.read_excel(url, sheet_name="Bus")
         return sorted(df["bus_register_no"].dropna().astype(str).unique().tolist())
     except Exception as e:
-        st.error(f"Error loading bus list from local Excel: {e}")
+        st.error(f"Error loading bus list from GitHub: {e}")
         return []
 
 def save_credentials(credentials):
@@ -167,10 +170,9 @@ def append_row(sheet_id, row, header):
     sheet.values().append(spreadsheetId=sheet_id, range="A1", valueInputOption="RAW", insertDataOption="INSERT_ROWS", body={"values": [row]}).execute()
 
 # --------- Data Preparation ---------
-# Loading everything from bus_data.xlsx
 routes_df = pd.read_excel("bus_data.xlsx", sheet_name="routes")
 stops_df = pd.read_excel("bus_data.xlsx", sheet_name="stops")
-bus_list = load_bus_list_from_excel("bus_data.xlsx")
+bus_list = load_github_bus_list(GITHUB_RAW_URL)
 
 allowed_stops = sorted([
     "AJ106 LRT AMPANG", "DAMANSARA INTAN", "ECOSKY RESIDENCE", "FAKULTI KEJURUTERAAN (UTARA)",
