@@ -175,11 +175,13 @@ except:
 raw_stops = ["AJ106 LRT AMPANG", "DAMANSARA INTAN", "ECOSKY RESIDENCE", "FAKULTI KEJURUTERAAN (UTARA)", "FAKULTI PERNIAGAAN DAN PERAKAUNAN", "FAKULTI UNDANG-UNDANG", "KILANG PLASTIK EKSPEDISI EMAS (OPP)", "KJ477 UTAR", "KJ560 SHELL SG LONG (OPP)", "KL107 LRT MASJID JAMEK", "KL1082 SK Methodist", "KL117 BSN LEBUH AMPANG", "KL1217 ILP KUALA LUMPUR", "KL2247 KOMERSIAL KIP", "KL377 WISMA SISTEM", "KOMERSIAL BURHANUDDIN (2)", "MASJID CYBERJAYA 10", "MRT SRI DELIMA PINTU C", "PERUMAHAN TTDI", "PJ312 Medan Selera Seksyen 19", "PJ476 MASJID SULTAN ABDUL AZIZ", "PJ721 ONE UTAMA NEW WING", "PPJ384 AURA RESIDENCE", "SA12 APARTMENT BAIDURI (OPP)", "SA26 PERUMAHAN SEKSYEN 11", "SCLAND EMPORIS", "SJ602 BANDAR BUKIT PUCHONG BP1", "SMK SERI HARTAMAS", "SMK SULTAN ABD SAMAD (TIMUR)"]
 allowed_stops = sorted([str(x) for x in raw_stops])
 
-staff_dict = {"10005475": "MOHD RIZAL BIN RAMLI", "10020779": "NUR FAEZAH BINTI HARUN", "10014181": "NORAINSYIRAH BINTI ARIFFIN", "10022768": "NORAZHA RAFFIZZI ZORKORNAINI", "10022769": "NUR HANIM HANIL", "10023845": "MUHAMMAD HAMKA BIN ROSLIM", "10002059": "MUHAMAD NIZAM BIN IBRAHIM", "10005562": "AZFAR NASRI BIN BURHAN", "10010659": "MOHD SHAHFIEE BIN ABDULLAH", "10008350": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN", "10003214": "NIK MOHD FADIR BIN NIK MAT RAWI", "10016370": "AHMAD AZIM BIN ISA", "10022910": "NUR SHAHIDA BINTI MOHD TAMIJI ", "10023513": "MUHAMMAD SYAHMI BIN AZMEY", "10023273": "MOHD IDZHAM BIN ABU BAKAR", "10023577": "MOHAMAD NAIM MOHAMAD SAPRI", "10023853": "MUHAMAD IMRAN BIN MOHD NASRUDDIN", "10008842": "MIRAN NURSYAWALNI AMIR", "10015662": "MUHAMMAD HANIF BIN HASHIM", "10011944": "NUR HAZIRAH BINTI NAWI"}
+staff_dict = {"10005475": "MOHD RIZAL BIN RAMLI", "10020779": "NUR FAEZAH BINTI HARUN", "10014181": "NORAINSYIRAH BINTI ARIFFIN", "10022768": "NORAZHA RAFFIZZI ZORKORNAINI", "10022769": "NUR HANIM HANIL", "10023845": "MUHAMMAD HAMKA BIN ROSLIM", "10002059": "MUHAMAD NIZAM BIN IBRAHIM", "10005562": "AZFAR NASRI BIN BURHAN", "10010659": "MOHD SHFIEE BIN ABDULLAH", "10008350": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN", "10003214": "NIK MOHD FADIR BIN NIK MAT RAWI", "10016370": "AHMAD AZIM BIN ISA", "10022910": "NUR SHAHIDA BINTI MOHD TAMIJI ", "10023513": "MUHAMMAD SYAHMI BIN AZMEY", "10023273": "MOHD IDZHAM BIN ABU BAKAR", "10023577": "MOHAMAD NAIM MOHAMAD SAPRI", "10023853": "MUHAMAD IMRAN BIN MOHD NASRUDDIN", "10008842": "MIRAN NURSYAWALNI AMIR", "10015662": "MUHAMMAD HANIF BIN HASHIM", "10011944": "NUR HAZIRAH BINTI NAWI"}
 
+# Session State for tracking progress
 if "photos" not in st.session_state: st.session_state.photos = []
 if "responses" not in st.session_state: st.session_state.responses = {}
 if "persistent_staff_id" not in st.session_state: st.session_state.persistent_staff_id = None
+if "persistent_stop" not in st.session_state: st.session_state.persistent_stop = None
 if "reset_key" not in st.session_state: st.session_state.reset_key = 0
 
 questions_a = ["1. BC menggunakan telefon bimbit?", "2. BC memperlahankan/memberhentikan bas?", "3. BC memandu di lorong 1 (kiri)?", "4. Bas penuh dengan penumpang?", "5. BC tidak mengambil penumpang? (NA jika tiada)", "6. BC berlaku tidak sopan? (NA jika tiada)"]
@@ -194,15 +196,19 @@ st.title("BC and Bus Stop Survey")
 col_staff, col_stop = st.columns(2)
 with col_staff:
     staff_options = list(staff_dict.keys())
-    def_idx = staff_options.index(st.session_state.persistent_staff_id) if st.session_state.persistent_staff_id in staff_options else None
-    staff_id = st.selectbox("👤 Staff ID", options=staff_options, index=def_idx, placeholder="Pilih ID Staf...")
+    def_idx_staff = staff_options.index(st.session_state.persistent_staff_id) if st.session_state.persistent_staff_id in staff_options else None
+    staff_id = st.selectbox("👤 Staff ID", options=staff_options, index=def_idx_staff, placeholder="Pilih ID Staf...")
     st.session_state.persistent_staff_id = staff_id
     if staff_id: st.info(f"**Nama:** {staff_dict[staff_id]}")
 
 form_key = st.session_state.reset_key
 
 with col_stop:
-    stop = st.selectbox("📍 Bus Stop", allowed_stops, index=None, placeholder="Pilih Hentian Bas...", key=f"stop_{form_key}")
+    # Logic to maintain stop selection like staff ID
+    def_idx_stop = allowed_stops.index(st.session_state.persistent_stop) if st.session_state.persistent_stop in allowed_stops else None
+    stop = st.selectbox("📍 Bus Stop", options=allowed_stops, index=def_idx_stop, placeholder="Pilih Hentian Bas...")
+    st.session_state.persistent_stop = stop
+    
     current_route, current_depot = "", ""
     if stop:
         matched = stops_df[stops_df["Stop Name"] == stop]
@@ -286,6 +292,9 @@ if st.button("Submit Survey"):
             
             append_row(find_or_create_gsheet("survey_responses", FOLDER_ID), row_data, header_data)
             st.success("Tinjauan berjaya dihantar!")
+            
+            # Resetting answers and photos only
             st.session_state.photos, st.session_state.responses = [], {}
             st.session_state.reset_key += 1
+            
             time.sleep(2); st.rerun()
