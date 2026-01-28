@@ -174,7 +174,8 @@ stops_df = pd.read_excel("bus_data.xlsx", sheet_name="stops")
 
 try:
     bus_df = pd.read_excel("bus_list.xlsx", sheet_name="bus list", usecols=[1])
-    bus_list = sorted(bus_df.iloc[:, 0].dropna().astype(str).unique().tolist())
+    # Ensure bus list is clean (no NaNs, all strings)
+    bus_list = sorted([str(x) for x in bus_df.iloc[:, 0].dropna().unique()])
 except Exception as e:
     bus_list = []
 
@@ -193,7 +194,7 @@ all_questions = questions_a + questions_b
 # --------- Main App UI ---------
 st.title("BC and Bus Stop Survey")
 
-# PERSISTENT SECTION (Does not reset)
+# 1. STAFF SECTION (Persistent)
 staff_options = list(staff_dict.keys())
 def_idx = staff_options.index(st.session_state.persistent_staff_id) if st.session_state.persistent_staff_id in staff_options else None
 
@@ -205,13 +206,23 @@ if staff_id:
 
 st.divider()
 
-# RESETTABLE SECTION (Wrapped in key-based container)
-# Changing reset_key forces all widgets inside to reload as 'new'
+# 2. RESETTABLE SECTION
+# Changing this key forces all widgets inside to reset to default
 form_key = st.session_state.reset_key
 
 col_stop, col_bus_sel = st.columns(2)
 with col_stop:
-    stop = st.selectbox("📍 Bus Stop", sorted(stops_df["Stop Name"].unique()), index=None, placeholder="Pilih Hentian Bas...", key=f"stop_sel_{form_key}")
+    # DATA CLEANING: Ensure no NaNs and all strings for sorting
+    stop_options = sorted([str(x) for x in stops_df["Stop Name"].dropna().unique()])
+    
+    stop = st.selectbox(
+        "📍 Bus Stop", 
+        options=stop_options, 
+        index=None, 
+        placeholder="Pilih Hentian Bas...", 
+        key=f"stop_sel_{form_key}"
+    )
+    
     current_route, current_depot = "", ""
     if stop:
         matched_stop_data = stops_df[stops_df["Stop Name"] == stop]
@@ -220,7 +231,13 @@ with col_stop:
         st.info(f"**Route:** {current_route} | **Depot:** {current_depot}")
 
 with col_bus_sel:
-    selected_bus = st.selectbox("🚌 Pilih No. Pendaftaran Bas", options=bus_list, index=None, placeholder="Pilih no pendaftaran bas...", key=f"bus_sel_{form_key}")
+    selected_bus = st.selectbox(
+        "🚌 Pilih No. Pendaftaran Bas", 
+        options=bus_list, 
+        index=None, 
+        placeholder="Pilih no pendaftaran bas...", 
+        key=f"bus_sel_{form_key}"
+    )
 
 st.subheader("A. KELAKUAN KAPTEN BAS")
 for q in questions_a:
@@ -238,7 +255,7 @@ for q in questions_b:
 
 st.divider()
 
-# Photo Capture
+# 3. PHOTO SECTION
 st.subheader("📸 Take Photo (3 Photos Required)")
 if len(st.session_state.photos) < 3:
     col_cam, col_up = st.columns(2)
@@ -263,7 +280,7 @@ if st.session_state.photos:
     for idx, pic in enumerate(st.session_state.photos):
         img_cols[idx].image(pic, use_container_width=True)
 
-# Submit Logic
+# 4. SUBMIT LOGIC
 if st.button("Submit Survey"):
     if not staff_id or not stop or not selected_bus or len(st.session_state.photos) != 3 or None in st.session_state.responses.values():
         st.error("Sila pastikan semua soalan dijawab, No. Bas dipilih, dan 3 keping gambar disediakan.")
@@ -282,10 +299,10 @@ if st.button("Submit Survey"):
             
             st.success("Tinjauan berjaya dihantar!")
             
-            # --- THE RESET LOGIC ---
+            # CLEAR FORM DATA BUT KEEP STAFF ID
             st.session_state.photos = []
             st.session_state.responses = {}
-            st.session_state.reset_key += 1  # Incrementing this clears all input widgets inside the resettlement section
+            st.session_state.reset_key += 1 # Forces all radio and select widgets to reset
             
             time.sleep(2)
             st.rerun()
