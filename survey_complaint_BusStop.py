@@ -16,17 +16,17 @@ from google.auth.transport.requests import Request
 # --------- Page Setup ---------
 st.set_page_config(page_title="Bus Stop Survey", layout="wide")
 
-# --------- APPLE UI THEME CSS ---------
+# --------- APPLE UI GRID THEME CSS ---------
 st.markdown("""
     <style>
-    /* Global App Background & Apple Font Stack */
+    /* Global App Background */
     .stApp {
         background-color: #F5F5F7 !important;
         color: #1D1D1F !important;
-        font-family: "SF Pro Text", "SF Pro Icons", "Helvetica Neue", "Helvetica", "Arial", -apple-system, BlinkMacSystemFont, sans-serif !important;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
     }
 
-    /* iOS Segmented Control Style */
+    /* iOS Segmented Control Style - ENLARGED & MOVED HIGHER */
     div[role="radiogroup"] {
         background-color: #E3E3E8 !important; 
         padding: 6px !important; 
@@ -46,7 +46,7 @@ st.markdown("""
         display: none !important;
     }
 
-    /* Individual Radio Item Label */
+    /* Individual Radio Item Label - THE BIGGER WHITE BOX */
     div[role="radiogroup"] label {
         background-color: transparent !important;
         border: none !important;
@@ -60,13 +60,13 @@ st.markdown("""
         margin: 0 !important;
     }
 
-    /* Text Formatting for Yes/No - BOLD DARK GRAY */
+    /* UPDATED: Text Formatting for Yes/No - BOLD DARK GRAY */
     div[role="radiogroup"] label p {
         font-size: 16px !important; 
-        font-family: "SF Pro Text", sans-serif !important;
         margin: 0 !important;
         padding: 0 20px !important;
         white-space: nowrap !important; 
+        overflow: visible !important;
         line-height: 1.2 !important;
         text-align: center !important;
         color: #444444 !important; /* Bold Dark Gray */
@@ -76,7 +76,7 @@ st.markdown("""
     /* Selected State (The White Slide) */
     div[role="radiogroup"] label:has(input:checked) {
         background-color: #FFFFFF !important;
-        box-shadow: 0px 4px 12px rgba(0,0,0,0.12) !important;
+        box-shadow: 0px 4px 12px rgba(0,0,0,0.15) !important;
     }
 
     /* Selected State Text */
@@ -94,30 +94,14 @@ st.markdown("""
         font-weight: 600 !important;
         border-radius: 16px !important;
         font-size: 18px !important;
-        font-family: "SF Pro Text", sans-serif !important;
-        margin-top: 20px;
+        margin-top: 30px;
     }
 
-    /* Color Overrides for Retake and Remove Buttons */
-    div[data-testid="column"] button:contains("Retake") {
-        background-color: #007AFF !important;
-        color: white !important;
-        border-radius: 10px !important;
-        border: none !important;
-    }
-
-    div[data-testid="column"] button:contains("Remove") {
-        background-color: #FF3B30 !important;
-        color: white !important;
-        border-radius: 10px !important;
-        border: none !important;
-    }
-
-    /* Card-like Info Box */
+    /* Consistency for Info Boxes */
     .stAlert {
-        border-radius: 14px !important;
+        border-radius: 12px !important;
         border: none !important;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        margin-top: 10px !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -197,7 +181,7 @@ allowed_stops = sorted([
 
 staff_dict = {"10005475": "MOHD RIZAL BIN RAMLI", "10020779": "NUR FAEZAH BINTI HARUN", "10014181": "NORAINSYIRAH BINTI ARIFFIN", "10022768": "NORAZHA RAFFIZZI ZORKORNAINI", "10022769": "NUR HANIM HANIL", "10023845": "MUHAMMAD HAMKA BIN ROSLIM", "10002059": "MUHAMAD NIZAM BIN IBRAHIM", "10005562": "AZFAR NASRI BIN BURHAN", "10010659": "MOHD SHAHFIEE BIN ABDULLAH", "10008350": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN", "10003214": "NIK MOHD FADIR BIN NIK MAT RAWI", "10016370": "AHMAD AZIM BIN ISA", "10022910": "NUR SHAHIDA BINTI MOHD TAMIJI ", "10023513": "MUHAMMAD SYAHMI BIN AZMEY", "10023273": "MOHD IDZHAM BIN ABU BAKAR", "10023577": "MOHAMAD NAIM MOHAMAD SAPRI", "10023853": "MUHAMAD IMRAN BIN MOHD NASRUDDIN", "10008842": "MIRAN NURSYAWALNI AMIR", "10015662": "MUHAMMAD HANIF BIN HASHIM", "10011944": "NUR HAZIRAH BINTI NAWI"}
 
-if "photos" not in st.session_state: st.session_state.photos = [None, None, None]
+if "photos" not in st.session_state: st.session_state.photos = []
 questions_a = ["1. BC menggunakan telefon bimbit?", "2. BC memperlahankan/memberhentikan bas?", "3. BC memandu di lorong 1 (kiri)?", "4. Bas penuh dengan penumpang?", "5. BC tidak mengambil penumpang? (NA jika tiada)", "6. BC berlaku tidak sopan? (NA jika tiada)"]
 questions_b = ["7. Hentian terlindung dari pandangan BC?", "8. Hentian terhalang oleh kenderaan parkir?", "9. Persekitaran bahaya untuk bas berhenti?", "10. Terdapat pembinaan berhampiran?", "11. Mempunyai bumbung?", "12. Mempunyai tiang?", "13. Mempunyai petak hentian?", "14. Mempunyai layby?", "15. Terlindung dari pandangan BC? (Gerai/Pokok)", "16. Pencahayaan baik?", "17. Penumpang beri isyarat menahan? (NA jika tiada)", "18. Penumpang leka/tidak peka? (NA jika tiada)", "19. Penumpang tiba lewat?", "20. Penumpang menunggu di luar kawasan hentian?"]
 all_questions = questions_a + questions_b
@@ -209,11 +193,12 @@ st.title("🚌 Bus Stop Survey")
 # Staff Section
 staff_id = st.selectbox("👤 Staff ID", options=list(staff_dict.keys()), index=None, placeholder="Pilih ID Staf...")
 if staff_id:
-    # JUST A NAME
+    # UPDATED: Only show name in bold
     st.info(f"**{staff_dict[staff_id]}**")
 
 # Bus Stop Section
 stop = st.selectbox("📍 Bus Stop", allowed_stops, index=None, placeholder="Pilih Hentian Bas...")
+
 current_route, current_depot = "", ""
 if stop:
     matched_stop_data = stops_df[stops_df["Stop Name"] == stop]
@@ -242,51 +227,44 @@ def render_grid_questions(q_list):
 
 st.subheader("A. KELAKUAN KAPTEN BAS")
 render_grid_questions(questions_a)
+
 st.divider()
+
 st.subheader("B. KEADAAN HENTIAN BAS")
 render_grid_questions(questions_b)
+
 st.divider()
 
-# Photo Evidence Section with Retake/Remove
+# Photo Evidence
 st.subheader("📸 Evidence (3 Photos Required)")
-photo_cols = st.columns(3)
+if len(st.session_state.photos) < 3:
+    col_cam, col_up = st.columns(2)
+    with col_cam:
+        cam_in = st.camera_input(f"Ambil Gambar #{len(st.session_state.photos)+1}")
+        if cam_in: 
+            st.session_state.photos.append(cam_in); st.rerun()
+    with col_up:
+        file_in = st.file_uploader(f"Upload Gambar #{len(st.session_state.photos)+1}", type=["jpg", "png", "jpeg"])
+        if file_in: 
+            st.session_state.photos.append(file_in); st.rerun()
+else:
+    st.success("3 Gambar berjaya dirakam.")
+    if st.button("Reset Gambar"):
+        st.session_state.photos = []; st.rerun()
 
-for idx in range(3):
-    with photo_cols[idx]:
-        if st.session_state.photos[idx] is None:
-            st.markdown(f"**Photo {idx+1}**")
-            cam_in = st.camera_input(f"Camera {idx}", key=f"cam_{idx}", label_visibility="collapsed")
-            file_in = st.file_uploader(f"Upload {idx}", type=["jpg","png","jpeg"], key=f"file_{idx}", label_visibility="collapsed")
-            
-            if cam_in: 
-                st.session_state.photos[idx] = cam_in
-                st.rerun()
-            if file_in: 
-                st.session_state.photos[idx] = file_in
-                st.rerun()
-        else:
-            st.image(st.session_state.photos[idx], use_container_width=True)
-            btn_col1, btn_col2 = st.columns(2)
-            if btn_col1.button(f"🔄 Retake", key=f"retake_{idx}"):
-                st.session_state.photos[idx] = None
-                st.rerun()
-            if btn_col2.button(f"🗑️ Remove", key=f"remove_{idx}"):
-                st.session_state.photos[idx] = None
-                st.rerun()
-
-st.divider()
+if st.session_state.photos:
+    img_cols = st.columns(3)
+    for idx, pic in enumerate(st.session_state.photos):
+        img_cols[idx].image(pic, use_container_width=True)
 
 # Submit Logic
 if st.button("Submit Survey"):
-    if not staff_id or not stop or None in st.session_state.photos or None in st.session_state.responses.values():
+    if not staff_id or not stop or len(st.session_state.photos) != 3 or None in st.session_state.responses.values():
         st.error("Sila pastikan semua soalan dijawab dan 3 keping gambar disediakan.")
     else:
         with st.spinner("Menghantar..."):
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            photo_urls = []
-            for i, p in enumerate(st.session_state.photos):
-                url = gdrive_upload_file(p.getvalue(), f"{timestamp}_p{i+1}.jpg", "image/jpeg", FOLDER_ID)
-                photo_urls.append(url)
+            photo_urls = [gdrive_upload_file(p.getvalue(), f"{timestamp}_{idx}.jpg", "image/jpeg", FOLDER_ID) for idx, p in enumerate(st.session_state.photos)]
             
             row_data = [timestamp, staff_id, staff_dict[staff_id], current_depot, current_route, stop] + \
                        [st.session_state.responses[q] for q in all_questions] + ["; ".join(photo_urls)]
@@ -297,8 +275,8 @@ if st.button("Submit Survey"):
             append_row(gsheet_id, row_data, header_data)
             
             st.success("Tinjauan berjaya dihantar!")
-            # Reset state for fresh entry
-            st.session_state.photos = [None, None, None]
+            # Reset state
+            st.session_state.photos = []
             st.session_state.responses = {q: None for q in all_questions}
             time.sleep(2)
             st.rerun()
