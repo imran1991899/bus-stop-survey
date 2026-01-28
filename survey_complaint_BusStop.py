@@ -70,8 +70,15 @@ st.markdown("""
         font-weight: 600 !important;
     }
 
-    button[key*="retake"] { background-color: #007AFF !important; color: white !important; }
-    button[key*="remove"] { background-color: #FF3B30 !important; color: white !important; }
+    /* Targeted Red/Blue styling for Photo Grid Buttons */
+    div[data-testid="column"] button:contains("Retake") {
+        background-color: #007AFF !important;
+        color: white !important;
+    }
+    div[data-testid="column"] button:contains("Remove") {
+        background-color: #FF3B30 !important;
+        color: white !important;
+    }
 
     .stAlert { border-radius: 12px !important; }
     </style>
@@ -82,16 +89,19 @@ FOLDER_ID = "1DjtLxgyQXwgjq_N6I_-rtYcBcnWhzMGp"
 CLIENT_SECRETS_FILE = "client_secrets2.json"
 SCOPES = ["https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/spreadsheets"]
 
-# Ensure this is the RAW link from GitHub
+# GITHUB BUS LIST URL (Ensure this is the RAW link)
 BUS_LIST_URL = "https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/bus_list.xlsx"
 
 @st.cache_data
 def load_bus_list(url):
     try:
-        # Load specifically from sheet "Bus" and Column B
-        df = pd.read_excel(url, sheet_name="Bus", usecols="B")
-        df.columns = ["Bus_Number"]
-        return df["Bus_Number"].dropna().unique().tolist()
+        # Load specifically from sheet "Bus" and find column "bus_register_no"
+        df = pd.read_excel(url, sheet_name="Bus")
+        if "bus_register_no" in df.columns:
+            return df["bus_register_no"].dropna().unique().tolist()
+        else:
+            # Fallback if the name is slightly different but still in Column B
+            return df.iloc[:, 1].dropna().unique().tolist()
     except Exception as e:
         st.error(f"Error loading GitHub file: {e}")
         return ["Error loading list"]
@@ -181,9 +191,9 @@ if stop:
 
 st.divider()
 
-# Vehicle Selection from GitHub Sheet "Bus"
+# Vehicle Selection
 st.subheader("🚌 Vehicle Information")
-bus_number = st.selectbox("Select Bus Number", options=bus_list_options, index=None)
+bus_number = st.selectbox("Select Bus Number (bus_register_no)", options=bus_list_options, index=None)
 
 st.divider()
 
@@ -210,7 +220,7 @@ st.divider()
 st.subheader("📸 Evidence (3 Photos Required)")
 if len(st.session_state.photos) < 3:
     st.write(f"Capturing Photo {len(st.session_state.photos) + 1} of 3")
-    cam = st.camera_input("Take Photo", key=f"capture_{len(st.session_state.photos)}")
+    cam = st.camera_input("Take Photo", key=f"capture_input_{len(st.session_state.photos)}")
     if cam:
         st.session_state.photos.append(cam)
         st.rerun()
@@ -223,9 +233,11 @@ if st.session_state.photos:
     for i, p in enumerate(st.session_state.photos):
         with p_cols[i]:
             st.image(p, use_container_width=True)
-            if st.button(f"🔄 Retake", key=f"retake_{i}"):
+            # Use columns inside the photo column to side-by-side buttons
+            b_col1, b_col2 = st.columns(2)
+            if b_col1.button(f"🔄 Retake", key=f"retake_{i}"):
                 st.session_state.photos.pop(i); st.rerun()
-            if st.button(f"🗑️ Remove", key=f"remove_{i}"):
+            if b_col2.button(f"🗑️ Remove", key=f"remove_{i}"):
                 st.session_state.photos.pop(i); st.rerun()
 
 st.divider()
