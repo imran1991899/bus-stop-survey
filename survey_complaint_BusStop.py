@@ -102,16 +102,18 @@ FOLDER_ID = "1DjtLxgyQXwgjq_N6I_-rtYcBcnWhzMGp"
 CLIENT_SECRETS_FILE = "client_secrets2.json"
 SCOPES = ["https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/spreadsheets"]
 
-# FIXED GITHUB URL - Using raw.githubusercontent.com
-# Note: URL encoding %20 is used for the space in "bus%20list.xlsx"
+# GITHUB CONFIG
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/imran1991899/bus-stop-survey/main/bus%20list.xlsx"
 
 @st.cache_data
 def load_github_bus_list(url):
     try:
-        # Loading from sheet "Bus" and Column B (bus_register_no)
+        # Loading from sheet "Bus"
         df = pd.read_excel(url, sheet_name="Bus")
-        return sorted(df["bus_register_no"].dropna().astype(str).unique().tolist())
+        # Pulling from Column B (index 1)
+        # We use .iloc[:, 1] to strictly get the 2nd column
+        buses = df.iloc[:, 1].dropna().astype(str).unique().tolist()
+        return sorted(buses)
     except Exception as e:
         st.error(f"Error loading bus list from GitHub: {e}")
         return []
@@ -188,7 +190,7 @@ allowed_stops = sorted([
 staff_dict = {"10005475": "MOHD RIZAL BIN RAMLI", "10020779": "NUR FAEZAH BINTI HARUN", "10014181": "NORAINSYIRAH BINTI ARIFFIN", "10022768": "NORAZHA RAFFIZZI ZORKORNAINI", "10022769": "NUR HANIM HANIL", "10023845": "MUHAMMAD HAMKA BIN ROSLIM", "10002059": "MUHAMAD NIZAM BIN IBRAHIM", "10005562": "AZFAR NASRI BIN BURHAN", "10010659": "MOHD SHAHFIEE BIN ABDULLAH", "10008350": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN", "10003214": "NIK MOHD FADIR BIN NIK MAT RAWI", "10016370": "AHMAD AZIM BIN ISA", "10022910": "NUR SHAHIDA BINTI MOHD TAMIJI ", "10023513": "MUHAMMAD SYAHMI BIN AZMEY", "10023273": "MOHD IDZHAM BIN ABU BAKAR", "10023577": "MOHAMAD NAIM MOHAMAD SAPRI", "10023853": "MUHAMAD IMRAN BIN MOHD NASRUDDIN", "10008842": "MIRAN NURSYAWALNI AMIR", "10015662": "MUHAMMAD HANIF BIN HASHIM", "10011944": "NUR HAZIRAH BINTI NAWI"}
 
 if "photos" not in st.session_state: st.session_state.photos = []
-questions_a = ["1. BC menggunakan telefon bimbit?", "2. BC memperlahankan/memberhentikan bas?", "3. BC memandu di lorong 1 (kiri)?", "4. Bas penuh dengan penumpang?", "5. BC tidak mengambil penumpang? (NA jika tiada)", "6. BC berlaku tidak sopan? (NA jika tiada)"]
+questions_a = ["1. BC menggunakan telefon bimbit?", "2. BC memperlahankan/memberhentikan bas?", "3. BC memandu di lorong 1 (kiri)?", "4. Bas penuh dengan penumpang?", "5. BC tidak mengambil penumpang? (NA jika tiada)", "6. BC berlaku tidak soppnan? (NA jika tiada)"]
 questions_b = ["7. Hentian terlindung dari pandangan BC?", "8. Hentian terhalang oleh kenderaan parkir?", "9. Persekitaran bahaya untuk bas berhenti?", "10. Terdapat pembinaan berhampiran?", "11. Mempunyai bumbung?", "12. Mempunyai tiang?", "13. Mempunyai petak hentian?", "14. Mempunyai layby?", "15. Terlindung dari pandangan BC? (Gerai/Pokok)", "16. Pencahayaan baik?", "17. Penumpang beri isyarat menahan? (NA jika tiada)", "18. Penumpang leka/tidak peka? (NA jika tiada)", "19. Penumpang tiba lewat?", "20. Penumpang menunggu di luar kawasan hentian?"]
 all_questions = questions_a + questions_b
 if "responses" not in st.session_state: st.session_state.responses = {q: None for q in all_questions}
@@ -232,8 +234,8 @@ def render_grid_questions(q_list):
 
 st.subheader("A. KELAKUAN KAPTEN BAS")
 
-# Bus Name Selection Question
-selected_bus = st.selectbox("🚌 Pilih No. Pendaftaran Bas", options=bus_list, index=None, placeholder="Sila pilih bus_register_no...")
+# Bus Selection
+selected_bus = st.selectbox("🚌 Pilih No. Pendaftaran Bas", options=bus_list, index=None, placeholder="Sila pilih no pendaftaran bas...")
 
 render_grid_questions(questions_a)
 
