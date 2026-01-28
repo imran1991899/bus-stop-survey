@@ -237,7 +237,7 @@ def render_grid_questions(q_list):
                 st.session_state.responses[q] = st.radio(label=q, options=opts, index=None, key=f"r_{q}", horizontal=True, label_visibility="collapsed")
 
 st.subheader("A. KELAKUAN KAPTEN BAS")
-selected_bus = st.selectbox("🚌 Pilih No. Pendaftaran Bas", options=bus_list, index=None, placeholder="Pilih no pendaftaran bas...")
+selected_bus = st.selectbox("🚌 Pilih No. Bas", options=bus_list, index=None, placeholder="Pilih no pendaftaran bas...")
 render_grid_questions(questions_a)
 
 st.divider()
@@ -296,4 +296,5 @@ with c2:
                 st.session_state.responses = {q: None for q in all_questions}
                 time.sleep(2)
                 st.rerun()
+
 
