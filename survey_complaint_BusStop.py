@@ -102,20 +102,17 @@ FOLDER_ID = "1DjtLxgyQXwgjq_N6I_-rtYcBcnWhzMGp"
 CLIENT_SECRETS_FILE = "client_secrets2.json"
 SCOPES = ["https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/spreadsheets"]
 
-# CHANGE THIS TO YOUR ACTUAL RAW GITHUB URL
-GITHUB_RAW_URL = "https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/bus%20list.xlsx"
-
+# Updated logic: Load from local Excel instead of GitHub
 @st.cache_data
-def load_github_bus_list(url):
+def load_bus_list_from_excel(file_path):
     try:
-        # Loading from sheet "Bus" and Column B
-        df = pd.read_excel(url, sheet_name="Bus")
+        # Assumes sheet name is "Bus" and column is "bus_register_no"
+        df = pd.read_excel(file_path, sheet_name="Bus")
         return sorted(df["bus_register_no"].dropna().astype(str).unique().tolist())
     except Exception as e:
-        st.error(f"Error loading bus list from GitHub: {e}")
+        st.error(f"Error loading bus list from local Excel: {e}")
         return []
 
-# (Authentication functions remain same as provided)
 def save_credentials(credentials):
     with open("token.pickle", "wb") as token:
         pickle.dump(credentials, token)
@@ -170,9 +167,10 @@ def append_row(sheet_id, row, header):
     sheet.values().append(spreadsheetId=sheet_id, range="A1", valueInputOption="RAW", insertDataOption="INSERT_ROWS", body={"values": [row]}).execute()
 
 # --------- Data Preparation ---------
+# Loading everything from bus_data.xlsx
 routes_df = pd.read_excel("bus_data.xlsx", sheet_name="routes")
 stops_df = pd.read_excel("bus_data.xlsx", sheet_name="stops")
-bus_list = load_github_bus_list(GITHUB_RAW_URL)
+bus_list = load_bus_list_from_excel("bus_data.xlsx")
 
 allowed_stops = sorted([
     "AJ106 LRT AMPANG", "DAMANSARA INTAN", "ECOSKY RESIDENCE", "FAKULTI KEJURUTERAAN (UTARA)",
@@ -232,7 +230,7 @@ def render_grid_questions(q_list):
 
 st.subheader("A. KELAKUAN KAPTEN BAS")
 
-# NEW: Bus Name Selection Question inserted here
+# Bus Name Selection Question
 selected_bus = st.selectbox("🚌 Pilih No. Pendaftaran Bas", options=bus_list, index=None, placeholder="Sila pilih bus_register_no...")
 
 render_grid_questions(questions_a)
@@ -244,7 +242,6 @@ render_grid_questions(questions_b)
 
 st.divider()
 
-# ... (Rest of the Photo Evidence and Submit Logic same as provided)
 st.subheader("📸 Take Photo (3 Photos Required)")
 if len(st.session_state.photos) < 3:
     col_cam, col_up = st.columns(2)
