@@ -177,7 +177,6 @@ allowed_stops = sorted([str(x) for x in raw_stops])
 
 staff_dict = {"10005475": "MOHD RIZAL BIN RAMLI", "10020779": "NUR FAEZAH BINTI HARUN", "10014181": "NORAINSYIRAH BINTI ARIFFIN", "10022768": "NORAZHA RAFFIZZI ZORKORNAINI", "10022769": "NUR HANIM HANIL", "10023845": "MUHAMMAD HAMKA BIN ROSLIM", "10002059": "MUHAMAD NIZAM BIN IBRAHIM", "10005562": "AZFAR NASRI BIN BURHAN", "10010659": "MOHD SHFIEE BIN ABDULLAH", "10008350": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN", "10003214": "NIK MOHD FADIR BIN NIK MAT RAWI", "10016370": "AHMAD AZIM BIN ISA", "10022910": "NUR SHAHIDA BINTI MOHD TAMIJI ", "10023513": "MUHAMMAD SYAHMI BIN AZMEY", "10023273": "MOHD IDZHAM BIN ABU BAKAR", "10023577": "MOHAMAD NAIM MOHAMAD SAPRI", "10023853": "MUHAMAD IMRAN BIN MOHD NASRUDDIN", "10008842": "MIRAN NURSYAWALNI AMIR", "10015662": "MUHAMMAD HANIF BIN HASHIM", "10011944": "NUR HAZIRAH BINTI NAWI"}
 
-# Session State for tracking progress
 if "photos" not in st.session_state: st.session_state.photos = []
 if "responses" not in st.session_state: st.session_state.responses = {}
 if "persistent_staff_id" not in st.session_state: st.session_state.persistent_staff_id = None
@@ -204,17 +203,16 @@ with col_staff:
 form_key = st.session_state.reset_key
 
 with col_stop:
-    # Logic to maintain stop selection like staff ID
     def_idx_stop = allowed_stops.index(st.session_state.persistent_stop) if st.session_state.persistent_stop in allowed_stops else None
     stop = st.selectbox("📍 Bus Stop", options=allowed_stops, index=def_idx_stop, placeholder="Pilih Hentian Bas...")
     st.session_state.persistent_stop = stop
     
+    # Information is now calculated in the background but NOT displayed to the user
     current_route, current_depot = "", ""
     if stop:
         matched = stops_df[stops_df["Stop Name"] == stop]
         current_route = " / ".join(map(str, matched["Route Number"].unique()))
         current_depot = " / ".join(map(str, routes_df[routes_df["Route Number"].isin(matched["Route Number"].unique())]["Depot"].unique()))
-        st.info(f"**Route:** {current_route} | **Depot:** {current_depot}")
 
 st.divider()
 
@@ -287,13 +285,13 @@ if st.button("Submit Survey"):
             photo_urls = [gdrive_upload_file(p.getvalue(), f"{timestamp}_{idx}.jpg", "image/jpeg", FOLDER_ID) for idx, p in enumerate(st.session_state.photos)]
             ordered_responses = [st.session_state.responses.get(q) for q in full_question_order]
             
+            # The background data (current_depot, current_route) is still included here for GSheet
             row_data = [timestamp, staff_id, staff_dict[staff_id], current_depot, current_route, stop, selected_bus] + ordered_responses + ["; ".join(photo_urls)]
             header_data = ["Timestamp", "Staff ID", "Staff Name", "Depot", "Route", "Bus Stop", "Bus No"] + full_question_order + ["Photos"]
             
             append_row(find_or_create_gsheet("survey_responses", FOLDER_ID), row_data, header_data)
             st.success("Tinjauan berjaya dihantar!")
             
-            # Resetting answers and photos only
             st.session_state.photos, st.session_state.responses = [], {}
             st.session_state.reset_key += 1
             
