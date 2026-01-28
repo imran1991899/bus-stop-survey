@@ -25,6 +25,14 @@ st.markdown("""
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
     }
 
+    /* Target specific selectbox labels to be bigger and dark gray */
+    label[data-testid="stWidgetLabel"] p {
+        font-size: 18px !important;
+        font-weight: 600 !important;
+        color: #3A3A3C !important;
+    }
+
+    /* Centering the Submit Button and Remove Buttons */
     .stButton {
         display: flex;
         justify-content: center;
@@ -82,6 +90,7 @@ st.markdown("""
         color: #000000 !important; 
     }
 
+    /* Standard Button Styling */
     div.stButton > button {
         background-color: #007AFF !important;
         color: white !important;
@@ -93,8 +102,9 @@ st.markdown("""
         padding: 0 40px !important;
     }
     
+    /* Styling for the centered Take Photo text inside camera component */
     [data-testid="stCameraInput"] label div {
-        color: #FFD700 !important; 
+        color: #FFD700 !important; /* Yellow */
         font-weight: bold !important;
     }
 
@@ -193,10 +203,10 @@ staff_dict = {"10005475": "MOHD RIZAL BIN RAMLI", "10020779": "NUR FAEZAH BINTI 
 
 if "photos" not in st.session_state: st.session_state.photos = []
 
-# Updated Question Lists
+# Question Lists
 questions_a = ["1. BC menggunakan telefon bimbit?", "2. BC memperlahankan/memberhentikan bas?", "3. BC memandu di lorong 1 (kiri)?", "4. Bas penuh dengan penumpang?", "5. BC tidak mengambil penumpang? (NA jika tiada)", "6. BC berlaku tidak sopan? (NA jika tiada)"]
 questions_c = ["7. Penumpang beri isyarat menahan? (NA jika tiada)", "8. Penumpang leka/tidak peka? (NA jika tiada)", "9. Penumpang tiba lewat?", "10. Penumpang menunggu di luar kawasan hentian?"]
-questions_b = ["11. Hentian terlindung dari pandangan BC? (semak, pokok, Gerai, lain2)", "12. Hentian terhalang oleh kenderaan parkir?", "13. Persekitaran bahaya untuk bas berhenti?", "14. Terdapat pembinaan berhampiran?", "15. Mempunyai bumbung?", "16. Mempunyai tiang?", "17. Mempunyai petak hentian?", "18. Mempunyai layby?"]
+questions_b = ["11. Hentian terlindung dari pandangan BC? (semak, pokok, Gerai, lain2)", "12. Hentian terhalang oleh kenderaan parkir?", "13. Persekitaran bahaya untuk bas behenate?", "14. Terdapat pembinaan berhampiran?", "15. Mempunyai bumbung?", "16. Mempunyai tiang?", "17. Mempunyai petak hentian?", "18. Mempunyai layby?"]
 
 all_questions = questions_a + ["Ada Penumpang?"] + questions_c + questions_b
 if "responses" not in st.session_state: st.session_state.responses = {q: None for q in all_questions}
@@ -252,7 +262,6 @@ st.session_state.responses["Ada Penumpang?"] = has_passengers
 if has_passengers == "Yes":
     render_grid_questions(questions_c)
 else:
-    # Reset Section C responses if No
     for q in questions_c:
         st.session_state.responses[q] = "No Passenger"
 
@@ -294,7 +303,6 @@ st.divider()
 c1, c2, c3 = st.columns([1, 2, 1])
 with c2:
     if st.button("Submit Survey"):
-        # Validation
         check_responses = [st.session_state.responses[q] for q in questions_a + ["Ada Penumpang?"] + questions_b]
         if has_passengers == "Yes":
             check_responses += [st.session_state.responses[q] for q in questions_c]
@@ -305,19 +313,13 @@ with c2:
             with st.spinner("Menghantar data ke Google Drive..."):
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 photo_urls = [gdrive_upload_file(p.getvalue(), f"{timestamp}_{idx}.jpg", "image/jpeg", FOLDER_ID) for idx, p in enumerate(st.session_state.photos)]
-                
-                # Arrange data for row
                 row_data = [timestamp, staff_id, staff_dict[staff_id], current_depot, current_route, stop, selected_bus] + \
                            [st.session_state.responses[q] for q in all_questions] + ["; ".join(photo_urls)]
-                
                 header_data = ["Timestamp", "Staff ID", "Staff Name", "Depot", "Route", "Bus Stop", "Bus Register No"] + all_questions + ["Photos"]
-                
                 gsheet_id = find_or_create_gsheet("survey_responses", FOLDER_ID)
                 append_row(gsheet_id, row_data, header_data)
-                
                 st.success("Tinjauan berjaya dihantar!")
                 st.session_state.photos = []
                 st.session_state.responses = {q: None for q in all_questions}
                 time.sleep(2)
                 st.rerun()
-
