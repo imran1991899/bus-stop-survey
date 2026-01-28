@@ -236,7 +236,7 @@ render_grid_questions(questions_b)
 st.divider()
 
 # Photo Evidence
-st.subheader("📸 Evidence (3 Photos Required)")
+st.subheader("📸 Take Photo (3 Photos Required)")
 if len(st.session_state.photos) < 3:
     col_cam, col_up = st.columns(2)
     with col_cam:
@@ -280,3 +280,4 @@ if st.button("Submit Survey"):
             st.session_state.responses = {q: None for q in all_questions}
             time.sleep(2)
             st.rerun()
+
