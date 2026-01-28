@@ -163,7 +163,7 @@ routes_df = pd.read_excel("bus_data.xlsx", sheet_name="routes")
 stops_df = pd.read_excel("bus_data.xlsx", sheet_name="stops")
 
 try:
-    bus_df = pd.read_excel("bus_list.xlsx", sheet_name="Bus", usecols=[1])
+    bus_df = pd.read_excel("bus_list.xlsx", sheet_name="bus list", usecols=[1])
     bus_list = sorted(bus_df.iloc[:, 0].dropna().astype(str).unique().tolist())
 except Exception as e:
     st.error(f"Error loading bus_list.xlsx: {e}")
@@ -278,3 +278,4 @@ if st.button("Submit Survey"):
             st.session_state.responses = {q: None for q in all_questions}
             time.sleep(2)
             st.rerun()
+
