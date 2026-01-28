@@ -97,7 +97,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --------- Logic Functions ---------
+# --------- Google API Logic ---------
 FOLDER_ID = "1DjtLxgyQXwgjq_N6I_-rtYcBcnWhzMGp"
 CLIENT_SECRETS_FILE = "client_secrets2.json"
 SCOPES = ["https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/spreadsheets"]
@@ -156,15 +156,18 @@ def append_row(sheet_id, row, header):
     sheet.values().append(spreadsheetId=sheet_id, range="A1", valueInputOption="RAW", insertDataOption="INSERT_ROWS", body={"values": [row]}).execute()
 
 # --------- Data Preparation ---------
+# 1. Load routes and stops from bus_data.xlsx
 routes_df = pd.read_excel("bus_data.xlsx", sheet_name="routes")
 stops_df = pd.read_excel("bus_data.xlsx", sheet_name="stops")
 
-# Loading from "bus list.xlsx" > Sheet: "Bus" > Column B (index 1)
+# 2. Load Bus List from 'bus list.xlsx' -> Sheet 'Bus' -> Column B (index 1)
 try:
-    bus_list_df = pd.read_excel("bus list.xlsx", sheet_name="Bus", usecols=[1])
-    bus_list = sorted(bus_list_df.iloc[:, 0].dropna().astype(str).unique().tolist())
+    # usecols=[1] targets Column B (0-indexed logic)
+    df_bus = pd.read_excel("bus list.xlsx", sheet_name="Bus", usecols=[1])
+    # iloc[:, 0] selects the first available column from our usecols selection
+    bus_list = sorted(df_bus.iloc[:, 0].dropna().astype(str).unique().tolist())
 except Exception as e:
-    st.error(f"Error loading bus list.xlsx: {e}")
+    st.error(f"Error loading 'bus list.xlsx': {e}")
     bus_list = []
 
 allowed_stops = sorted([
@@ -178,7 +181,7 @@ allowed_stops = sorted([
     "SCLAND EMPORIS", "SJ602 BANDAR BUKIT PUCHONG BP1", "SMK SERI HARTAMAS", "SMK SULTAN ABD SAMAD (TIMUR)"
 ])
 
-staff_dict = {"10005475": "MOHD RIZAL BIN RAMLI", "10020779": "NUR FAEZAH BINTI HARUN", "10014181": "NORAINSYIRAH BINTI ARIFFIN", "10022768": "NORAZHA RAFFIZZI ZORKORNAINI", "10022769": "NUR HANIM HANIL", "10023845": "MUHAMMAD HAMKA BIN ROSLIM", "10002059": "MUHAMAD NIZAM BIN IBRAHIM", "10005562": "AZFAR NASRI BIN BURHAN", "10010659": "MOHD SHHFIEE BIN ABDULLAH", "10008350": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN", "10003214": "NIK MOHD FADIR BIN NIK MAT RAWI", "10016370": "AHMAD AZIM BIN ISA", "10022910": "NUR SHAHIDA BINTI MOHD TAMIJI ", "10023513": "MUHAMMAD SYAHMI BIN AZMEY", "10023273": "MOHD IDZHAM BIN ABU BAKAR", "10023577": "MOHAMAD NAIM MOHAMAD SAPRI", "10023853": "MUHAMAD IMRAN BIN MOHD NASRUDDIN", "10008842": "MIRAN NURSYAWALNI AMIR", "10015662": "MUHAMMAD HANIF BIN HASHIM", "10011944": "NUR HAZIRAH BINTI NAWI"}
+staff_dict = {"10005475": "MOHD RIZAL BIN RAMLI", "10020779": "NUR FAEZAH BINTI HARUN", "10014181": "NORAINSYIRAH BINTI ARIFFIN", "10022768": "NORAZHA RAFFIZZI ZORKORNAINI", "10022769": "NUR HANIM HANIL", "10023845": "MUHAMMAD HAMKA BIN ROSLIM", "10002059": "MUHAMAD NIZAM BIN IBRAHIM", "10005562": "AZFAR NASRI BIN BURHAN", "10010659": "MOHD SHAHFIEE BIN ABDULLAH", "10008350": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN", "10003214": "NIK MOHD FADIR BIN NIK MAT RAWI", "10016370": "AHMAD AZIM BIN ISA", "10022910": "NUR SHAHIDA BINTI MOHD TAMIJI ", "10023513": "MUHAMMAD SYAHMI BIN AZMEY", "10023273": "MOHD IDZHAM BIN ABU BAKAR", "10023577": "MOHAMAD NAIM MOHAMAD SAPRI", "10023853": "MUHAMAD IMRAN BIN MOHD NASRUDDIN", "10008842": "MIRAN NURSYAWALNI AMIR", "10015662": "MUHAMMAD HANIF BIN HASHIM", "10011944": "NUR HAZIRAH BINTI NAWI"}
 
 if "photos" not in st.session_state: st.session_state.photos = []
 questions_a = ["1. BC menggunakan telefon bimbit?", "2. BC memperlahankan/memberhentikan bas?", "3. BC memandu di lorong 1 (kiri)?", "4. Bas penuh dengan penumpang?", "5. BC tidak mengambil penumpang? (NA jika tiada)", "6. BC berlaku tidak sopan? (NA jika tiada)"]
@@ -189,10 +192,12 @@ if "responses" not in st.session_state: st.session_state.responses = {q: None fo
 # --------- Main App UI ---------
 st.title("BC and Bus Stop Survey")
 
+# Staff Selection
 staff_id = st.selectbox("👤 Staff ID", options=list(staff_dict.keys()), index=None, placeholder="Pilih ID Staf...")
 if staff_id:
     st.info(f"**{staff_dict[staff_id]}**")
 
+# Bus Stop Section
 stop = st.selectbox("📍 Bus Stop", allowed_stops, index=None, placeholder="Pilih Hentian Bas...")
 
 current_route, current_depot = "", ""
@@ -204,6 +209,7 @@ if stop:
 
 st.divider()
 
+# Question Rendering Logic
 def render_grid_questions(q_list):
     for i in range(0, len(q_list), 2):
         col1, col2 = st.columns(2)
@@ -222,8 +228,8 @@ def render_grid_questions(q_list):
 
 st.subheader("A. KELAKUAN KAPTEN BAS")
 
-# Bus Name Selection from local Excel data
-selected_bus = st.selectbox("🚌 Pilih No. Pendaftaran Bas", options=bus_list, index=None, placeholder="Sila pilih registration no...")
+# Bus Registration Selection
+selected_bus = st.selectbox("🚌 Pilih No. Pendaftaran Bas", options=bus_list, index=None, placeholder="Sila pilih no pendaftaran...")
 
 render_grid_questions(questions_a)
 
@@ -234,6 +240,7 @@ render_grid_questions(questions_b)
 
 st.divider()
 
+# Photo Evidence
 st.subheader("📸 Take Photo (3 Photos Required)")
 if len(st.session_state.photos) < 3:
     col_cam, col_up = st.columns(2)
@@ -255,6 +262,7 @@ if st.session_state.photos:
     for idx, pic in enumerate(st.session_state.photos):
         img_cols[idx].image(pic, use_container_width=True)
 
+# Submit Logic
 if st.button("Submit Survey"):
     if not staff_id or not stop or not selected_bus or len(st.session_state.photos) != 3 or None in st.session_state.responses.values():
         st.error("Sila pastikan semua soalan dijawab, No. Bas dipilih, dan 3 keping gambar disediakan.")
