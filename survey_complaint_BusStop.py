@@ -185,7 +185,7 @@ if "reset_key" not in st.session_state: st.session_state.reset_key = 0
 
 questions_a = ["1. BC menggunakan telefon bimbit?", "2. BC memperlahankan/memberhentikan bas?", "3. BC memandu di lorong 1 (kiri)?", "4. Bas penuh dengan penumpang?", "5. BC tidak mengambil penumpang? (NA jika tiada)", "6. BC berlaku tidak sopan? (NA jika tiada)"]
 questions_b = ["7. Penumpang beri isyarat menahan? (NA jika tiada)", "8. Penumpang leka/tidak peka? (NA jika tiada)", "9. Penumpang tiba lewat?", "10. Penumpang menunggu di luar kawasan hentian?"]
-questions_c = ["11. Hentian terlindung dari pandangan BC?", "12. Hentian terhalang oleh kenderaan parkir?", "13. Persekitaran bahaya untuk bas berhenti?", "14. Terdapat pembinaan berhampiran?", "15. Mempunyai bumbung?", "16. Mempunyai tiang?", "17. Mempunyai petak hentian?", "18. Mempunyai layby?", "19. Terlindung dari pandangan BC? (Gerai/Pokok)", "20. Pencahayaan baik (jika malam)?"]
+questions_c = ["11. Hentian terlindung dari pandangan BC (semak, pokok, lain2)?", "12. Hentian terhalang oleh kenderaan parkir?", "13. Persekitaran bahaya untuk bas berhenti?", "14. Terdapat pembinaan berhampiran?", "15. Mempunyai bumbung?", "16. Mempunyai tiang?", "17. Mempunyai petak hentian?", "18. Mempunyai layby?", "19. Terlindung dari pandangan BC? (Gerai/Pokok)", "20. Pencahayaan baik (jika malam)?"]
 
 full_question_order = questions_a + ["Ada penumpang?"] + questions_b + questions_c
 
@@ -296,3 +296,4 @@ if st.button("Submit Survey"):
             st.session_state.reset_key += 1
             
             time.sleep(2); st.rerun()
+
