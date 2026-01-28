@@ -14,109 +14,63 @@ from googleapiclient.http import MediaIoBaseUpload
 from google.auth.transport.requests import Request
 
 # --------- Page Setup ---------
-st.set_page_config(page_title="Bus Stop Survey", layout="wide")
+st.set_page_config(page_title="🚌 Bus Stop Survey", layout="wide")
+st.title("Bus Stop Complaints Survey")
 
-# --------- APPLE UI THEME CSS ---------
+# --------- Enhanced "iPhone Style" Pill Button CSS ---------
 st.markdown("""
     <style>
-    /* Global App Background & Apple Font Stack */
-    .stApp {
-        background-color: #F5F5F7 !important;
-        color: #1D1D1F !important;
-        font-family: "SF Pro Text", "SF Pro Icons", "Helvetica Neue", "Helvetica", "Arial", -apple-system, BlinkMacSystemFont, sans-serif !important;
-    }
-
-    /* iOS Segmented Control Style */
     div[role="radiogroup"] {
-        background-color: #E3E3E8 !important; 
-        padding: 6px !important; 
-        border-radius: 14px !important;
-        gap: 8px !important;
-        display: flex !important;
-        flex-direction: row !important;
-        align-items: center !important;
-        margin-top: 2px !important; 
-        margin-bottom: 28px !important; 
-        max-width: 360px; 
-        min-height: 58px !important; 
-    }
-
-    /* Hide standard radio circles */
-    [data-testid="stWidgetSelectionVisualizer"] {
-        display: none !important;
-    }
-
-    /* Individual Radio Item Label */
-    div[role="radiogroup"] label {
+        display: flex;
+        flex-direction: row;
+        gap: 20px;
         background-color: transparent !important;
-        border: none !important;
-        padding: 14px 0px !important; 
-        border-radius: 11px !important;
-        transition: all 0.2s ease-in-out !important;
-        flex: 1 !important;
-        display: flex !important;
-        justify-content: center !important;
-        align-items: center !important;
-        margin: 0 !important;
     }
-
-    /* Text Formatting for Yes/No - BOLD DARK GRAY */
-    div[role="radiogroup"] label p {
-        font-size: 16px !important; 
-        font-family: "SF Pro Text", sans-serif !important;
-        margin: 0 !important;
-        padding: 0 20px !important;
-        white-space: nowrap !important; 
-        line-height: 1.2 !important;
-        text-align: center !important;
-        color: #444444 !important; 
-        font-weight: 700 !important; 
+    div[role="radiogroup"] label {
+        padding: 10px 25px !important;
+        border-radius: 50px !important; 
+        border: 2px solid #d1d1d6 !important;
+        background-color: white !important;
+        transition: all 0.3s ease;
     }
-
-    /* Selected State (The White Slide) */
-    div[role="radiogroup"] label:has(input:checked) {
-        background-color: #FFFFFF !important;
-        box-shadow: 0px 4px 12px rgba(0,0,0,0.12) !important;
+    div[role="radiogroup"] label div[data-testid="stMarkdownContainer"] p {
+        color: #333 !important;
+        font-weight: bold !important;
+        font-size: 16px !important;
     }
-
-    /* Main Submit Button Styling */
-    div.stButton > button {
-        width: 100% !important;
-        background-color: #007AFF !important;
+    div[role="radiogroup"] label:has(input[value="Yes"]):has(input:checked) {
+        background-color: #28a745 !important; 
+        border-color: #28a745 !important;
+    }
+    div[role="radiogroup"] label:has(input[value="Yes"]):has(input:checked) p {
         color: white !important;
-        border: none !important;
-        height: 60px !important;
-        font-weight: 600 !important;
-        border-radius: 16px !important;
-        font-size: 18px !important;
-        font-family: "SF Pro Text", sans-serif !important;
-        margin-top: 20px;
     }
-
-    /* Action Buttons Colors for Photos */
-    div[data-testid="column"] button:contains("Retake") {
-        background-color: #007AFF !important;
+    div[role="radiogroup"] label:has(input[value="No"]):has(input:checked) {
+        background-color: #dc3545 !important; 
+        border-color: #dc3545 !important;
+    }
+    div[role="radiogroup"] label:has(input[value="No"]):has(input:checked) p {
         color: white !important;
-        border-radius: 10px !important;
     }
-
-    div[data-testid="column"] button:contains("Remove") {
-        background-color: #FF3B30 !important;
+    div[role="radiogroup"] label:has(input[value="NA"]):has(input:checked) {
+        background-color: #6c757d !important;
+        border-color: #6c757d !important;
+    }
+    div[role="radiogroup"] label:has(input[value="NA"]):has(input:checked) p {
         color: white !important;
-        border-radius: 10px !important;
     }
-
-    .stAlert {
-        border-radius: 14px !important;
-        border: none !important;
+    div[role="radiogroup"] [data-testid="stWidgetSelectionVisualizer"] {
+        display: none !important;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# --------- Logic Functions (Google Integration) ---------
+# --------- Google Drive Folder ID ---------
 FOLDER_ID = "1DjtLxgyQXwgjq_N6I_-rtYcBcnWhzMGp"
-CLIENT_SECRETS_FILE = "client_secrets2.json"
+
+# --------- OAuth Setup ---------
 SCOPES = ["https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/spreadsheets"]
+CLIENT_SECRETS_FILE = "client_secrets2.json"
 
 def save_credentials(credentials):
     with open("token.pickle", "wb") as token:
@@ -145,7 +99,7 @@ def get_authenticated_service():
         creds = flow.credentials; save_credentials(creds)
     else:
         auth_url, _ = flow.authorization_url(prompt="consent")
-        st.markdown(f"### Authentication Required\n[Please log in with Google]({auth_url})"); st.stop()
+        st.markdown(f"[Authenticate here]({auth_url})"); st.stop()
     return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
 
 drive_service, sheets_service = get_authenticated_service()
@@ -171,113 +125,150 @@ def append_row(sheet_id, row, header):
         sheet.values().update(spreadsheetId=sheet_id, range="A1", valueInputOption="RAW", body={"values": [header]}).execute()
     sheet.values().append(spreadsheetId=sheet_id, range="A1", valueInputOption="RAW", insertDataOption="INSERT_ROWS", body={"values": [row]}).execute()
 
-# --------- Data & State ---------
+# --------- Load Excel ---------
 routes_df = pd.read_excel("bus_data.xlsx", sheet_name="routes")
 stops_df = pd.read_excel("bus_data.xlsx", sheet_name="stops")
 
-allowed_stops = sorted(["AJ106 LRT AMPANG", "DAMANSARA INTAN", "ECOSKY RESIDENCE", "FAKULTI KEJURUTERAAN (UTARA)", "FAKULTI PERNIAGAAN DAN PERAKAUNAN", "FAKULTI UNDANG-UNDANG", "KILANG PLASTIK EKSPEDISI EMAS (OPP)", "KJ477 UTAR", "KJ560 SHELL SG LONG (OPP)", "KL107 LRT MASJID JAMEK", "KL1082 SK Methodist", "KL117 BSN LEBUH AMPANG", "KL1217 ILP KUALA LUMPUR", "KL2247 KOMERSIAL KIP", "KL377 WISMA SISTEM", "KOMERSIAL BURHANUDDIN (2)", "MASJID CYBERJAYA 10", "MRT SRI DELIMA PINTU C", "PERUMAHAN TTDI", "PJ312 Medan Selera Seksyen 19", "PJ476 MASJID SULTAN ABDUL AZIZ", "PJ721 ONE UTAMA NEW WING", "PPJ384 AURA RESIDENCE", "SA12 APARTMENT BAIDURI (OPP)", "SA26 PERUMAHAN SEKSYEN 11", "SCLAND EMPORIS", "SJ602 BANDAR BUKIT PUCHONG BP1", "SMK SERI HARTAMAS", "SMK SULTAN ABD SAMAD (TIMUR)"])
-staff_dict = {"10005475": "MOHD RIZAL BIN RAMLI", "10020779": "NUR FAEZAH BINTI HARUN", "10014181": "NORAINSYIRAH BINTI ARIFFIN", "10022768": "NORAZHA RAFFIZZI ZORKORNAINI", "10022769": "NUR HANIM HANIL", "10023845": "MUHAMMAD HAMKA BIN ROSLIM", "10002059": "MUHAMAD NIZAM BIN IBRAHIM", "10005562": "AZFAR NASRI BIN BURHAN", "10010659": "MOHD SHAHFIEE BIN ABDULLAH", "10008350": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN", "10003214": "NIK MOHD FADIR BIN NIK MAT RAWI", "10016370": "AHMAD AZIM BIN ISA", "10022910": "NUR SHAHIDA BINTI MOHD TAMIJI ", "10023513": "MUHAMMAD SYAHMI BIN AZMEY", "10023273": "MOHD IDZHAM BIN ABU BAKAR", "10023577": "MOHAMAD NAIM MOHAMAD SAPRI", "10023853": "MUHAMAD IMRAN BIN MOHD NASRUDDIN", "10008842": "MIRAN NURSYAWALNI AMIR", "10015662": "MUHAMMAD HANIF BIN HASHIM", "10011944": "NUR HAZIRAH BINTI NAWI"}
+allowed_stops = [
+    "AJ106 LRT AMPANG", "DAMANSARA INTAN", "ECOSKY RESIDENCE", "FAKULTI KEJURUTERAAN (UTARA)",
+    "FAKULTI PERNIAGAAN DAN PERAKAUNAN", "FAKULTI UNDANG-UNDANG", "KILANG PLASTIK EKSPEDISI EMAS (OPP)",
+    "KJ477 UTAR", "KJ560 SHELL SG LONG (OPP)", "KL107 LRT MASJID JAMEK", "KL1082 SK Methodist",
+    "KL117 BSN LEBUH AMPANG", "KL1217 ILP KUALA LUMPUR", "KL2247 KOMERSIAL KIP", "KL377 WISMA SISTEM",
+    "KOMERSIAL BURHANUDDIN (2)", "MASJID CYBERJAYA 10", "MRT SRI DELIMA PINTU C", "PERUMAHAN TTDI",
+    "PJ312 Medan Selera Seksyen 19", "PJ476 MASJID SULTAN ABDUL AZIZ", "PJ721 ONE UTAMA NEW WING",
+    "PPJ384 AURA RESIDENCE", "SA12 APARTMENT BAIDURI (OPP)", "SA26 PERUMAHAN SEKSYEN 11",
+    "SCLAND EMPORIS", "SJ602 BANDAR BUKIT PUCHONG BP1", "SMK SERI HARTAMAS", "SMK SULTAN ABD SAMAD (TIMUR)"
+]
+allowed_stops.sort()
 
-if "photos" not in st.session_state: st.session_state.photos = []
-questions_a = ["1. BC menggunakan telefon bimbit?", "2. BC memperlahankan/memberhentikan bas?", "3. BC memandu di lorong 1 (kiri)?", "4. Bas penuh dengan penumpang?", "5. BC tidak mengambil penumpang? (NA jika tiada)", "6. BC berlaku tidak sopan? (NA jika tiada)"]
-questions_b = ["7. Hentian terlindung dari pandangan BC?", "8. Hentian terhalang oleh kenderaan parkir?", "9. Persekitaran bahaya untuk bas berhenti?", "10. Terdapat pembinaan berhampiran?", "11. Mempunyai bumbung?", "12. Mempunyai tiang?", "13. Mempunyai petak hentian?", "14. Mempunyai layby?", "15. Terlindung dari pandangan BC? (Gerai/Pokok)", "16. Pencahayaan baik?", "17. Penumpang beri isyarat menahan? (NA jika tiada)", "18. Penumpang leka/tidak peka? (NA jika tiada)", "19. Penumpang tiba lewat?", "20. Penumpang menunggu di luar kawasan hentian?"]
+staff_dict = {
+    "8917": "MOHD RIZAL BIN RAMLI", "8918": "NUR FAEZAH BINTI HARUN", "8919": "NORAINSYIRAH BINTI ARIFFIN",
+    "8920": "NORAZHA RAFFIZZI ZORKORNAINI", "8921": "NUR HANIM HANIL", "8922": "MUHAMMAD HAMKA BIN ROSLIM",
+    "8923": "MUHAMAD NIZAM BIN IBRAHIM", "8924": "AZFAR NASRI BIN BURHAN", "8925": "MOHD SHAHFIEE BIN ABDULLAH",
+    "8926": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN", "8927": "NIK MOHD FADIR BIN NIK MAT RAWI", "8928": "AHMAD AZIM BIN ISA",
+    "8929": "NUR SHAHIDA BINTI MOHD TAMIJI", "8930": "MUHAMMAD SYAHMI BIN AZMEY", "8931": "MOHD IDZHAM BIN ABU BAKAR",
+    "8932": "MOHAMAD NAIM MOHAMAD SAPRI", "8933": "MUHAMAD IMRAN BIN MOHD NASRUDDIN", "8934": "MIRAN NURSYAWALNI AMIR",
+    "8935": "MUHAMMAD HANIF BIN HASHIM", "8936": "NUR HAZIRAH BINTI NAWI"
+}
+
+# --------- Session State ---------
+if "photos" not in st.session_state:
+    st.session_state.photos = []
+
+questions_a = [
+    "1. BC menggunakan telefon bimbit?", "2. BC memperlahankan/memberhentikan bas?",
+    "3. BC memandu di lorong 1 (kiri)?", "4. Bas penuh dengan penumpang?",
+    "5. BC tidak mengambil penumpang? (NA jika tiada)", "6. BC berlaku tidak sopan? (NA jika tiada)"
+]
+
+questions_b = [
+    "7. Hentian terlindung dari pandangan BC?", "8. Hentian terhalang oleh kenderaan parkir?",
+    "9. Persekitaran bahaya untuk bas berhenti?", "10. Terdapat pembinaan berhampiran?",
+    "11. Mempunyai bumbung?", "12. Mempunyai tiang?", "13. Mempunyai petak hentian?",
+    "14. Mempunyai layby?", "15. Terlindung dari pandangan BC? (Gerai/Pokok)",
+    "16. Pencahayaan baik?", "17. Penumpang beri isyarat menahan? (NA jika tiada)",
+    "18. Penumpang leka/tidak peka? (NA jika tiada)", "19. Penumpang tiba lewat?",
+    "20. Penumpang menunggu di luar kawasan hentian?"
+]
+
 all_questions = questions_a + questions_b
-if "responses" not in st.session_state: st.session_state.responses = {q: None for q in all_questions}
 
-# --------- UI Flow ---------
-st.title("🚌 Bus Stop Survey")
+if "responses" not in st.session_state:
+    st.session_state.responses = {q: None for q in all_questions}
 
-# Staff Selection
-staff_id = st.selectbox("👤 Staff ID", options=list(staff_dict.keys()), index=None, placeholder="Pilih ID Staf...")
-if staff_id: st.info(f"**{staff_dict[staff_id]}**")
+# --------- Staff ID ---------
+staff_id = st.selectbox("👤 Staff ID", options=list(staff_dict.keys()), index=None, placeholder="Select Staff ID...")
+staff_name = staff_dict[staff_id] if staff_id else ""
+if staff_id: st.success(f"👤 **Staff Name:** {staff_name}")
 
-# Stop Selection
-stop = st.selectbox("📍 Bus Stop", allowed_stops, index=None, placeholder="Pilih Hentian Bas...")
-current_route, current_depot = "", ""
+# --------- Step 1: Select Bus Stop ---------
+stop = st.selectbox("1️⃣ Bus Stop", allowed_stops, index=None, placeholder="Pilih hentian bas...")
+
+current_route = ""
+current_depot = ""
 if stop:
-    matched_data = stops_df[stops_df["Stop Name"] == stop]
-    current_route = " / ".join(map(str, matched_data["Route Number"].unique()))
-    current_depot = " / ".join(map(str, routes_df[routes_df["Route Number"].isin(matched_data["Route Number"].unique())]["Depot"].unique()))
-    st.info(f"**Route:** {current_route} | **Depot:** {current_depot}")
+    matched_stop_data = stops_df[stops_df["Stop Name"] == stop]
+    matched_route_nums = matched_stop_data["Route Number"].unique()
+    current_route = " / ".join(map(str, matched_route_nums))
+    matched_depot_names = routes_df[routes_df["Route Number"].isin(matched_route_nums)]["Depot"].unique()
+    current_depot = " / ".join(map(str, matched_depot_names))
+    st.info(f"📍 **Route Number:** {current_route}  \n🏢 **Depot:** {current_depot}")
 
-st.divider()
-
-# Grid Questions
-def render_questions(q_list):
-    for i in range(0, len(q_list), 2):
-        col1, col2 = st.columns(2)
-        for idx, col in enumerate([col1, col2]):
-            if i + idx < len(q_list):
-                with col:
-                    q = q_list[i + idx]
-                    st.markdown(f"**{q}**")
-                    opts = ["Yes", "No", "NA"] if "NA" in q else ["Yes", "No"]
-                    st.session_state.responses[q] = st.radio(label=q, options=opts, index=None, key=f"r_{q}", horizontal=True, label_visibility="collapsed")
-
-st.subheader("A. KELAKUAN KAPTEN BAS")
-render_questions(questions_a)
-st.divider()
-st.subheader("B. KEADAAN HENTIAN BAS")
-render_questions(questions_b)
-st.divider()
-
-# --------- REVERTED PHOTO SECTION ---------
-st.subheader("📸 Evidence (3 Photos Required)")
-
-# Only show inputs if fewer than 3 photos are taken
-if len(st.session_state.photos) < 3:
-    st.markdown(f"**Capturing Photo {len(st.session_state.photos) + 1} of 3**")
-    cam_in = st.camera_input("Take Photo", key=f"capture_cam_{len(st.session_state.photos)}")
-    file_in = st.file_uploader("Or Upload File", type=["jpg","png","jpeg"], key=f"capture_file_{len(st.session_state.photos)}")
-    
-    if cam_in:
-        st.session_state.photos.append(cam_in)
-        st.rerun()
-    if file_in:
-        st.session_state.photos.append(file_in)
-        st.rerun()
-else:
-    st.success("✅ 3 Photos successfully captured.")
-
-# Display Captured Photos in a 3-Column Grid
-if st.session_state.photos:
+# --------- Survey Sections ---------
+st.markdown("### 4️⃣ A. KELAKUAN KAPTEN BAS")
+for i, q in enumerate(questions_a):
+    st.write(f"**{q}**")
+    options = ["Yes", "No", "NA"] if i >= 4 else ["Yes", "No"]
+    choice = st.radio(label=q, options=options, index=None, key=f"qa_{i}", horizontal=True, label_visibility="collapsed")
+    st.session_state.responses[q] = choice
     st.write("---")
-    photo_grid = st.columns(3)
+
+st.markdown("### 5️⃣ B. KEADAAN HENTIAN BAS")
+for i, q in enumerate(questions_b):
+    st.write(f"**{q}**")
+    options = ["Yes", "No", "NA"] if q in ["17. Penumpang beri isyarat menahan? (NA jika tiada)", "18. Penumpang leka/tidak peka? (NA jika tiada)"] else ["Yes", "No"]
+    choice = st.radio(label=q, options=options, index=None, key=f"qb_{i}", horizontal=True, label_visibility="collapsed")
+    st.session_state.responses[q] = choice
+    st.write("---")
+
+# --------- CAMERA & UPLOAD PHOTOS SECTION ---------
+st.markdown("### 6️⃣ Photos (Exactly 3 Photos Required)")
+
+# Display current photo count and a clear list
+if len(st.session_state.photos) < 3:
+    col_cam, col_file = st.columns(2)
+    
+    with col_cam:
+        # Camera Input
+        cam_photo = st.camera_input(f"📷 Take Photo #{len(st.session_state.photos) + 1}")
+        if cam_photo:
+            st.session_state.photos.append(cam_photo)
+            st.rerun()
+
+    with col_file:
+        # File Uploader
+        up_photo = st.file_uploader(f"📁 Upload Photo #{len(st.session_state.photos) + 1}", type=["png", "jpg", "jpeg"])
+        if up_photo:
+            st.session_state.photos.append(up_photo)
+            st.rerun()
+else:
+    st.success("✅ 3 Photos Captured/Uploaded.")
+    if st.button("🗑️ Reset Photos"):
+        st.session_state.photos = []
+        st.rerun()
+
+# Image Preview Logic
+if st.session_state.photos:
+    cols = st.columns(3)
     for i, p in enumerate(st.session_state.photos):
-        with photo_grid[i]:
-            st.image(p, caption=f"Photo {i+1}", use_container_width=True)
-            b_col1, b_col2 = st.columns(2)
-            # Retake clears the whole list for that slot to restart
-            if b_col1.button(f"🔄 Retake", key=f"retake_{i}"):
-                st.session_state.photos.pop(i)
-                st.rerun()
-            # Remove deletes the item
-            if b_col2.button(f"🗑️ Remove", key=f"remove_{i}"):
-                st.session_state.photos.pop(i)
-                st.rerun()
+        cols[i].image(p, caption=f"Photo {i+1}", use_container_width=True)
 
-st.divider()
-
-# Submit
-if st.button("Submit Survey"):
-    if not staff_id or not stop or len(st.session_state.photos) < 3 or None in st.session_state.responses.values():
-        st.error("Please ensure all questions are answered and exactly 3 photos are captured.")
+# --------- Submit ---------
+if st.button("✅ Submit Survey"):
+    if not staff_id:
+        st.warning("Sila pilih Staff ID.")
+    elif not stop:
+        st.warning("Sila pilih Hentian Bas.")
+    elif len(st.session_state.photos) != 3:
+        st.warning("Sila ambil atau muat naik tepat 3 keping gambar.")
+    elif None in st.session_state.responses.values():
+        st.warning("Sila lengkapkan semua soalan.")
     else:
-        with st.spinner("Submitting..."):
+        with st.spinner("Submitting... Please wait."):
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            photo_urls = []
-            for i, p in enumerate(st.session_state.photos):
-                url = gdrive_upload_file(p.getvalue(), f"{timestamp}_p{i+1}.jpg", "image/jpeg", FOLDER_ID)
-                photo_urls.append(url)
-            
-            row = [timestamp, staff_id, staff_dict[staff_id], current_depot, current_route, stop] + \
-                  [st.session_state.responses[q] for q in all_questions] + ["; ".join(photo_urls)]
-            header = ["Timestamp", "Staff ID", "Name", "Depot", "Route", "Stop"] + all_questions + ["Photos"]
-            
-            gs_id = find_or_create_gsheet("survey_responses", FOLDER_ID)
-            append_row(gs_id, row, header)
-            
-            st.success("Success! Redirecting...")
+            photo_links = []
+            for i, img in enumerate(st.session_state.photos):
+                link = gdrive_upload_file(img.getvalue(), f"{timestamp}_{i}.jpg", "image/jpeg", FOLDER_ID)
+                photo_links.append(link)
+
+            answers = [st.session_state.responses[q] for q in all_questions]
+            row = [timestamp, staff_id, staff_name, current_depot, current_route, stop] + answers + ["; ".join(photo_links)]
+            header = ["Timestamp", "Staff ID", "Staff Name", "Depot", "Route", "Bus Stop"] + all_questions + ["Photos"]
+
+            sheet_id = find_or_create_gsheet("survey_responses", FOLDER_ID)
+            append_row(sheet_id, row, header)
+
+            st.success("✅ Submission successful!")
             st.session_state.photos = []
             st.session_state.responses = {q: None for q in all_questions}
             time.sleep(2)
