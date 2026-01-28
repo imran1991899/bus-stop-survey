@@ -25,6 +25,12 @@ st.markdown("""
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
     }
 
+    /* Centering the Submit Button and Remove Buttons */
+    .stButton {
+        display: flex;
+        justify-content: center;
+    }
+
     div[role="radiogroup"] {
         background-color: #E3E3E8 !important; 
         padding: 6px !important; 
@@ -77,8 +83,8 @@ st.markdown("""
         color: #000000 !important; 
     }
 
+    /* Standard Button Styling */
     div.stButton > button {
-        width: 100% !important;
         background-color: #007AFF !important;
         color: white !important;
         border: none !important;
@@ -86,7 +92,13 @@ st.markdown("""
         font-weight: 600 !important;
         border-radius: 16px !important;
         font-size: 18px !important;
-        margin-top: 30px;
+        padding: 0 40px !important;
+    }
+    
+    /* Styling for the centered Take Photo text inside camera component */
+    [data-testid="stCameraInput"] label div {
+        color: #FFD700 !important; /* Yellow */
+        font-weight: bold !important;
     }
 
     .stAlert {
@@ -163,7 +175,7 @@ routes_df = pd.read_excel("bus_data.xlsx", sheet_name="routes")
 stops_df = pd.read_excel("bus_data.xlsx", sheet_name="stops")
 
 try:
-    bus_df = pd.read_excel("bus_list.xlsx", sheet_name="bus list", usecols=[1])
+    bus_df = pd.read_excel("bus_list.xlsx", sheet_name="Bus", usecols=[1])
     bus_list = sorted(bus_df.iloc[:, 0].dropna().astype(str).unique().tolist())
 except Exception as e:
     st.error(f"Error loading bus_list.xlsx: {e}")
@@ -240,8 +252,8 @@ st.subheader("📸 Take Photo (3 Photos Required)")
 if len(st.session_state.photos) < 3:
     col_cam, col_up = st.columns(2)
     with col_cam:
-        # Bold yellow text adjustment here
-        cam_in = st.camera_input(f":yellow[**Take Photo**] Ambil Gambar #{len(st.session_state.photos)+1}")
+        # Camera input with yellow bold Take Photo text via CSS selector in Markdown above
+        cam_in = st.camera_input(f"Take Photo (Ambil Gambar #{len(st.session_state.photos)+1})")
         if cam_in: 
             st.session_state.photos.append(cam_in)
             st.rerun()
@@ -250,32 +262,37 @@ if len(st.session_state.photos) < 3:
         if file_in: 
             st.session_state.photos.append(file_in)
             st.rerun()
-else:
-    st.success("3 Gambar berjaya dirakam.")
-    if st.button("Reset Gambar"):
-        st.session_state.photos = []
-        st.rerun()
 
+# Display photos and centered Remove button
 if st.session_state.photos:
     img_cols = st.columns(3)
     for idx, pic in enumerate(st.session_state.photos):
-        img_cols[idx].image(pic, use_container_width=True)
+        with img_cols[idx]:
+            st.image(pic, use_container_width=True)
+            # Centered Remove Button for each specific image
+            if st.button(f"Remove", key=f"remove_{idx}"):
+                st.session_state.photos.pop(idx)
+                st.rerun()
 
-if st.button("Submit Survey"):
-    if not staff_id or not stop or not selected_bus or len(st.session_state.photos) != 3 or None in st.session_state.responses.values():
-        st.error("Sila pastikan semua soalan dijawab, No. Bas dipilih, dan 3 keping gambar disediakan.")
-    else:
-        with st.spinner("Menghantar data ke Google Drive..."):
-            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            photo_urls = [gdrive_upload_file(p.getvalue(), f"{timestamp}_{idx}.jpg", "image/jpeg", FOLDER_ID) for idx, p in enumerate(st.session_state.photos)]
-            row_data = [timestamp, staff_id, staff_dict[staff_id], current_depot, current_route, stop, selected_bus] + \
-                       [st.session_state.responses[q] for q in all_questions] + ["; ".join(photo_urls)]
-            header_data = ["Timestamp", "Staff ID", "Staff Name", "Depot", "Route", "Bus Stop", "Bus Register No"] + all_questions + ["Photos"]
-            gsheet_id = find_or_create_gsheet("survey_responses", FOLDER_ID)
-            append_row(gsheet_id, row_data, header_data)
-            st.success("Tinjauan berjaya dihantar!")
-            st.session_state.photos = []
-            st.session_state.responses = {q: None for q in all_questions}
-            time.sleep(2)
-            st.rerun()
+st.divider()
 
+# --------- Centered Submit Survey Button ---------
+c1, c2, c3 = st.columns([1, 2, 1])
+with c2:
+    if st.button("Submit Survey"):
+        if not staff_id or not stop or not selected_bus or len(st.session_state.photos) != 3 or None in st.session_state.responses.values():
+            st.error("Sila pastikan semua soalan dijawab, No. Bas dipilih, dan 3 keping gambar disediakan.")
+        else:
+            with st.spinner("Menghantar data ke Google Drive..."):
+                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                photo_urls = [gdrive_upload_file(p.getvalue(), f"{timestamp}_{idx}.jpg", "image/jpeg", FOLDER_ID) for idx, p in enumerate(st.session_state.photos)]
+                row_data = [timestamp, staff_id, staff_dict[staff_id], current_depot, current_route, stop, selected_bus] + \
+                           [st.session_state.responses[q] for q in all_questions] + ["; ".join(photo_urls)]
+                header_data = ["Timestamp", "Staff ID", "Staff Name", "Depot", "Route", "Bus Stop", "Bus Register No"] + all_questions + ["Photos"]
+                gsheet_id = find_or_create_gsheet("survey_responses", FOLDER_ID)
+                append_row(gsheet_id, row_data, header_data)
+                st.success("Tinjauan berjaya dihantar!")
+                st.session_state.photos = []
+                st.session_state.responses = {q: None for q in all_questions}
+                time.sleep(2)
+                st.rerun()
