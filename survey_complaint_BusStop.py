@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from io import BytesIO
-import mimetypes
 import time
 import os
 import pickle
@@ -15,15 +14,6 @@ from google.auth.transport.requests import Request
 
 # --------- Page Setup ---------
 st.set_page_config(page_title="Bus Stop Survey", layout="wide")
-
-# --------- THEME LOADER ---------
-def load_external_theme(file_path="theme.txt"):
-    if os.path.exists(file_path):
-        with open(file_path, "r") as f:
-            return f.read()
-    return ""
-
-external_css = load_external_theme("theme.txt")
 
 # --------- APPLE UI GRID THEME CSS ---------
 st.markdown(f"""
@@ -88,7 +78,8 @@ st.markdown(f"""
         box-shadow: 0px 4px 12px rgba(0,0,0,0.15) !important;
     }}
 
-    div.stButton > button {{
+    /* SUBMIT BUTTON STYLE */
+    div.stButton > button:first-child {{
         width: 100% !important;
         background-color: #007AFF !important;
         color: white !important;
@@ -100,7 +91,15 @@ st.markdown(f"""
         margin-top: 30px;
     }}
 
-    {external_css}
+    /* BLUE REMOVE BUTTON STYLE */
+    div[data-testid="column"] button {{
+        background-color: #5897d6 !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 4px !important;
+        width: 100% !important;
+        font-weight: bold !important;
+    }}
     </style>
     """, unsafe_allow_html=True)
 
@@ -185,7 +184,7 @@ if "reset_key" not in st.session_state: st.session_state.reset_key = 0
 
 questions_a = ["1. BC menggunakan telefon bimbit?", "2. BC memperlahankan/memberhentikan bas?", "3. BC memandu di lorong 1 (kiri)?", "4. Bas penuh dengan penumpang?", "5. BC tidak mengambil penumpang? (NA jika tiada)", "6. BC berlaku tidak sopan? (NA jika tiada)"]
 questions_b = ["7. Penumpang beri isyarat menahan? (NA jika tiada)", "8. Penumpang leka/tidak peka? (NA jika tiada)", "9. Penumpang tiba lewat?", "10. Penumpang menunggu di luar kawasan hentian?"]
-questions_c = ["11. Hentian terlindung dari pandangan BC (semak, pokok, lain2)?", "12. Hentian terhalang oleh kenderaan parkir?", "13. Persekitaran bahaya untuk bas berhenti?", "14. Terdapat pembinaan berhampiran?", "15. Mempunyai bumbung?", "16. Mempunyai tiang?", "17. Mempunyai petak hentian?", "18. Mempunyai layby?", "19. Terlindung dari pandangan BC? (Gerai/Pokok)", "20. Pencahayaan baik (jika malam)?"]
+questions_c = ["11. Hentian terlindung dari pandangan BC?", "12. Hentian terhalang oleh kenderaan parkir?", "13. Persekitaran bahaya untuk bas berhenti?", "14. Terdapat pembinaan berhampiran?", "15. Mempunyai bumbung?", "16. Mempunyai tiang?", "17. Mempunyai petak hentian?", "18. Mempunyai layby?", "19. Terlindung dari pandangan BC? (Gerai/Pokok)", "20. Pencahayaan baik (jika malam)?"]
 
 full_question_order = questions_a + ["Ada penumpang?"] + questions_b + questions_c
 
@@ -207,7 +206,6 @@ with col_stop:
     stop = st.selectbox("📍 Bus Stop", options=allowed_stops, index=def_idx_stop, placeholder="Pilih Hentian Bas...")
     st.session_state.persistent_stop = stop
     
-    # Information is now calculated in the background but NOT displayed to the user
     current_route, current_depot = "", ""
     if stop:
         matched = stops_df[stops_df["Stop Name"] == stop]
@@ -256,23 +254,32 @@ render_grid_questions(questions_c, form_key)
 
 st.divider()
 
-# Photos
+# Photos Section
 st.subheader("📸 Take Photo (3 Photos Required)")
+
+# Show Inputs only if less than 3 photos
 if len(st.session_state.photos) < 3:
     col_cam, col_up = st.columns(2)
     with col_cam:
         cam_in = st.camera_input(f"Ambil Gambar #{len(st.session_state.photos)+1}")
-        if cam_in: st.session_state.photos.append(cam_in); st.rerun()
+        if cam_in: 
+            st.session_state.photos.append(cam_in)
+            st.rerun()
     with col_up:
         file_in = st.file_uploader(f"Upload Gambar #{len(st.session_state.photos)+1}", type=["jpg", "png", "jpeg"])
-        if file_in: st.session_state.photos.append(file_in); st.rerun()
-else:
-    st.success("3 Gambar berjaya dirakam.")
-    if st.button("Reset Gambar"): st.session_state.photos = []; st.rerun()
+        if file_in: 
+            st.session_state.photos.append(file_in)
+            st.rerun()
 
+# Display captured photos with blue Remove button
 if st.session_state.photos:
     img_cols = st.columns(3)
-    for idx, pic in enumerate(st.session_state.photos): img_cols[idx].image(pic, use_container_width=True)
+    for idx, pic in enumerate(st.session_state.photos):
+        with img_cols[idx]:
+            st.image(pic, use_container_width=True)
+            if st.button("Remove", key=f"remove_pic_{idx}_{form_key}"):
+                st.session_state.photos.pop(idx)
+                st.rerun()
 
 # Submit
 if st.button("Submit Survey"):
@@ -285,7 +292,6 @@ if st.button("Submit Survey"):
             photo_urls = [gdrive_upload_file(p.getvalue(), f"{timestamp}_{idx}.jpg", "image/jpeg", FOLDER_ID) for idx, p in enumerate(st.session_state.photos)]
             ordered_responses = [st.session_state.responses.get(q) for q in full_question_order]
             
-            # The background data (current_depot, current_route) is still included here for GSheet
             row_data = [timestamp, staff_id, staff_dict[staff_id], current_depot, current_route, stop, selected_bus] + ordered_responses + ["; ".join(photo_urls)]
             header_data = ["Timestamp", "Staff ID", "Staff Name", "Depot", "Route", "Bus Stop", "Bus No"] + full_question_order + ["Photos"]
             
@@ -296,4 +302,3 @@ if st.button("Submit Survey"):
             st.session_state.reset_key += 1
             
             time.sleep(2); st.rerun()
-
