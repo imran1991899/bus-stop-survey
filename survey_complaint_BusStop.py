@@ -102,22 +102,6 @@ FOLDER_ID = "1DjtLxgyQXwgjq_N6I_-rtYcBcnWhzMGp"
 CLIENT_SECRETS_FILE = "client_secrets2.json"
 SCOPES = ["https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/spreadsheets"]
 
-# GITHUB CONFIG
-GITHUB_RAW_URL = "https://raw.githubusercontent.com/imran1991899/bus-stop-survey/main/bus%20list.xlsx"
-
-@st.cache_data
-def load_github_bus_list(url):
-    try:
-        # Loading from sheet "Bus"
-        df = pd.read_excel(url, sheet_name="Bus")
-        # Pulling from Column B (index 1)
-        # We use .iloc[:, 1] to strictly get the 2nd column
-        buses = df.iloc[:, 1].dropna().astype(str).unique().tolist()
-        return sorted(buses)
-    except Exception as e:
-        st.error(f"Error loading bus list from GitHub: {e}")
-        return []
-
 def save_credentials(credentials):
     with open("token.pickle", "wb") as token:
         pickle.dump(credentials, token)
@@ -174,7 +158,14 @@ def append_row(sheet_id, row, header):
 # --------- Data Preparation ---------
 routes_df = pd.read_excel("bus_data.xlsx", sheet_name="routes")
 stops_df = pd.read_excel("bus_data.xlsx", sheet_name="stops")
-bus_list = load_github_bus_list(GITHUB_RAW_URL)
+
+# Loading from "bus list.xlsx" > Sheet: "Bus" > Column B (index 1)
+try:
+    bus_list_df = pd.read_excel("bus list.xlsx", sheet_name="Bus", usecols=[1])
+    bus_list = sorted(bus_list_df.iloc[:, 0].dropna().astype(str).unique().tolist())
+except Exception as e:
+    st.error(f"Error loading bus list.xlsx: {e}")
+    bus_list = []
 
 allowed_stops = sorted([
     "AJ106 LRT AMPANG", "DAMANSARA INTAN", "ECOSKY RESIDENCE", "FAKULTI KEJURUTERAAN (UTARA)",
@@ -187,10 +178,10 @@ allowed_stops = sorted([
     "SCLAND EMPORIS", "SJ602 BANDAR BUKIT PUCHONG BP1", "SMK SERI HARTAMAS", "SMK SULTAN ABD SAMAD (TIMUR)"
 ])
 
-staff_dict = {"10005475": "MOHD RIZAL BIN RAMLI", "10020779": "NUR FAEZAH BINTI HARUN", "10014181": "NORAINSYIRAH BINTI ARIFFIN", "10022768": "NORAZHA RAFFIZZI ZORKORNAINI", "10022769": "NUR HANIM HANIL", "10023845": "MUHAMMAD HAMKA BIN ROSLIM", "10002059": "MUHAMAD NIZAM BIN IBRAHIM", "10005562": "AZFAR NASRI BIN BURHAN", "10010659": "MOHD SHAHFIEE BIN ABDULLAH", "10008350": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN", "10003214": "NIK MOHD FADIR BIN NIK MAT RAWI", "10016370": "AHMAD AZIM BIN ISA", "10022910": "NUR SHAHIDA BINTI MOHD TAMIJI ", "10023513": "MUHAMMAD SYAHMI BIN AZMEY", "10023273": "MOHD IDZHAM BIN ABU BAKAR", "10023577": "MOHAMAD NAIM MOHAMAD SAPRI", "10023853": "MUHAMAD IMRAN BIN MOHD NASRUDDIN", "10008842": "MIRAN NURSYAWALNI AMIR", "10015662": "MUHAMMAD HANIF BIN HASHIM", "10011944": "NUR HAZIRAH BINTI NAWI"}
+staff_dict = {"10005475": "MOHD RIZAL BIN RAMLI", "10020779": "NUR FAEZAH BINTI HARUN", "10014181": "NORAINSYIRAH BINTI ARIFFIN", "10022768": "NORAZHA RAFFIZZI ZORKORNAINI", "10022769": "NUR HANIM HANIL", "10023845": "MUHAMMAD HAMKA BIN ROSLIM", "10002059": "MUHAMAD NIZAM BIN IBRAHIM", "10005562": "AZFAR NASRI BIN BURHAN", "10010659": "MOHD SHHFIEE BIN ABDULLAH", "10008350": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN", "10003214": "NIK MOHD FADIR BIN NIK MAT RAWI", "10016370": "AHMAD AZIM BIN ISA", "10022910": "NUR SHAHIDA BINTI MOHD TAMIJI ", "10023513": "MUHAMMAD SYAHMI BIN AZMEY", "10023273": "MOHD IDZHAM BIN ABU BAKAR", "10023577": "MOHAMAD NAIM MOHAMAD SAPRI", "10023853": "MUHAMAD IMRAN BIN MOHD NASRUDDIN", "10008842": "MIRAN NURSYAWALNI AMIR", "10015662": "MUHAMMAD HANIF BIN HASHIM", "10011944": "NUR HAZIRAH BINTI NAWI"}
 
 if "photos" not in st.session_state: st.session_state.photos = []
-questions_a = ["1. BC menggunakan telefon bimbit?", "2. BC memperlahankan/memberhentikan bas?", "3. BC memandu di lorong 1 (kiri)?", "4. Bas penuh dengan penumpang?", "5. BC tidak mengambil penumpang? (NA jika tiada)", "6. BC berlaku tidak soppnan? (NA jika tiada)"]
+questions_a = ["1. BC menggunakan telefon bimbit?", "2. BC memperlahankan/memberhentikan bas?", "3. BC memandu di lorong 1 (kiri)?", "4. Bas penuh dengan penumpang?", "5. BC tidak mengambil penumpang? (NA jika tiada)", "6. BC berlaku tidak sopan? (NA jika tiada)"]
 questions_b = ["7. Hentian terlindung dari pandangan BC?", "8. Hentian terhalang oleh kenderaan parkir?", "9. Persekitaran bahaya untuk bas berhenti?", "10. Terdapat pembinaan berhampiran?", "11. Mempunyai bumbung?", "12. Mempunyai tiang?", "13. Mempunyai petak hentian?", "14. Mempunyai layby?", "15. Terlindung dari pandangan BC? (Gerai/Pokok)", "16. Pencahayaan baik?", "17. Penumpang beri isyarat menahan? (NA jika tiada)", "18. Penumpang leka/tidak peka? (NA jika tiada)", "19. Penumpang tiba lewat?", "20. Penumpang menunggu di luar kawasan hentian?"]
 all_questions = questions_a + questions_b
 if "responses" not in st.session_state: st.session_state.responses = {q: None for q in all_questions}
@@ -198,12 +189,10 @@ if "responses" not in st.session_state: st.session_state.responses = {q: None fo
 # --------- Main App UI ---------
 st.title("BC and Bus Stop Survey")
 
-# Staff Section
 staff_id = st.selectbox("👤 Staff ID", options=list(staff_dict.keys()), index=None, placeholder="Pilih ID Staf...")
 if staff_id:
     st.info(f"**{staff_dict[staff_id]}**")
 
-# Bus Stop Section
 stop = st.selectbox("📍 Bus Stop", allowed_stops, index=None, placeholder="Pilih Hentian Bas...")
 
 current_route, current_depot = "", ""
@@ -215,7 +204,6 @@ if stop:
 
 st.divider()
 
-# Question Rendering Logic
 def render_grid_questions(q_list):
     for i in range(0, len(q_list), 2):
         col1, col2 = st.columns(2)
@@ -234,8 +222,8 @@ def render_grid_questions(q_list):
 
 st.subheader("A. KELAKUAN KAPTEN BAS")
 
-# Bus Selection
-selected_bus = st.selectbox("🚌 Pilih No. Pendaftaran Bas", options=bus_list, index=None, placeholder="Sila pilih no pendaftaran bas...")
+# Bus Name Selection from local Excel data
+selected_bus = st.selectbox("🚌 Pilih No. Pendaftaran Bas", options=bus_list, index=None, placeholder="Sila pilih registration no...")
 
 render_grid_questions(questions_a)
 
@@ -267,7 +255,6 @@ if st.session_state.photos:
     for idx, pic in enumerate(st.session_state.photos):
         img_cols[idx].image(pic, use_container_width=True)
 
-# Submit Logic
 if st.button("Submit Survey"):
     if not staff_id or not stop or not selected_bus or len(st.session_state.photos) != 3 or None in st.session_state.responses.values():
         st.error("Sila pastikan semua soalan dijawab, No. Bas dipilih, dan 3 keping gambar disediakan.")
