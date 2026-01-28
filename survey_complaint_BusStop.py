@@ -16,9 +16,9 @@ from google.auth.transport.requests import Request
 # --------- Page Setup ---------
 st.set_page_config(page_title="Bus Stop Survey", layout="wide")
 
-# --------- THEME LOADER ---------
+# --------- THEME LOADER (ADDITION) ---------
 def load_external_theme(file_path="theme.txt"):
-    """Reads CSS from theme.txt in your repository if it exists."""
+    """Reads CSS from theme.txt in your repository."""
     if os.path.exists(file_path):
         with open(file_path, "r") as f:
             return f.read()
@@ -71,6 +71,7 @@ st.markdown(f"""
         margin: 0 !important;
         padding: 0 20px !important;
         white-space: nowrap !important; 
+        overflow: visible !important;
         line-height: 1.2 !important;
         text-align: center !important;
         color: #444444 !important; 
@@ -98,11 +99,7 @@ st.markdown(f"""
         margin-top: 30px;
     }}
 
-    .stAlert {{
-        border-radius: 12px !important;
-    }}
-
-    /* Inject external theme from your text file */
+    /* INJECT EXTERNAL THEME HERE */
     {external_css}
     </style>
     """, unsafe_allow_html=True)
@@ -111,6 +108,8 @@ st.markdown(f"""
 FOLDER_ID = "1DjtLxgyQXwgjq_N6I_-rtYcBcnWhzMGp"
 CLIENT_SECRETS_FILE = "client_secrets2.json"
 SCOPES = ["https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/spreadsheets"]
+
+# ... [Keep your save_credentials, load_credentials, and drive functions exactly as they were] ...
 
 def save_credentials(credentials):
     with open("token.pickle", "wb") as token:
@@ -127,8 +126,7 @@ def get_authenticated_service():
     if creds and creds.valid:
         return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
     if creds and creds.expired and creds.refresh_token:
-        creds.refresh(Request())
-        save_credentials(creds)
+        creds.refresh(Request()); save_credentials(creds)
         return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
     
     flow = Flow.from_client_secrets_file(CLIENT_SECRETS_FILE, scopes=SCOPES, 
@@ -137,12 +135,10 @@ def get_authenticated_service():
     if "code" in query_params:
         full_url = "https://bus-stop-survey-99f8wusughejfcfvrvxmyl.streamlit.app/?" + urlencode(query_params)
         flow.fetch_token(authorization_response=full_url)
-        creds = flow.credentials
-        save_credentials(creds)
+        creds = flow.credentials; save_credentials(creds)
     else:
         auth_url, _ = flow.authorization_url(prompt="consent")
-        st.markdown(f"### Authentication Required\n[Please log in with Google]({auth_url})")
-        st.stop()
+        st.markdown(f"### Authentication Required\n[Please log in with Google]({auth_url})"); st.stop()
     return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
 
 drive_service, sheets_service = get_authenticated_service()
@@ -174,18 +170,18 @@ stops_df = pd.read_excel("bus_data.xlsx", sheet_name="stops")
 
 try:
     bus_df = pd.read_excel("bus_list.xlsx", sheet_name="bus list", usecols=[1])
-    # Ensure bus list is clean (no NaNs, all strings)
-    bus_list = sorted([str(x) for x in bus_df.iloc[:, 0].dropna().unique()])
-except Exception as e:
+    bus_list = sorted(bus_df.iloc[:, 0].dropna().astype(str).unique().tolist())
+except:
     bus_list = []
 
+allowed_stops = sorted(["AJ106 LRT AMPANG", "DAMANSARA INTAN", "ECOSKY RESIDENCE", "FAKULTI KEJURUTERAAN (UTARA)", "FAKULTI PERNIAGAAN DAN PERAKAUNAN", "FAKULTI UNDANG-UNDANG", "KILANG PLASTIK EKSPEDISI EMAS (OPP)", "KJ477 UTAR", "KJ560 SHELL SG LONG (OPP)", "KL107 LRT MASJID JAMEK", "KL1082 SK Methodist", "KL117 BSN LEBUH AMPANG", "KL1217 ILP KUALA LUMPUR", "KL2247 KOMERSIAL KIP", "KL377 WISMA SISTEM", "KOMERSIAL BURHANUDDIN (2)", "MASJID CYBERJAYA 10", "MRT SRI DELIMA PINTU C", "PERUMAHAN TTDI", "PJ312 Medan Selera Seksyen 19", "PJ476 MASJID SULTAN ABDUL AZIZ", "PJ721 ONE UTAMA NEW WING", "PPJ384 AURA RESIDENCE", "SA12 APARTMENT BAIDURI (OPP)", "SA26 PERUMAHAN SEKSYEN 11", "SCLAND EMPORIS", "SJ602 BANDAR BUKIT PUCHONG BP1", "SMK SERI HARTAMAS", "SMK SULTAN ABD SAMAD (TIMUR)"])
 staff_dict = {"10005475": "MOHD RIZAL BIN RAMLI", "10020779": "NUR FAEZAH BINTI HARUN", "10014181": "NORAINSYIRAH BINTI ARIFFIN", "10022768": "NORAZHA RAFFIZZI ZORKORNAINI", "10022769": "NUR HANIM HANIL", "10023845": "MUHAMMAD HAMKA BIN ROSLIM", "10002059": "MUHAMAD NIZAM BIN IBRAHIM", "10005562": "AZFAR NASRI BIN BURHAN", "10010659": "MOHD SHAHFIEE BIN ABDULLAH", "10008350": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN", "10003214": "NIK MOHD FADIR BIN NIK MAT RAWI", "10016370": "AHMAD AZIM BIN ISA", "10022910": "NUR SHAHIDA BINTI MOHD TAMIJI ", "10023513": "MUHAMMAD SYAHMI BIN AZMEY", "10023273": "MOHD IDZHAM BIN ABU BAKAR", "10023577": "MOHAMAD NAIM MOHAMAD SAPRI", "10023853": "MUHAMAD IMRAN BIN MOHD NASRUDDIN", "10008842": "MIRAN NURSYAWALNI AMIR", "10015662": "MUHAMMAD HANIF BIN HASHIM", "10011944": "NUR HAZIRAH BINTI NAWI"}
 
-# --------- Session State Initialization ---------
+# Session State for tracking progress
 if "photos" not in st.session_state: st.session_state.photos = []
 if "responses" not in st.session_state: st.session_state.responses = {}
+# PERSISTENT STAFF ID INITIALIZATION
 if "persistent_staff_id" not in st.session_state: st.session_state.persistent_staff_id = None
-if "reset_key" not in st.session_state: st.session_state.reset_key = 0
 
 questions_a = ["1. BC menggunakan telefon bimbit?", "2. BC memperlahankan/memberhentikan bas?", "3. BC memandu di lorong 1 (kiri)?", "4. Bas penuh dengan penumpang?", "5. BC tidak mengambil penumpang? (NA jika tiada)", "6. BC berlaku tidak sopan? (NA jika tiada)"]
 questions_b = ["7. Hentian terlindung dari pandangan BC?", "8. Hentian terhalang oleh kenderaan parkir?", "9. Persekitaran bahaya untuk bas berhenti?", "10. Terdapat pembinaan berhampiran?", "11. Mempunyai bumbung?", "12. Mempunyai tiang?", "13. Mempunyai petak hentian?", "14. Mempunyai layby?", "15. Terlindung dari pandangan BC? (Gerai/Pokok)", "16. Pencahayaan baik?", "17. Penumpang beri isyarat menahan? (NA jika tiada)", "18. Penumpang leka/tidak peka? (NA jika tiada)", "19. Penumpang tiba lewat?", "20. Penumpang menunggu di luar kawasan hentian?"]
@@ -194,35 +190,22 @@ all_questions = questions_a + questions_b
 # --------- Main App UI ---------
 st.title("BC and Bus Stop Survey")
 
-# 1. STAFF SECTION (Persistent)
-staff_options = list(staff_dict.keys())
-def_idx = staff_options.index(st.session_state.persistent_staff_id) if st.session_state.persistent_staff_id in staff_options else None
+# Section 1: Staff and Location
+col_staff, col_stop = st.columns(2)
+with col_staff:
+    staff_options = list(staff_dict.keys())
+    # Find index of persistent ID if it exists
+    def_idx = staff_options.index(st.session_state.persistent_staff_id) if st.session_state.persistent_staff_id in staff_options else None
+    
+    staff_id = st.selectbox("👤 Staff ID", options=staff_options, index=def_idx, placeholder="Pilih ID Staf...")
+    st.session_state.persistent_staff_id = staff_id # Save current selection
+    
+    if staff_id:
+        st.info(f"**Nama:** {staff_dict[staff_id]}")
 
-staff_id = st.selectbox("👤 Staff ID", options=staff_options, index=def_idx, placeholder="Pilih ID Staf...")
-st.session_state.persistent_staff_id = staff_id
-
-if staff_id:
-    st.info(f"**Nama:** {staff_dict[staff_id]}")
-
-st.divider()
-
-# 2. RESETTABLE SECTION
-# Changing this key forces all widgets inside to reset to default
-form_key = st.session_state.reset_key
-
-col_stop, col_bus_sel = st.columns(2)
 with col_stop:
-    # DATA CLEANING: Ensure no NaNs and all strings for sorting
-    stop_options = sorted([str(x) for x in stops_df["Stop Name"].dropna().unique()])
-    
-    stop = st.selectbox(
-        "📍 Bus Stop", 
-        options=stop_options, 
-        index=None, 
-        placeholder="Pilih Hentian Bas...", 
-        key=f"stop_sel_{form_key}"
-    )
-    
+    # Use key to allow manual reset
+    stop = st.selectbox("📍 Bus Stop", allowed_stops, index=None, placeholder="Pilih Hentian Bas...", key="stop_selector")
     current_route, current_depot = "", ""
     if stop:
         matched_stop_data = stops_df[stops_df["Stop Name"] == stop]
@@ -230,57 +213,53 @@ with col_stop:
         current_depot = " / ".join(map(str, routes_df[routes_df["Route Number"].isin(matched_stop_data["Route Number"].unique())]["Depot"].unique()))
         st.info(f"**Route:** {current_route} | **Depot:** {current_depot}")
 
-with col_bus_sel:
-    selected_bus = st.selectbox(
-        "🚌 Pilih No. Pendaftaran Bas", 
-        options=bus_list, 
-        index=None, 
-        placeholder="Pilih no pendaftaran bas...", 
-        key=f"bus_sel_{form_key}"
-    )
+st.divider()
+
+# Question Rendering Logic
+def render_grid_questions(q_list):
+    for i in range(0, len(q_list), 2):
+        col1, col2 = st.columns(2)
+        with col1:
+            q = q_list[i]
+            st.markdown(f"**{q}**")
+            opts = ["Yes", "No", "NA"] if "NA" in q else ["Yes", "No"]
+            st.session_state.responses[q] = st.radio(label=q, options=opts, index=None, key=f"r_{q}", horizontal=True, label_visibility="collapsed")
+        if i + 1 < len(q_list):
+            with col2:
+                q = q_list[i+1]
+                st.markdown(f"**{q}**")
+                opts = ["Yes", "No", "NA"] if "NA" in q else ["Yes", "No"]
+                st.session_state.responses[q] = st.radio(label=q, options=opts, index=None, key=f"r_{q}", horizontal=True, label_visibility="collapsed")
 
 st.subheader("A. KELAKUAN KAPTEN BAS")
-for q in questions_a:
-    st.markdown(f"**{q}**")
-    opts = ["Yes", "No", "NA"] if "NA" in q else ["Yes", "No"]
-    st.session_state.responses[q] = st.radio(q, opts, index=None, key=f"q_{q}_{form_key}", horizontal=True, label_visibility="collapsed")
-
+selected_bus = st.selectbox("🚌 Pilih No. Pendaftaran Bas", options=bus_list, index=None, placeholder="Pilih no pendaftaran bas...", key="bus_selector")
+render_grid_questions(questions_a)
 st.divider()
-
 st.subheader("B. KEADAAN HENTIAN BAS")
-for q in questions_b:
-    st.markdown(f"**{q}**")
-    opts = ["Yes", "No", "NA"] if "NA" in q else ["Yes", "No"]
-    st.session_state.responses[q] = st.radio(q, opts, index=None, key=f"q_{q}_{form_key}", horizontal=True, label_visibility="collapsed")
-
+render_grid_questions(questions_b)
 st.divider()
 
-# 3. PHOTO SECTION
+# Photo Capture
 st.subheader("📸 Take Photo (3 Photos Required)")
 if len(st.session_state.photos) < 3:
     col_cam, col_up = st.columns(2)
     with col_cam:
         cam_in = st.camera_input(f"Ambil Gambar #{len(st.session_state.photos)+1}")
-        if cam_in: 
-            st.session_state.photos.append(cam_in)
-            st.rerun()
+        if cam_in: st.session_state.photos.append(cam_in); st.rerun()
     with col_up:
         file_in = st.file_uploader(f"Upload Gambar #{len(st.session_state.photos)+1}", type=["jpg", "png", "jpeg"])
-        if file_in: 
-            st.session_state.photos.append(file_in)
-            st.rerun()
+        if file_in: st.session_state.photos.append(file_in); st.rerun()
 else:
     st.success("3 Gambar berjaya dirakam.")
     if st.button("Reset Gambar"):
-        st.session_state.photos = []
-        st.rerun()
+        st.session_state.photos = []; st.rerun()
 
 if st.session_state.photos:
     img_cols = st.columns(3)
     for idx, pic in enumerate(st.session_state.photos):
         img_cols[idx].image(pic, use_container_width=True)
 
-# 4. SUBMIT LOGIC
+# Submit Logic
 if st.button("Submit Survey"):
     if not staff_id or not stop or not selected_bus or len(st.session_state.photos) != 3 or None in st.session_state.responses.values():
         st.error("Sila pastikan semua soalan dijawab, No. Bas dipilih, dan 3 keping gambar disediakan.")
@@ -288,21 +267,22 @@ if st.button("Submit Survey"):
         with st.spinner("Menghantar data..."):
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             photo_urls = [gdrive_upload_file(p.getvalue(), f"{timestamp}_{idx}.jpg", "image/jpeg", FOLDER_ID) for idx, p in enumerate(st.session_state.photos)]
-            
-            row_data = [timestamp, staff_id, staff_dict[staff_id], current_depot, current_route, stop, selected_bus] + \
-                       [st.session_state.responses[q] for q in all_questions] + ["; ".join(photo_urls)]
-            
+            row_data = [timestamp, staff_id, staff_dict[staff_id], current_depot, current_route, stop, selected_bus] + [st.session_state.responses[q] for q in all_questions] + ["; ".join(photo_urls)]
             header_data = ["Timestamp", "Staff ID", "Staff Name", "Depot", "Route", "Bus Stop", "Bus Register No"] + all_questions + ["Photos"]
-            
-            gsheet_id = find_or_create_gsheet("survey_responses", FOLDER_ID)
-            append_row(gsheet_id, row_data, header_data)
+            append_row(find_or_create_gsheet("survey_responses", FOLDER_ID), row_data, header_data)
             
             st.success("Tinjauan berjaya dihantar!")
             
-            # CLEAR FORM DATA BUT KEEP STAFF ID
+            # RESET STATE - CLEAR EVERYTHING EXCEPT persistent_staff_id
             st.session_state.photos = []
             st.session_state.responses = {}
-            st.session_state.reset_key += 1 # Forces all radio and select widgets to reset
+            # Resetting widget keys manually
+            st.session_state.stop_selector = None
+            st.session_state.bus_selector = None
+            # Clear all question radio button keys
+            for q in all_questions:
+                if f"r_{q}" in st.session_state:
+                    st.session_state[f"r_{q}"] = None
             
             time.sleep(2)
             st.rerun()
