@@ -190,7 +190,7 @@ all_questions = questions_a + questions_b
 if "responses" not in st.session_state: st.session_state.responses = {q: None for q in all_questions}
 
 # --------- Main App UI ---------
-st.title("BC and Bus Stop Stop Survey")
+st.title("BC and Bus Stop Survey")
 
 # Staff Section
 staff_id = st.selectbox("👤 Staff ID", options=list(staff_dict.keys()), index=None, placeholder="Pilih ID Staf...")
@@ -282,6 +282,7 @@ if st.button("Submit Survey"):
             st.session_state.responses = {q: None for q in all_questions}
             time.sleep(2)
             st.rerun()
+
 
 
 
