@@ -167,7 +167,7 @@ stops_df = pd.read_excel("bus_data.xlsx", sheet_name="stops")
 # Sheet: "Bus" | Column: B (index 1)
 try:
     # usecols=[1] specifically targets Column B
-    bus_df = pd.read_excel("bus_list.xlsx", sheet_name="Bus", usecols=[1])
+    bus_df = pd.read_excel("bus_list.xlsx", sheet_name="bus list", usecols=[1])
     # Extract the column and clean it
     bus_list = sorted(bus_df.iloc[:, 0].dropna().astype(str).unique().tolist())
 except Exception as e:
@@ -300,3 +300,4 @@ if st.button("Submit Survey"):
             st.session_state.responses = {q: None for q in all_questions}
             time.sleep(2)
             st.rerun()
+
