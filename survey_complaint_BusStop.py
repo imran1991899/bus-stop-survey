@@ -18,14 +18,13 @@ st.set_page_config(page_title="Bus Stop Survey", layout="wide")
 # --------- APPLE UI LIGHT THEME CSS ---------
 st.markdown("""
     <style>
-    /* Global App Background - Apple Light Gray */
     .stApp {
         background-color: #F5F5F7 !important;
         color: #1D1D1F !important;
-        font-family: "SF Pro Text", "SF Pro Icons", "Helvetica Neue", "Helvetica", "Arial", -apple-system, BlinkMacSystemFont, sans-serif !important;
+        font-family: "SF Pro Text", -apple-system, BlinkMacSystemFont, sans-serif !important;
     }
 
-    /* iOS Segmented Control Style (Yes/No/NA) */
+    /* iOS Segmented Control Style */
     div[role="radiogroup"] {
         background-color: #E3E3E8 !important; 
         padding: 6px !important; 
@@ -33,97 +32,68 @@ st.markdown("""
         gap: 8px !important;
         display: flex !important;
         flex-direction: row !important;
-        align-items: center !important;
-        margin-top: 2px !important; 
-        margin-bottom: 28px !important; 
         max-width: 360px; 
     }
 
-    /* Hide standard radio circles */
     [data-testid="stWidgetSelectionVisualizer"] {
         display: none !important;
     }
 
-    /* Individual Radio Item Label */
     div[role="radiogroup"] label {
         background-color: transparent !important;
         border: none !important;
         padding: 12px 0px !important; 
         border-radius: 10px !important;
-        transition: all 0.2s ease-in-out !important;
         flex: 1 !important;
         display: flex !important;
         justify-content: center !important;
-        align-items: center !important;
     }
 
-    /* Text Formatting for Yes/No - BOLD DARK GRAY */
     div[role="radiogroup"] label p {
         font-size: 16px !important; 
         color: #444444 !important; 
         font-weight: 700 !important; 
-        margin: 0 !important;
     }
 
-    /* Selected State (The White Slide effect) */
     div[role="radiogroup"] label:has(input:checked) {
         background-color: #FFFFFF !important;
         box-shadow: 0px 4px 10px rgba(0,0,0,0.1) !important;
     }
 
-    /* Main Submit Button - Apple Blue */
+    /* Action Buttons */
     div.stButton > button:first-child {
         width: 100% !important;
         background-color: #007AFF !important;
         color: white !important;
-        border: none !important;
+        border-radius: 14px !important;
         height: 55px !important;
         font-weight: 600 !important;
-        border-radius: 14px !important;
-        font-size: 18px !important;
-        margin-top: 20px;
     }
 
-    /* Specific Action Buttons for Photos */
-    div[data-testid="column"] button:contains("Retake") {
-        background-color: #007AFF !important;
-        color: white !important;
-        border: none !important;
-    }
-    
-    div[data-testid="column"] button:contains("Remove") {
-        background-color: #FF3B30 !important;
-        color: white !important;
-        border: none !important;
-    }
+    button[key*="retake"] { background-color: #007AFF !important; color: white !important; }
+    button[key*="remove"] { background-color: #FF3B30 !important; color: white !important; }
 
-    /* Info Card Styling */
-    .stAlert {
-        border-radius: 12px !important;
-        border: none !important;
-        background-color: #E8F2FF !important;
-        color: #007AFF !important;
-    }
+    .stAlert { border-radius: 12px !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# --------- Configuration & Auth ---------
+# --------- Logic Functions ---------
 FOLDER_ID = "1DjtLxgyQXwgjq_N6I_-rtYcBcnWhzMGp"
 CLIENT_SECRETS_FILE = "client_secrets2.json"
 SCOPES = ["https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/spreadsheets"]
 
-# Replace with your actual RAW Github URL
+# Ensure this is the RAW link from GitHub
 BUS_LIST_URL = "https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/bus_list.xlsx"
 
 @st.cache_data
 def load_bus_list(url):
     try:
-        # Load Excel and target Column B (Index 1)
-        df = pd.read_excel(url, usecols="B")
+        # Load specifically from sheet "Bus" and Column B
+        df = pd.read_excel(url, sheet_name="Bus", usecols="B")
         df.columns = ["Bus_Number"]
         return df["Bus_Number"].dropna().unique().tolist()
     except Exception as e:
-        st.error(f"Error loading bus list from GitHub: {e}")
+        st.error(f"Error loading GitHub file: {e}")
         return ["Error loading list"]
 
 def save_credentials(credentials):
@@ -196,106 +166,88 @@ if "responses" not in st.session_state: st.session_state.responses = {q: None fo
 # --------- Main App UI ---------
 st.title("🚌 Bus Stop Survey")
 
-# Staff Section
-staff_id = st.selectbox("👤 Staff ID", options=list(staff_dict.keys()), index=None, placeholder="Pilih ID Staf...")
-if staff_id:
-    st.info(f"**Staff Name: {staff_dict[staff_id]}**")
+# Staff Selection
+staff_id = st.selectbox("👤 Staff ID", options=list(staff_dict.keys()), index=None)
+if staff_id: st.info(f"**Staff Name:** {staff_dict[staff_id]}")
 
-# Bus Stop Section
-stop = st.selectbox("📍 Bus Stop", allowed_stops, index=None, placeholder="Pilih Hentian Bas...")
+# Bus Stop Selection
+stop = st.selectbox("📍 Bus Stop", allowed_stops, index=None)
 current_route, current_depot = "", ""
 if stop:
-    matched_data = stops_df[stops_df["Stop Name"] == stop]
-    current_route = " / ".join(map(str, matched_data["Route Number"].unique()))
-    current_depot = " / ".join(map(str, routes_df[routes_df["Route Number"].isin(matched_data["Route Number"].unique())]["Depot"].unique()))
+    matched = stops_df[stops_df["Stop Name"] == stop]
+    current_route = " / ".join(map(str, matched["Route Number"].unique()))
+    current_depot = " / ".join(map(str, routes_df[routes_df["Route Number"].isin(matched["Route Number"].unique())]["Depot"].unique()))
     st.info(f"**Route:** {current_route} | **Depot:** {current_depot}")
 
 st.divider()
 
-# Vehicle Selection (Before Q1)
+# Vehicle Selection from GitHub Sheet "Bus"
 st.subheader("🚌 Vehicle Information")
-bus_number = st.selectbox(
-    "Select Bus Number", 
-    options=bus_list_options, 
-    index=None, 
-    placeholder="Pilih No. Bas dari senarai (Column B)..."
-)
+bus_number = st.selectbox("Select Bus Number", options=bus_list_options, index=None)
 
 st.divider()
 
-# Question Rendering
-def render_grid_questions(q_list):
+# Questions Grid
+def render_questions(q_list):
     for i in range(0, len(q_list), 2):
         col1, col2 = st.columns(2)
         for idx, col in enumerate([col1, col2]):
             if i + idx < len(q_list):
                 with col:
-                    q = q_list[i + idx]
+                    q = q_list[i+idx]
                     st.markdown(f"**{q}**")
                     opts = ["Yes", "No", "NA"] if "NA" in q else ["Yes", "No"]
-                    st.session_state.responses[q] = st.radio(label=q, options=opts, index=None, key=f"r_{q}", horizontal=True, label_visibility="collapsed")
+                    st.session_state.responses[q] = st.radio(q, opts, index=None, horizontal=True, label_visibility="collapsed")
 
 st.subheader("A. KELAKUAN KAPTEN BAS")
-render_grid_questions(questions_a)
+render_questions(questions_a)
 st.divider()
 st.subheader("B. KEADAAN HENTIAN BAS")
-render_grid_questions(questions_b)
+render_questions(questions_b)
 st.divider()
 
-# Photo Section (Single Capture)
+# Single-Camera Capture Logic
 st.subheader("📸 Evidence (3 Photos Required)")
-
 if len(st.session_state.photos) < 3:
-    st.markdown(f"**Capturing Photo {len(st.session_state.photos) + 1} of 3**")
-    cam_in = st.camera_input("Take Photo", key=f"cam_capture_{len(st.session_state.photos)}")
-    file_in = st.file_uploader("Or Upload File", type=["jpg","png","jpeg"], key=f"file_capture_{len(st.session_state.photos)}")
-    
-    if cam_in:
-        st.session_state.photos.append(cam_in)
-        st.rerun()
-    if file_in:
-        st.session_state.photos.append(file_in)
+    st.write(f"Capturing Photo {len(st.session_state.photos) + 1} of 3")
+    cam = st.camera_input("Take Photo", key=f"capture_{len(st.session_state.photos)}")
+    if cam:
+        st.session_state.photos.append(cam)
         st.rerun()
 else:
-    st.success("✅ 3 Photos successfully captured.")
+    st.success("3 Photos captured.")
 
+# Photo Grid with Actions
 if st.session_state.photos:
-    st.write("---")
-    photo_grid = st.columns(3)
+    p_cols = st.columns(3)
     for i, p in enumerate(st.session_state.photos):
-        with photo_grid[i]:
-            st.image(p, caption=f"Photo {i+1}", use_container_width=True)
-            b_col1, b_col2 = st.columns(2)
-            if b_col1.button(f"🔄 Retake", key=f"retake_{i}"):
-                st.session_state.photos.pop(i)
-                st.rerun()
-            if b_col2.button(f"🗑️ Remove", key=f"remove_{i}"):
-                st.session_state.photos.pop(i)
-                st.rerun()
+        with p_cols[i]:
+            st.image(p, use_container_width=True)
+            if st.button(f"🔄 Retake", key=f"retake_{i}"):
+                st.session_state.photos.pop(i); st.rerun()
+            if st.button(f"🗑️ Remove", key=f"remove_{i}"):
+                st.session_state.photos.pop(i); st.rerun()
 
 st.divider()
 
-# Final Submit
+# Submit
 if st.button("Submit Survey"):
     if not staff_id or not stop or not bus_number or len(st.session_state.photos) < 3 or None in st.session_state.responses.values():
-        st.error("Sila pastikan semua soalan dijawab, No. Bas dipilih, dan 3 keping gambar disediakan.")
+        st.error("Please complete all fields and capture 3 photos.")
     else:
-        with st.spinner("Menghantar..."):
-            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            photo_urls = []
-            for i, p in enumerate(st.session_state.photos):
-                url = gdrive_upload_file(p.getvalue(), f"{timestamp}_p{i+1}.jpg", "image/jpeg", FOLDER_ID)
-                photo_urls.append(url)
+        with st.spinner("Submitting..."):
+            ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            urls = [gdrive_upload_file(p.getvalue(), f"{ts}_p{i+1}.jpg", "image/jpeg", FOLDER_ID) for i, p in enumerate(st.session_state.photos)]
             
-            row_data = [timestamp, staff_id, staff_dict[staff_id], current_depot, current_route, stop, bus_number] + \
-                       [st.session_state.responses[q] for q in all_questions] + ["; ".join(photo_urls)]
-            header_data = ["Timestamp", "Staff ID", "Staff Name", "Depot", "Route", "Bus Stop", "Bus Number"] + all_questions + ["Photos"]
+            row = [ts, staff_id, staff_dict[staff_id], current_depot, current_route, stop, bus_number] + \
+                  [st.session_state.responses[q] for q in all_questions] + ["; ".join(urls)]
             
-            gsheet_id = find_or_create_gsheet("survey_responses", FOLDER_ID)
-            append_row(gsheet_id, row_data, header_data)
+            header = ["Timestamp", "Staff ID", "Name", "Depot", "Route", "Stop", "Bus No"] + all_questions + ["Photos"]
             
-            st.success("Tinjauan berjaya dihantar!")
+            sheet_id = find_or_create_gsheet("survey_responses", FOLDER_ID)
+            append_row(sheet_id, row, header)
+            
+            st.success("Submitted successfully!")
             st.session_state.photos = []
             st.session_state.responses = {q: None for q in all_questions}
-            time.sleep(2)
-            st.rerun()
+            time.sleep(2); st.rerun()
