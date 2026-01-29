@@ -119,13 +119,12 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --------- Helper: MASSIVE Watermarking (20x Bigger & Apple Font) ---------
+# --------- Helper: MASSIVE Watermarking ---------
 def add_watermark(image_bytes, stop_name):
     img = Image.open(BytesIO(image_bytes)).convert("RGB")
     draw = ImageDraw.Draw(img)
     w, h = img.size
     
-    # Base scale on the shorter side for absolute massive size regardless of resolution
     short_side = min(w, h)
     unit = short_side * 0.05 
     
@@ -133,7 +132,6 @@ def add_watermark(image_bytes, stop_name):
     time_str = now.strftime("%I:%M %p")
     date_info = now.strftime("%b %d, %Y (%a)")
 
-    # Font path logic for Apple San Francisco style
     font_paths = [
         "/System/Library/Fonts/SFNS.ttf", 
         "/System/Library/Fonts/HelveticaNeue-Bold.ttf", 
@@ -148,22 +146,17 @@ def add_watermark(image_bytes, stop_name):
                 continue
         return ImageFont.load_default()
 
-    # 20x More Big Scaling
     font_time = get_massive_font(int(unit * 10)) 
     font_sub = get_massive_font(int(unit * 3.5))
 
     margin_x = int(w * 0.05)
     
-    # Draw from bottom up to avoid overlaps
-    # 1. Stop Name (Bottom)
     stop_y = h - int(unit * 6)
     draw.text((margin_x, stop_y), stop_name.upper(), font=font_sub, fill="white", stroke_width=4, stroke_fill="black")
     
-    # 2. Date/Day (Middle)
     date_y = stop_y - int(unit * 4)
     draw.text((margin_x, date_y), date_info, font=font_sub, fill="white", stroke_width=3, stroke_fill="black")
     
-    # 3. Massive Time (Top)
     time_y = date_y - int(unit * 10)
     draw.text((margin_x, time_y), time_str, font=font_time, fill="white", stroke_width=6, stroke_fill="black")
     
@@ -312,7 +305,9 @@ st.session_state.responses["Ada Penumpang?"] = has_passengers
 if has_passengers != "Yes":
     for q in questions_c: st.session_state.responses[q] = "No Passenger"
 else:
-    for q in questions_c: st.session_state.responses[q] = "Yes"
+    # Logic remains as per user's requirement to define these separately or as Yes
+    for q in questions_c: 
+        if st.session_state.responses[q] == "No Passenger": st.session_state.responses[q] = None
 st.divider()
 
 st.subheader("B. KEADAAN HENTIAN BAS")
@@ -397,14 +392,23 @@ if st.button("Submit Survey"):
             saving_placeholder.empty() 
             st.success("Submitted Successfully!")
             
-            st.session_state.photos, st.session_state.videos = [], []
+            # --- REFRESH ALL / SET TO DEFAULT ---
+            # 1. Clear session data
+            st.session_state.photos = []
+            st.session_state.videos = []
             st.session_state.responses = {q: None for q in all_questions}
-            if "bus_select" in st.session_state:
-                del st.session_state["bus_select"]
+            st.session_state.saved_staff_id = None
+            st.session_state.saved_stop = None
+
+            # 2. Clear widget keys (force refresh selectboxes and radio buttons)
             for key in list(st.session_state.keys()):
-                if key.startswith("r_") or key == "has_pax":
+                if key.startswith("r_") or key in ["has_pax", "bus_select", "staff_id_select", "stop_select"]:
                     del st.session_state[key]
             
-            time.sleep(2); st.rerun()
+            # 3. Small delay and full rerun
+            time.sleep(2)
+            st.rerun()
+
         except Exception as e:
-            saving_placeholder.empty(); st.error(f"Error: {e}")
+            saving_placeholder.empty()
+            st.error(f"Error: {e}")
