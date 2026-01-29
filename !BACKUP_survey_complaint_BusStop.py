@@ -107,7 +107,7 @@ st.markdown("""
 
     [data-testid="stCameraInput"] {
         border: 2px dashed #007AFF;
-        border-radius: 20px; /* Changed from 166px to 20px for a rounded square */
+        border-radius: 20px; 
         padding: 10px;
     }
     
@@ -130,6 +130,7 @@ def add_watermark(image_bytes, stop_name):
     w, h = img.size
     
     short_side = min(w, h)
+    # Unit for scaling fonts
     unit = short_side * 0.05 
     
     now = datetime.now(KL_TZ)
@@ -150,28 +151,30 @@ def add_watermark(image_bytes, stop_name):
                 continue
         return ImageFont.load_default()
 
-    # Font sizes
-    font_time = get_massive_font(int(unit * 5)) 
-    font_sub = get_massive_font(int(unit * 2.5))
+    # Font sizes increased for better visibility without stroke
+    size_time = int(unit * 4.5)
+    size_sub = int(unit * 2.2)
+    
+    font_time = get_massive_font(size_time) 
+    font_sub = get_massive_font(size_sub)
 
-    margin_x = int(w * 0.03)
-    margin_bottom = int(h * 0.03)
-    line_spacing = int(unit * 0.5) # Tight gap between lines
+    # Margin from the edges
+    margin_x = int(w * 0.04)
+    margin_bottom = int(h * 0.04)
 
-    # Calculate text heights to stack from bottom up
+    # Calculate stacking (Bottom to Top)
     # 1. Bus Stop (Bottom)
-    # 2. Date (Middle)
-    # 3. Time (Top)
+    # 2. Date (Above Stop)
+    # 3. Time (Above Date)
     
-    # We draw bottom to top to ensure "Edge below left"
-    stop_y = h - margin_bottom - int(unit * 2.5)
-    draw.text((margin_x, stop_y), stop_name.upper(), font=font_sub, fill="white", stroke_width=2, stroke_fill="black")
-    
-    date_y = stop_y - int(unit * 2.5) - line_spacing
-    draw.text((margin_x, date_y), date_info, font=font_sub, fill="white", stroke_width=2, stroke_fill="black")
-    
-    time_y = date_y - int(unit * 5) - line_spacing
-    draw.text((margin_x, time_y), time_str, font=font_time, fill="white", stroke_width=3, stroke_fill="black")
+    stop_y = h - margin_bottom - size_sub
+    date_y = stop_y - size_sub - 5  # Closer spacing
+    time_y = date_y - size_time - 5 # Closer spacing
+
+    # Draw Text - Removed stroke_width and stroke_fill
+    draw.text((margin_x, stop_y), stop_name.upper(), font=font_sub, fill="white")
+    draw.text((margin_x, date_y), date_info, font=font_sub, fill="white")
+    draw.text((margin_x, time_y), time_str, font=font_time, fill="white")
     
     img_byte_arr = BytesIO()
     img.save(img_byte_arr, format='JPEG', quality=95)
