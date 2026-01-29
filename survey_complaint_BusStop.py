@@ -9,11 +9,15 @@ import pickle
 import re
 from urllib.parse import urlencode
 from PIL import Image, ImageDraw, ImageFont
+import pytz  # Added for Malaysia Timezone
 
 from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 from google.auth.transport.requests import Request
+
+# --------- Timezone Setup ---------
+KL_TZ = pytz.timezone('Asia/Kuala_Lumpur')
 
 # --------- Page Setup ---------
 st.set_page_config(page_title="Bus Stop Survey", layout="wide")
@@ -103,7 +107,7 @@ st.markdown("""
 
     [data-testid="stCameraInput"] {
         border: 2px dashed #007AFF;
-        border-radius: 16px;
+        border-radius: 20px; 
         padding: 10px;
     }
     
@@ -119,21 +123,20 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --------- Helper: MASSIVE Watermarking (20x Bigger & Apple Font) ---------
+# --------- Helper: MASSIVE Watermarking ---------
 def add_watermark(image_bytes, stop_name):
     img = Image.open(BytesIO(image_bytes)).convert("RGB")
     draw = ImageDraw.Draw(img)
     w, h = img.size
     
-    # Base scale on the shorter side for absolute massive size regardless of resolution
     short_side = min(w, h)
+    # Unit for scaling fonts
     unit = short_side * 0.05 
     
-    now = datetime.now()
+    now = datetime.now(KL_TZ)
     time_str = now.strftime("%I:%M %p")
     date_info = now.strftime("%b %d, %Y (%a)")
 
-    # Font path logic for Apple San Francisco style
     font_paths = [
         "/System/Library/Fonts/SFNS.ttf", 
         "/System/Library/Fonts/HelveticaNeue-Bold.ttf", 
@@ -148,24 +151,30 @@ def add_watermark(image_bytes, stop_name):
                 continue
         return ImageFont.load_default()
 
-    # 20x More Big Scaling
-    font_time = get_massive_font(int(unit * 10)) 
-    font_sub = get_massive_font(int(unit * 3.5))
+    # Font sizes increased for better visibility without stroke
+    size_time = int(unit * 4.5)
+    size_sub = int(unit * 2.2)
+    
+    font_time = get_massive_font(size_time) 
+    font_sub = get_massive_font(size_sub)
 
-    margin_x = int(w * 0.05)
+    # Margin from the edges
+    margin_x = int(w * 0.04)
+    margin_bottom = int(h * 0.04)
+
+    # Calculate stacking (Bottom to Top)
+    # 1. Bus Stop (Bottom)
+    # 2. Date (Above Stop)
+    # 3. Time (Above Date)
     
-    # Draw from bottom up to avoid overlaps
-    # 1. Stop Name (Bottom)
-    stop_y = h - int(unit * 6)
-    draw.text((margin_x, stop_y), stop_name.upper(), font=font_sub, fill="white", stroke_width=4, stroke_fill="black")
-    
-    # 2. Date/Day (Middle)
-    date_y = stop_y - int(unit * 4)
-    draw.text((margin_x, date_y), date_info, font=font_sub, fill="white", stroke_width=3, stroke_fill="black")
-    
-    # 3. Massive Time (Top)
-    time_y = date_y - int(unit * 10)
-    draw.text((margin_x, time_y), time_str, font=font_time, fill="white", stroke_width=6, stroke_fill="black")
+    stop_y = h - margin_bottom - size_sub
+    date_y = stop_y - size_sub - 5  # Closer spacing
+    time_y = date_y - size_time - 5 # Closer spacing
+
+    # Draw Text - Removed stroke_width and stroke_fill
+    draw.text((margin_x, stop_y), stop_name.upper(), font=font_sub, fill="white")
+    draw.text((margin_x, date_y), date_info, font=font_sub, fill="white")
+    draw.text((margin_x, time_y), time_str, font=font_time, fill="white")
     
     img_byte_arr = BytesIO()
     img.save(img_byte_arr, format='JPEG', quality=95)
@@ -312,7 +321,8 @@ st.session_state.responses["Ada Penumpang?"] = has_passengers
 if has_passengers != "Yes":
     for q in questions_c: st.session_state.responses[q] = "No Passenger"
 else:
-    for q in questions_c: st.session_state.responses[q] = "Yes"
+    for q in questions_c: 
+        if st.session_state.responses[q] == "No Passenger": st.session_state.responses[q] = None
 st.divider()
 
 st.subheader("B. KEADAAN HENTIAN BAS")
@@ -372,7 +382,8 @@ if st.button("Submit Survey"):
         saving_placeholder.markdown('<div class="custom-spinner">⏳ Saving & Applying Massive Timemarks... Please wait.</div>', unsafe_allow_html=True)
         
         try:
-            timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+            now_kl = datetime.now(KL_TZ)
+            timestamp_str = now_kl.strftime("%Y%m%d_%H%M%S")
             safe_stop_name = re.sub(r'[^a-zA-Z0-9]', '_', stop)
             
             media_urls = []
@@ -387,7 +398,7 @@ if st.button("Submit Survey"):
                 v_url = gdrive_upload_file(v.getvalue(), f"{safe_stop_name}_{timestamp_str}_VID_{idx+1}.{ext}", m_type or "video/mp4", FOLDER_ID)
                 media_urls.append(v_url)
 
-            final_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            final_ts = now_kl.strftime("%Y-%m-%d %H:%M:%S")
             row_data = [final_ts, staff_id, staff_dict[staff_id], current_depot, current_route, stop, selected_bus] + \
                         [st.session_state.responses[q] for q in all_questions] + ["; ".join(media_urls)]
             
@@ -397,14 +408,19 @@ if st.button("Submit Survey"):
             saving_placeholder.empty() 
             st.success("Submitted Successfully!")
             
-            st.session_state.photos, st.session_state.videos = [], []
+            st.session_state.photos = []
+            st.session_state.videos = []
             st.session_state.responses = {q: None for q in all_questions}
-            if "bus_select" in st.session_state:
-                del st.session_state["bus_select"]
+            st.session_state.saved_staff_id = None
+            st.session_state.saved_stop = None
+
             for key in list(st.session_state.keys()):
-                if key.startswith("r_") or key == "has_pax":
+                if key.startswith("r_") or key in ["has_pax", "bus_select", "staff_id_select", "stop_select"]:
                     del st.session_state[key]
             
-            time.sleep(2); st.rerun()
+            time.sleep(2)
+            st.rerun()
+
         except Exception as e:
-            saving_placeholder.empty(); st.error(f"Error: {e}")
+            saving_placeholder.empty()
+            st.error(f"Error: {e}")
