@@ -26,14 +26,14 @@ st.markdown("""
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
     }
 
-    /* Target specific selectbox labels to be bigger and dark gray */
+    /* Standard Widget Labels */
     label[data-testid="stWidgetLabel"] p {
         font-size: 18px !important;
         font-weight: 600 !important;
         color: #3A3A3C !important;
     }
 
-    /* Custom Light Orange Spinner/Alert Frame */
+    /* Custom Spinner */
     .custom-spinner {
         padding: 20px;
         background-color: #FFF9F0;
@@ -45,12 +45,7 @@ st.markdown("""
         margin-bottom: 20px;
     }
 
-    /* Centering the Submit Button and Remove Buttons */
-    .stButton {
-        display: flex;
-        justify-content: center;
-    }
-
+    /* Radio Group Styling */
     div[role="radiogroup"] {
         background-color: #E3E3E8 !important; 
         padding: 6px !important; 
@@ -87,9 +82,6 @@ st.markdown("""
         margin: 0 !important;
         padding: 0 20px !important;
         white-space: nowrap !important; 
-        overflow: visible !important;
-        line-height: 1.2 !important;
-        text-align: center !important;
         color: #444444 !important; 
         font-weight: 700 !important; 
     }
@@ -99,11 +91,7 @@ st.markdown("""
         box-shadow: 0px 4px 12px rgba(0,0,0,0.15) !important;
     }
 
-    div[role="radiogroup"] label:has(input:checked) p {
-        color: #000000 !important; 
-    }
-
-    /* Standard Button Styling */
+    /* Submit Button */
     div.stButton > button {
         background-color: #007AFF !important;
         color: white !important;
@@ -113,18 +101,24 @@ st.markdown("""
         border-radius: 16px !important;
         font-size: 18px !important;
         padding: 0 40px !important;
-    }
-    
-    /* Styling for the centered Take Photo text inside camera component */
-    [data-testid="stCameraInput"] label div {
-        color: #FFD700 !important; /* Yellow */
-        font-weight: bold !important;
+        width: 100%;
     }
 
-    .stAlert {
-        border-radius: 12px !important;
-        border: none !important;
-        margin-top: 10px !important;
+    /* Camera Enhancement */
+    [data-testid="stCameraInput"] {
+        border: 2px dashed #007AFF;
+        border-radius: 16px;
+        padding: 10px;
+    }
+    
+    [data-testid="stCameraInput"] video {
+        border-radius: 12px;
+        object-fit: cover;
+    }
+
+    [data-testid="stCameraInput"] label div {
+        color: #007AFF !important;
+        font-weight: bold !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -201,26 +195,15 @@ except Exception as e:
     st.error(f"Error loading bus_list.xlsx: {e}")
     bus_list = []
 
-allowed_stops = sorted([
-    "AJ106 LRT AMPANG", "DAMANSARA INTAN", "ECOSKY RESIDENCE", "FAKULTI KEJURUTERAAN (UTARA)",
-    "FAKULTI PERNIAGAAN DAN PERAKAUNAN", "FAKULTI UNDANG-UNDANG", "KILANG PLASTIK EKSPEDISI EMAS (OPP)",
-    "KJ477 UTAR", "KJ560 SHELL SG LONG (OPP)", "KL107 LRT MASJID JAMEK", "KL1082 SK Methodist",
-    "KL117 BSN LEBUH AMPANG", "KL1217 ILP KUALA LUMPUR", "KL2247 KOMERSIAL KIP", "KL377 WISMA SISTEM",
-    "KOMERSIAL BURHANUDDIN (2)", "MASJID CYBERJAYA 10", "MRT SRI DELIMA PINTU C", "PERUMAHAN TTDI",
-    "PJ312 Medan Selera Seksyen 19", "PJ476 MASJID SULTAN ABDUL AZIZ", "PJ721 ONE UTAMA NEW WING",
-    "PPJ384 AURA RESIDENCE", "SA12 APARTMENT BAIDURI (OPP)", "SA26 PERUMAHAN SEKSYEN 11",
-    "SCLAND EMPORIS", "SJ602 BANDAR BUKIT PUCHONG BP1", "SMK SERI HARTAMAS", "SMK SULTAN ABD SAMAD (TIMUR)"
-])
+allowed_stops = sorted(["AJ106 LRT AMPANG", "DAMANSARA INTAN", "ECOSKY RESIDENCE", "FAKULTI KEJURUTERAAN (UTARA)", "FAKULTI PERNIAGAAN DAN PERAKAUNAN", "FAKULTI UNDANG-UNDANG", "KILANG PLASTIK EKSPEDISI EMAS (OPP)", "KJ477 UTAR", "KJ560 SHELL SG LONG (OPP)", "KL107 LRT MASJID JAMEK", "KL1082 SK Methodist", "KL117 BSN LEBUH AMPANG", "KL1217 ILP KUALA LUMPUR", "KL2247 KOMERSIAL KIP", "KL377 WISMA SISTEM", "KOMERSIAL BURHANUDDIN (2)", "MASJID CYBERJAYA 10", "MRT SRI DELIMA PINTU C", "PERUMAHAN TTDI", "PJ312 Medan Selera Seksyen 19", "PJ476 MASJID SULTAN ABDUL AZIZ", "PJ721 ONE UTAMA NEW WING", "PPJ384 AURA RESIDENCE", "SA12 APARTMENT BAIDURI (OPP)", "SA26 PERUMAHAN SEKSYEN 11", "SCLAND EMPORIS", "SJ602 BANDAR BUKIT PUCHONG BP1", "SMK SERI HARTAMAS", "SMK SULTAN ABD SAMAD (TIMUR)"])
 
 staff_dict = {"10005475": "MOHD RIZAL BIN RAMLI", "10020779": "NUR FAEZAH BINTI HARUN", "10014181": "NORAINSYIRAH BINTI ARIFFIN", "10022768": "NORAZHA RAFFIZZI ZORKORNAINI", "10022769": "NUR HANIM HANIL", "10023845": "MUHAMMAD HAMKA BIN ROSLIM", "10002059": "MUHAMAD NIZAM BIN IBRAHIM", "10005562": "AZFAR NASRI BIN BURHAN", "10010659": "MOHD SHAFIEE BIN ABDULLAH", "10008350": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN", "10003214": "NIK MOHD FADIR BIN NIK MAT RAWI", "10016370": "AHMAD AZIM BIN ISA", "10022910": "NUR SHAHIDA BINTI MOHD TAMIJI ", "10023513": "MUHAMMAD SYAHMI BIN AZMEY", "10023273": "MOHD IDZHAM BIN ABU BAKAR", "10023577": "MOHAMAD NAIM MOHAMAD SAPRI", "10023853": "MUHAMAD IMRAN BIN MOHD NASRUDDIN", "10008842": "MIRAN NURSYAWALNI AMIR", "10015662": "MUHAMMAD HANIF BIN HASHIM", "10011944": "NUR HAZIRAH BINTI NAWI"}
 
-# initialize persistence
 if "saved_staff_id" not in st.session_state: st.session_state.saved_staff_id = None
 if "saved_stop" not in st.session_state: st.session_state.saved_stop = None
 if "photos" not in st.session_state: st.session_state.photos = []
 if "videos" not in st.session_state: st.session_state.videos = []
 
-# Question Lists
 questions_a = ["1. BC menggunakan telefon bimbit?", "2. BC memperlahankan/memberhentikan bas?", "3. BC memandu di lorong 1 (kiri)?", "4. Bas penuh dengan penumpang?", "5. BC tidak mengambil penumpang? (NA jika tiada)", "6. BC berlaku tidak sopan? (NA jika tiada)"]
 questions_c = ["7. Penumpang beri isyarat menahan? (NA jika tiada)", "8. Penumpang leka/tidak peka? (NA jika tiada)", "9. Penumpang tiba lewat?", "10. Penumpang menunggu di luar kawasan hentian?"]
 questions_b = ["11. Hentian terlindung dari pandangan BC? (semak, pokok, Gerai, lain2)", "12. Hentian terhalang oleh kenderaan parkir?", "13. Persekitaran bahaya untuk bas berhenti?", "14. Terdapat pembinaan berhampiran?", "15. Mempunyai bumbung?", "16. Mempunyai tiang?", "17. Mempunyai petak hentian?", "18. Mempunyai layby?"]
@@ -229,7 +212,7 @@ all_questions = questions_a + ["Ada Penumpang?"] + questions_c + questions_b
 if "responses" not in st.session_state: st.session_state.responses = {q: None for q in all_questions}
 
 # --------- Main App UI ---------
-st.title("BACKUP_ BC and Bus Stop Survey")
+st.title("BC and Bus Stop Survey")
 
 col_staff, col_stop = st.columns(2)
 with col_staff:
@@ -261,7 +244,6 @@ def render_grid_questions(q_list):
             st.markdown(f"**{q}**")
             opts = ["Yes", "No", "NA"] if "NA" in q else ["Yes", "No"]
             st.session_state.responses[q] = st.radio(label=q, options=opts, index=None, key=f"r_{q}", horizontal=True, label_visibility="collapsed")
-        
         if i + 1 < len(q_list):
             with col2:
                 q = q_list[i+1]
@@ -269,46 +251,40 @@ def render_grid_questions(q_list):
                 opts = ["Yes", "No", "NA"] if "NA" in q else ["Yes", "No"]
                 st.session_state.responses[q] = st.radio(label=q, options=opts, index=None, key=f"r_{q}", horizontal=True, label_visibility="collapsed")
 
-# SECTION A
 st.subheader("A. KELAKUAN KAPTEN BAS")
 selected_bus = st.selectbox("🚌 Pilih No. Bas", options=bus_list, index=None, placeholder="Pilih no pendaftaran bas...", key="bus_select")
 render_grid_questions(questions_a)
-
 st.divider()
 
-# SECTION C (Conditional)
 st.subheader("C. PENUMPANG")
 st.markdown("**ada penumpang?**")
 has_passengers = st.radio("ada penumpang?", options=["Yes", "No"], index=None, key="has_pax", horizontal=True, label_visibility="collapsed")
 st.session_state.responses["Ada Penumpang?"] = has_passengers
-
-if has_passengers == "Yes":
-    render_grid_questions(questions_c)
+if has_passengers == "Yes": render_grid_questions(questions_c)
 else:
-    for q in questions_c:
-        st.session_state.responses[q] = "No Passenger"
-
+    for q in questions_c: st.session_state.responses[q] = "No Passenger"
 st.divider()
 
-# SECTION B
 st.subheader("B. KEADAAN HENTIAN BAS")
 render_grid_questions(questions_b)
-
 st.divider()
 
-# --------- Media Section (Photos & Videos Combined) ---------
+# --------- High Resolution Media Section ---------
 st.subheader("📸 Media Upload (3 Items Required)")
+st.info("💡 **TIP:** For high-resolution photos or video recording, use the **Upload** button and select 'Camera'.")
+
 if (len(st.session_state.photos) + len(st.session_state.videos)) < 3:
     col_cam, col_up = st.columns(2)
     with col_cam:
-        cam_in = st.camera_input(f"Take Photo (Item #{len(st.session_state.photos) + len(st.session_state.videos) + 1})")
+        cam_in = st.camera_input(f"Quick Capture (Standard Res)")
         if cam_in: 
             st.session_state.photos.append(cam_in)
             st.rerun()
     with col_up:
-        # Combined uploader for Images and Videos
-        file_in = st.file_uploader(f"Upload Image/Video #{len(st.session_state.photos) + len(st.session_state.videos) + 1}", 
-                                   type=["jpg", "png", "jpeg", "mp4", "mov", "avi"])
+        # File uploader acts as a high-res camera trigger on mobile
+        file_in = st.file_uploader(f"Upload / Take Photo & Video (High Res)", 
+                                   type=["jpg", "png", "jpeg", "mp4", "mov", "avi"],
+                                   key=f"file_up_{len(st.session_state.photos)+len(st.session_state.videos)}")
         if file_in: 
             mime_type, _ = mimetypes.guess_type(file_in.name)
             if mime_type and mime_type.startswith("video"):
@@ -321,85 +297,59 @@ if (len(st.session_state.photos) + len(st.session_state.videos)) < 3:
 if st.session_state.photos or st.session_state.videos:
     media_cols = st.columns(3)
     current_idx = 0
-    
-    # Show Photos
     for idx, pic in enumerate(st.session_state.photos):
         with media_cols[current_idx % 3]:
             st.image(pic, use_container_width=True)
-            if st.button(f"Remove", key=f"remove_pic_{idx}"):
-                st.session_state.photos.pop(idx)
-                st.rerun()
+            if st.button(f"Remove Photo {idx}", key=f"rm_p_{idx}"):
+                st.session_state.photos.pop(idx); st.rerun()
         current_idx += 1
-    
-    # Show Videos
     for idx, vid in enumerate(st.session_state.videos):
         with media_cols[current_idx % 3]:
             st.video(vid)
-            if st.button(f"Remove", key=f"remove_vid_{idx}"):
-                st.session_state.videos.pop(idx)
-                st.rerun()
+            if st.button(f"Remove Video {idx}", key=f"rm_v_{idx}"):
+                st.session_state.videos.pop(idx); st.rerun()
         current_idx += 1
 
 st.divider()
 
-# --------- Submit ---------
-c1, c2, c3 = st.columns([1, 2, 1])
-with c2:
-    if st.button("Submit Survey"):
-        total_media = len(st.session_state.photos) + len(st.session_state.videos)
-        check_responses = [st.session_state.responses[q] for q in questions_a + ["Ada Penumpang?"] + questions_b]
-        if has_passengers == "Yes":
-            check_responses += [st.session_state.responses[q] for q in questions_c]
+# --------- Submit Logic ---------
+if st.button("Submit Survey"):
+    total_media = len(st.session_state.photos) + len(st.session_state.videos)
+    check_responses = [st.session_state.responses[q] for q in questions_a + ["Ada Penumpang?"] + questions_b]
+    if has_passengers == "Yes": check_responses += [st.session_state.responses[q] for q in questions_c]
             
-        if not staff_id or not stop or not selected_bus or total_media != 3 or None in check_responses:
-            st.error("Sila pastikan semua soalan dijawab, No. Bas dipilih, dan 3 keping media (gambar/video) disediakan.")
-        else:
-            saving_placeholder = st.empty()
-            saving_placeholder.markdown('<div class="custom-spinner">⏳ Saving data... Please wait.</div>', unsafe_allow_html=True)
+    if not staff_id or not stop or not selected_bus or total_media != 3 or None in check_responses:
+        st.error("Sila pastikan semua soalan dijawab, No. Bas dipilih, dan 3 keping media disediakan.")
+    else:
+        saving_placeholder = st.empty()
+        saving_placeholder.markdown('<div class="custom-spinner">⏳ Saving data... Please wait.</div>', unsafe_allow_html=True)
+        
+        try:
+            timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+            safe_stop_name = re.sub(r'[^a-zA-Z0-9]', '_', stop)
             
-            try:
-                # Prepare naming components
-                timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-                # Remove spaces and special chars for file safety
-                safe_stop_name = re.sub(r'[^a-zA-Z0-9]', '_', stop)
-                
-                # Upload Photos with new naming
-                photo_urls = []
-                for idx, p in enumerate(st.session_state.photos):
-                    new_filename = f"{safe_stop_name}_{timestamp_str}_IMG_{idx+1}.jpg"
-                    url = gdrive_upload_file(p.getvalue(), new_filename, "image/jpeg", FOLDER_ID)
-                    photo_urls.append(url)
-                
-                # Upload Videos with new naming
-                video_urls = []
-                for idx, v in enumerate(st.session_state.videos):
-                    m_type, _ = mimetypes.guess_type(v.name)
-                    ext = v.name.split('.')[-1] if '.' in v.name else 'mp4'
-                    new_filename = f"{safe_stop_name}_{timestamp_str}_VID_{idx+1}.{ext}"
-                    v_url = gdrive_upload_file(v.getvalue(), new_filename, m_type or "video/mp4", FOLDER_ID)
-                    video_urls.append(v_url)
+            media_urls = []
+            for idx, p in enumerate(st.session_state.photos):
+                url = gdrive_upload_file(p.getvalue(), f"{safe_stop_name}_{timestamp_str}_IMG_{idx+1}.jpg", "image/jpeg", FOLDER_ID)
+                media_urls.append(url)
+            
+            for idx, v in enumerate(st.session_state.videos):
+                m_type, _ = mimetypes.guess_type(v.name)
+                ext = v.name.split('.')[-1] if '.' in v.name else 'mp4'
+                v_url = gdrive_upload_file(v.getvalue(), f"{safe_stop_name}_{timestamp_str}_VID_{idx+1}.{ext}", m_type or "video/mp4", FOLDER_ID)
+                media_urls.append(v_url)
 
-                # Combine media links for Sheet
-                all_media_links = photo_urls + video_urls
-                final_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                
-                row_data = [final_timestamp, staff_id, staff_dict[staff_id], current_depot, current_route, stop, selected_bus] + \
-                           [st.session_state.responses[q] for q in all_questions] + ["; ".join(all_media_links)]
-                
-                header_data = ["Timestamp", "Staff ID", "Staff Name", "Depot", "Route", "Bus Stop", "Bus Register No"] + all_questions + ["Media Links"]
-                
-                gsheet_id = find_or_create_gsheet("survey_responses", FOLDER_ID)
-                append_row(gsheet_id, row_data, header_data)
-                
-                saving_placeholder.empty() 
-                st.success("Submitted Successfully!")
-                
-                st.session_state.photos = []
-                st.session_state.videos = []
-                st.session_state.responses = {q: None for q in all_questions}
-                
-                time.sleep(2)
-                st.rerun()
-            except Exception as e:
-                saving_placeholder.empty()
-                st.error(f"Error saving data: {e}")
+            final_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            row_data = [final_ts, staff_id, staff_dict[staff_id], current_depot, current_route, stop, selected_bus] + \
+                       [st.session_state.responses[q] for q in all_questions] + ["; ".join(media_urls)]
+            
+            header_data = ["Timestamp", "Staff ID", "Staff Name", "Depot", "Route", "Bus Stop", "Bus Register No"] + all_questions + ["Media Links"]
+            append_row(find_or_create_gsheet("survey_responses", FOLDER_ID), row_data, header_data)
+            
+            saving_placeholder.empty() 
+            st.success("Submitted Successfully!")
+            st.session_state.photos, st.session_state.videos = [], []
+            st.session_state.responses = {q: None for q in all_questions}
+            time.sleep(2); st.rerun()
+        except Exception as e:
+            saving_placeholder.empty(); st.error(f"Error: {e}")
