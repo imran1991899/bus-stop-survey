@@ -346,7 +346,7 @@ with c2:
                 
                 # --- REFRESH LOGIC ---
                 saving_placeholder.empty() # Clear the orange frame
-                st.success("Submitted!")
+                st.success("Submitted Successfully!")
                 
                 # Clear questionnaire and photos
                 st.session_state.photos = []
@@ -357,4 +357,5 @@ with c2:
             except Exception as e:
                 saving_placeholder.empty()
                 st.error(f"Error saving data: {e}")
+
 
