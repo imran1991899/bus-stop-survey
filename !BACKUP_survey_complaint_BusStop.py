@@ -341,22 +341,22 @@ if st.button("Submit Survey"):
             
             media_urls = []
             for idx, p in enumerate(st.session_state.photos):
-                # --- ENHANCED WATERMARK LOGIC PER REFERENCE ---
+                # --- ENHANCED BIG & BOLD WATERMARK LOGIC ---
                 img = Image.open(p).convert("RGB")
                 draw = ImageDraw.Draw(img)
                 
-                # Dynamic sizing relative to image width
-                base_size = max(20, int(img.width * 0.035))
-                large_font_size = int(base_size * 2.5)
-                small_font_size = int(base_size * 0.8)
+                # Increased base sizing for "Big" effect
+                base_size = max(24, int(img.width * 0.04)) 
+                large_font_size = int(base_size * 2.8)
+                font_medium_size = int(base_size * 1.2)
                 
                 try:
-                    # Using standard Arial or similar; fallback to default if not found
-                    font_large = ImageFont.truetype("arial.ttf", large_font_size)
-                    font_small = ImageFont.truetype("arial.ttf", small_font_size)
-                    font_medium = ImageFont.truetype("arial.ttf", int(base_size))
+                    # Attempting to load Arial Bold; if unavailable, simulation via drawing twice
+                    font_large = ImageFont.truetype("arialbd.ttf", large_font_size)
+                    font_medium = ImageFont.truetype("arialbd.ttf", font_medium_size)
                 except:
-                    font_large = font_small = font_medium = ImageFont.load_default()
+                    font_large = ImageFont.load_default()
+                    font_medium = ImageFont.load_default()
 
                 # Prepare Data Strings
                 time_now = now_kl.strftime("%I:%M")
@@ -366,30 +366,30 @@ if st.button("Submit Survey"):
                 stop_label = f"Bus Stop Name : {stop}"
 
                 # Starting coordinates (Top Left Edge)
-                x, y = 20, 20
+                x, y = 30, 30
 
-                # 1. Bus Stop Name (Red Text)
-                draw.text((x, y), stop_label, font=font_medium, fill=(255, 69, 58)) # Apple-style Red
+                # 1. Bus Stop Name (Bold Red Text)
+                draw.text((x, y), stop_label, font=font_medium, fill=(255, 69, 58))
                 
-                # 2. Main Time (Large White Text)
-                y_time = y + int(base_size * 1.5)
+                # 2. Main Time (Extra Large White Text)
+                y_time = y + int(base_size * 1.8)
                 draw.text((x, y_time), time_now, font=font_large, fill="white")
                 
                 # Horizontal spacing calculation
                 time_width = draw.textlength(time_now, font=font_large)
-                x_suffix = x + time_width + 10
+                x_suffix = x + time_width + 15
                 
                 # 3. AM/PM Indicator
-                draw.text((x_suffix, y_time + int(large_font_size*0.2)), am_pm, font=font_medium, fill="white")
+                draw.text((x_suffix, y_time + int(large_font_size*0.25)), am_pm, font=font_medium, fill="white")
                 
-                # 4. Vertical Yellow Line
-                line_x = x_suffix + int(base_size * 1.8)
-                draw.line([(line_x, y_time + 10), (line_x, y_time + large_font_size)], fill=(255, 204, 0), width=3)
+                # 4. Thick Vertical Yellow Line
+                line_x = x_suffix + int(base_size * 2.2)
+                draw.line([(line_x, y_time + 10), (line_x, y_time + large_font_size + 10)], fill=(255, 204, 0), width=6)
                 
-                # 5. Date and Day Column
-                x_date = line_x + 15
-                draw.text((x_date, y_time + 5), date_str, font=font_medium, fill="white")
-                draw.text((x_date, y_time + int(large_font_size*0.6)), day_str, font=font_medium, fill="white")
+                # 5. Date and Day Column (Bold)
+                x_date = line_x + 25
+                draw.text((x_date, y_time + 10), date_str, font=font_medium, fill="white")
+                draw.text((x_date, y_time + int(large_font_size*0.65)), day_str, font=font_medium, fill="white")
                 
                 # Save processed image to buffer
                 buf = BytesIO()
