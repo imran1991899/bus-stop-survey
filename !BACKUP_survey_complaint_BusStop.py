@@ -119,25 +119,28 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --------- Helper: Giant Timemark Watermarking ---------
+# --------- Helper: MASSIVE Watermarking (20x Bigger & Apple Font) ---------
 def add_watermark(image_bytes, stop_name):
     img = Image.open(BytesIO(image_bytes)).convert("RGB")
     draw = ImageDraw.Draw(img)
     w, h = img.size
     
-    # Base scale on the shorter side to prevent "tiny text" on high-res photos
+    # Base scale on the shorter side for absolute massive size regardless of resolution
     short_side = min(w, h)
-    unit = short_side * 0.04 
+    unit = short_side * 0.05 
     
     now = datetime.now()
-    time_main = now.strftime("%I:%M")
-    time_ampm = now.strftime("%p")
-    date_full = now.strftime("%b %d, %Y (%a)")
+    time_str = now.strftime("%I:%M %p")
+    date_info = now.strftime("%b %d, %Y (%a)")
 
-    # Font handling (SF Bold style)
-    font_paths = ["/System/Library/Fonts/SFNS.ttf", "/System/Library/Fonts/HelveticaNeue-Bold.ttf", "arialbd.ttf"]
+    # Font path logic for Apple San Francisco style
+    font_paths = [
+        "/System/Library/Fonts/SFNS.ttf", 
+        "/System/Library/Fonts/HelveticaNeue-Bold.ttf", 
+        "arialbd.ttf"
+    ]
     
-    def get_font(size):
+    def get_massive_font(size):
         for path in font_paths:
             try:
                 return ImageFont.truetype(path, size)
@@ -145,25 +148,24 @@ def add_watermark(image_bytes, stop_name):
                 continue
         return ImageFont.load_default()
 
-    # Giant Font sizes
-    font_time = get_font(int(unit * 8)) 
-    font_sub = get_font(int(unit * 2.5))
-    font_stop = get_font(int(unit * 3))
+    # 20x More Big Scaling
+    font_time = get_massive_font(int(unit * 10)) 
+    font_sub = get_massive_font(int(unit * 3.5))
 
-    margin_x = int(w * 0.04)
-    # Start drawing from the bottom up
+    margin_x = int(w * 0.05)
     
-    # 1. Stop Name (Bottom-most)
-    stop_y = h - int(unit * 5)
-    draw.text((margin_x, stop_y), stop_name.upper(), font=font_stop, fill="white", stroke_width=3, stroke_fill="black")
+    # Draw from bottom up to avoid overlaps
+    # 1. Stop Name (Bottom)
+    stop_y = h - int(unit * 6)
+    draw.text((margin_x, stop_y), stop_name.upper(), font=font_sub, fill="white", stroke_width=4, stroke_fill="black")
     
-    # 2. Date and Day (Middle)
-    date_y = stop_y - int(unit * 3.5)
-    draw.text((margin_x, date_y), date_full, font=font_sub, fill="white", stroke_width=2, stroke_fill="black")
+    # 2. Date/Day (Middle)
+    date_y = stop_y - int(unit * 4)
+    draw.text((margin_x, date_y), date_info, font=font_sub, fill="white", stroke_width=3, stroke_fill="black")
     
-    # 3. Time and AM/PM (Top of block)
-    time_y = date_y - int(unit * 8.5)
-    draw.text((margin_x, time_y), f"{time_main} {time_ampm}", font=font_time, fill="white", stroke_width=4, stroke_fill="black")
+    # 3. Massive Time (Top)
+    time_y = date_y - int(unit * 10)
+    draw.text((margin_x, time_y), time_str, font=font_time, fill="white", stroke_width=6, stroke_fill="black")
     
     img_byte_arr = BytesIO()
     img.save(img_byte_arr, format='JPEG', quality=95)
@@ -243,7 +245,7 @@ except Exception as e:
 
 allowed_stops = sorted(["AJ106 LRT AMPANG", "DAMANSARA INTAN", "ECOSKY RESIDENCE", "FAKULTI KEJURUTERAAN (UTARA)", "FAKULTI PERNIAGAAN DAN PERAKAUNAN", "FAKULTI UNDANG-UNDANG", "KILANG PLASTIK EKSPEDISI EMAS (OPP)", "KJ477 UTAR", "KJ560 SHELL SG LONG (OPP)", "KL107 LRT MASJID JAMEK", "KL1082 SK Methodist", "KL117 BSN LEBUH AMPANG", "KL1217 ILP KUALA LUMPUR", "KL2247 KOMERSIAL KIP", "KL377 WISMA SISTEM", "KOMERSIAL BURHANUDDIN (2)", "MASJID CYBERJAYA 10", "MRT SRI DELIMA PINTU C", "PERUMAHAN TTDI", "PJ312 Medan Selera Seksyen 19", "PJ476 MASJID SULTAN ABDUL AZIZ", "PJ721 ONE UTAMA NEW WING", "PPJ384 AURA RESIDENCE", "SA12 APARTMENT BAIDURI (OPP)", "SA26 PERUMAHAN SEKSYEN 11", "SCLAND EMPORIS", "SJ602 BANDAR BUKIT PUCHONG BP1", "SMK SERI HARTAMAS", "SMK SULTAN ABD SAMAD (TIMUR)"])
 
-staff_dict = {"10005475": "MOHD RIZAL BIN RAMLI", "10020779": "NUR FAEZAH BINTI HARUN", "10014181": "NORAINSYIRAH BINTI ARIFFIN", "10022768": "NORAZHA RAFFIZZI ZORKORNAINI", "10022769": "NUR HANIM HANIL", "10023845": "MUHAMMAD HAMKA BIN ROSLIM", "10002059": "MUHAMAD NIZAM BIN IBRAHIM", "10005562": "AZFAR NASRI BIN BURHAN", "10010659": "MOHD SHAFIEE BIN ABDULLAH", "10008350": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN", "10003214": "NIK MOHD FADIR BIN NIK MAT RAWI", "10016370": "AHMAD AZIM BIN ISA", "10022910": "NUR SHAHIDA BINTI MOHD TAMIJI ", "10023513": "MUHAMMAD SYAHMI BIN AZMEY", "10023273": "MOHD IDZHAM BIN ABU BAKAR", "10023577": "MOHAMAD NAIM MOHAMAD SAPRI", "10023853": "MUHAMAD IMRAN BIN MOHD NASRUDDIN", "10008842": "MIRAN NURSYAWALNI AMIR", "10015662": "MUHAMMAD HANIF BIN HASHIM", "10011944": "NUR HAZIRAH BINTI NAWI"}
+staff_dict = {"10005475": "MOHD RIZAL BIN RAMLI", "10020779": "NUR FAEZAH BINTI HARUN", "10014181": "NORAINSYIRAH BINTI ARIFFIN", "10022768": "NORAZHA RAFFIZZI ZORKORNAINI", "10022769": "NUR HANIM HANIL", "10023845": "MUHAMMAD HAMKA BIN ROSLIM", "10002059": "MUHAMAD NIZAM BIN IBRAHIM", "10005562": "AZFAR NASRI BIN BURHAN", "10010659": "MOHD SHAFIEE BIN ABDULLAH", "10008350": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN", "10003214": "NIK MOHD FADIR BIN NIK MAT RAWI", "10016370": "AHMAD AZIM BIN ISA", "10022910": "NUR SHAHIDA BINTI MOHD TAMIJI ", "10023513": "MUHAMMAD SYAHMI BIN AZMEY", "10023273": "MOHD IDZHAM BIN ABU BAKAR", "10023577": "MOHAMAD NAIM MOHAMAD SAPRI", "10023853": "MUHAMAD IMRAN BIN MOHD NASRUDDIN", "10008842": "MIRAN NURSYAWALNI AMIR", "10015662": "MUHAMMAD HANDIF BIN HASHIM", "10011944": "NUR HAZIRAH BINTI NAWI"}
 
 if "saved_staff_id" not in st.session_state: st.session_state.saved_staff_id = None
 if "saved_stop" not in st.session_state: st.session_state.saved_stop = None
@@ -367,7 +369,7 @@ if st.button("Submit Survey"):
         st.error("Sila pastikan semua soalan dijawab, No. Bas dipilih, dan 3 keping media disediakan.")
     else:
         saving_placeholder = st.empty()
-        saving_placeholder.markdown('<div class="custom-spinner">⏳ Saving data & Applying Giant Watermark... Please wait.</div>', unsafe_allow_html=True)
+        saving_placeholder.markdown('<div class="custom-spinner">⏳ Saving & Applying Massive Timemarks... Please wait.</div>', unsafe_allow_html=True)
         
         try:
             timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
