@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-import pytz  # Added for Malaysia Timezone
+import pytz  # Handles the Malaysia Timezone
 from io import BytesIO
 import mimetypes
 import time
