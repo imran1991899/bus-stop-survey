@@ -25,14 +25,12 @@ st.markdown("""
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
     }
 
-    /* Target specific selectbox labels to be bigger and dark gray */
     label[data-testid="stWidgetLabel"] p {
         font-size: 18px !important;
         font-weight: 600 !important;
         color: #3A3A3C !important;
     }
 
-    /* Custom Light Orange Spinner/Alert Frame */
     .custom-spinner {
         padding: 20px;
         background-color: #FFF9F0;
@@ -44,7 +42,6 @@ st.markdown("""
         margin-bottom: 20px;
     }
 
-    /* Centering the Submit Button and Remove Buttons */
     .stButton {
         display: flex;
         justify-content: center;
@@ -86,9 +83,6 @@ st.markdown("""
         margin: 0 !important;
         padding: 0 20px !important;
         white-space: nowrap !important; 
-        overflow: visible !important;
-        line-height: 1.2 !important;
-        text-align: center !important;
         color: #444444 !important; 
         font-weight: 700 !important; 
     }
@@ -102,28 +96,18 @@ st.markdown("""
         color: #000000 !important; 
     }
 
-    /* Standard Button Styling */
     div.stButton > button {
         background-color: #007AFF !important;
         color: white !important;
         border: none !important;
         height: 60px !important;
-        font-weight: 600 !important;
         border-radius: 16px !important;
         font-size: 18px !important;
-        padding: 0 40px !important;
     }
     
-    /* Styling for the centered Take Photo text inside camera component */
     [data-testid="stCameraInput"] label div {
-        color: #FFD700 !important; /* Yellow */
+        color: #FFD700 !important; 
         font-weight: bold !important;
-    }
-
-    .stAlert {
-        border-radius: 12px !important;
-        border: none !important;
-        margin-top: 10px !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -211,30 +195,29 @@ allowed_stops = sorted([
     "SCLAND EMPORIS", "SJ602 BANDAR BUKIT PUCHONG BP1", "SMK SERI HARTAMAS", "SMK SULTAN ABD SAMAD (TIMUR)"
 ])
 
-staff_dict = {"10005475": "MOHD RIZAL BIN RAMLI", "10020779": "NUR FAEZAH BINTI HARUN", "10014181": "NORAINSYIRAH BINTI ARIFFIN", "10022768": "NORAZHA RAFFIZZI ZORKORNAINI", "10022769": "NUR HANIM HANIL", "10023845": "MUHAMMAD HAMKA BIN ROSLIM", "10002059": "MUHAMAD NIZAM BIN IBRAHIM", "10005562": "AZFAR NASRI BIN BURHAN", "10010659": "MOHD SHAHFIEE BIN ABDULLAH", "10008350": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN", "10003214": "NIK MOHD FADIR BIN NIK MAT RAWI", "10016370": "AHMAD AZIM BIN ISA", "10022910": "NUR SHAHIDA BINTI MOHD TAMIJI ", "10023513": "MUHAMMAD SYAHMI BIN AZMEY", "10023273": "MOHD IDZHAM BIN ABU BAKAR", "10023577": "MOHAMAD NAIM MOHAMAD SAPRI", "10023853": "MUHAMAD IMRAN BIN MOHD NASRUDDIN", "10008842": "MIRAN NURSYAWALNI AMIR", "10015662": "MUHAMMAD HANIF BIN HASHIM", "10011944": "NUR HAZIRAH BINTI NAWI"}
+staff_dict = {"10005475": "MOHD RIZAL BIN RAMLI", "10020779": "NUR FAEZAH BINTI HARUN", "10014181": "NORAINSYIRAH BINTI ARIFFIN", "10022768": "NORAZHA RAFFIZZI ZORKORNAINI", "10022769": "NUR HANIM HANIL", "10023845": "MUHAMMAD HAMKA BIN ROSLIM", "10002059": "MUHAMAD NIZAM BIN IBRAHIM", "10005562": "AZFAR NASRI BIN BURHAN", "10010659": "MOHD SHAHFIEE BIN ABDULLAH", "10008350": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN", "10003214": "NIK MOHD FADIR BIN NIK MAT RAWI", "10016370": "AHMAD AZIM BIN ISA", "10022910": "NUR SHAHIDA BINTI MOHD TAMIJI ", "10023513": "MUHAMMAD SYAHMI BIN AZMEY", "10023273": "MOHD IDZHAM BIN ABU BAKAR", "10023577": "MOHAMAD NAIM MOHAMAD SAPRI", "10023853": "MUHAMAD IMRAN BIN MOHD NASRUDDIN", "10008842": "MIRAN NURSYAWALNI AMIR", "10015662": "MUHAMMAD HANDIF BIN HASHIM", "10011944": "NUR HAZIRAH BINTI NAWI"}
 
-# initialize photos
+# initialize persistence
 if "photos" not in st.session_state: st.session_state.photos = []
+if "responses" not in st.session_state: st.session_state.responses = {}
 
 # Question Lists
 questions_a = ["1. BC menggunakan telefon bimbit?", "2. BC memperlahankan/memberhentikan bas?", "3. BC memandu di lorong 1 (kiri)?", "4. Bas penuh dengan penumpang?", "5. BC tidak mengambil penumpang? (NA jika tiada)", "6. BC berlaku tidak sopan? (NA jika tiada)"]
 questions_c = ["7. Penumpang beri isyarat menahan? (NA jika tiada)", "8. Penumpang leka/tidak peka? (NA jika tiada)", "9. Penumpang tiba lewat?", "10. Penumpang menunggu di luar kawasan hentian?"]
 questions_b = ["11. Hentian terlindung dari pandangan BC? (semak, pokok, Gerai, lain2)", "12. Hentian terhalang oleh kenderaan parkir?", "13. Persekitaran bahaya untuk bas berhenti?", "14. Terdapat pembinaan berhampiran?", "15. Mempunyai bumbung?", "16. Mempunyai tiang?", "17. Mempunyai petak hentian?", "18. Mempunyai layby?"]
-
 all_questions = questions_a + ["Ada Penumpang?"] + questions_c + questions_b
-if "responses" not in st.session_state: st.session_state.responses = {q: None for q in all_questions}
 
 # --------- Main App UI ---------
 st.title("BC and Bus Stop Survey")
 
 col_staff, col_stop = st.columns(2)
 with col_staff:
-    staff_id = st.selectbox("👤 Staff ID", options=list(staff_dict.keys()), index=None, placeholder="Pilih ID Staf...", key="staff_id_perm")
+    staff_id = st.selectbox("👤 Staff ID", options=list(staff_dict.keys()), index=None, placeholder="Pilih ID Staf...", key="staff_id")
     if staff_id:
         st.info(f"**Nama:** {staff_dict[staff_id]}")
 
 with col_stop:
-    stop = st.selectbox("📍 Bus Stop", allowed_stops, index=None, placeholder="Pilih Hentian Bas...", key="stop_perm")
+    stop = st.selectbox("📍 Bus Stop", allowed_stops, index=None, placeholder="Pilih Hentian Bas...", key="bus_stop")
     current_route, current_depot = "", ""
     if stop:
         matched_stop_data = stops_df[stops_df["Stop Name"] == stop]
@@ -250,26 +233,26 @@ def render_grid_questions(q_list):
             q = q_list[i]
             st.markdown(f"**{q}**")
             opts = ["Yes", "No", "NA"] if "NA" in q else ["Yes", "No"]
-            st.session_state.responses[q] = st.radio(label=q, options=opts, index=None, key=f"r_{q}", horizontal=True, label_visibility="collapsed")
+            st.session_state.responses[q] = st.radio(label=q, options=opts, index=None, key=f"radio_{q}", horizontal=True, label_visibility="collapsed")
         
         if i + 1 < len(q_list):
             with col2:
                 q = q_list[i+1]
                 st.markdown(f"**{q}**")
                 opts = ["Yes", "No", "NA"] if "NA" in q else ["Yes", "No"]
-                st.session_state.responses[q] = st.radio(label=q, options=opts, index=None, key=f"r_{q}", horizontal=True, label_visibility="collapsed")
+                st.session_state.responses[q] = st.radio(label=q, options=opts, index=None, key=f"radio_{q}", horizontal=True, label_visibility="collapsed")
 
 # SECTION A
 st.subheader("A. KELAKUAN KAPTEN BAS")
-selected_bus = st.selectbox("🚌 Pilih No. Bas", options=bus_list, index=None, placeholder="Pilih no pendaftaran bas...", key="bus_select")
+selected_bus = st.selectbox("🚌 Pilih No. Bas", options=bus_list, index=None, placeholder="Pilih no pendaftaran bas...", key="bus_no")
 render_grid_questions(questions_a)
 
 st.divider()
 
-# SECTION C (Conditional)
+# SECTION C
 st.subheader("C. PENUMPANG")
 st.markdown("**ada penumpang?**")
-has_passengers = st.radio("ada penumpang?", options=["Yes", "No"], index=None, key="has_pax", horizontal=True, label_visibility="collapsed")
+has_passengers = st.radio("ada penumpang?", options=["Yes", "No"], index=None, key="pax_check", horizontal=True, label_visibility="collapsed")
 st.session_state.responses["Ada Penumpang?"] = has_passengers
 
 if has_passengers == "Yes":
@@ -291,12 +274,12 @@ st.subheader("📸 Take Photo (3 Photos Required)")
 if len(st.session_state.photos) < 3:
     col_cam, col_up = st.columns(2)
     with col_cam:
-        cam_in = st.camera_input(f"Take Photo (Ambil Gambar #{len(st.session_state.photos)+1})", key=f"cam_{len(st.session_state.photos)}")
+        cam_in = st.camera_input(f"Take Photo #{len(st.session_state.photos)+1}", key=f"cam_input_{len(st.session_state.photos)}")
         if cam_in: 
             st.session_state.photos.append(cam_in)
             st.rerun()
     with col_up:
-        file_in = st.file_uploader(f"Upload Gambar #{len(st.session_state.photos)+1}", type=["jpg", "png", "jpeg"], key=f"file_{len(st.session_state.photos)}")
+        file_in = st.file_uploader(f"Upload Gambar #{len(st.session_state.photos)+1}", type=["jpg", "png", "jpeg"], key=f"file_input_{len(st.session_state.photos)}")
         if file_in: 
             st.session_state.photos.append(file_in)
             st.rerun()
@@ -306,7 +289,7 @@ if st.session_state.photos:
     for idx, pic in enumerate(st.session_state.photos):
         with img_cols[idx]:
             st.image(pic, use_container_width=True)
-            if st.button(f"Remove", key=f"remove_{idx}"):
+            if st.button(f"Remove", key=f"rem_{idx}"):
                 st.session_state.photos.pop(idx)
                 st.rerun()
 
@@ -316,11 +299,14 @@ st.divider()
 c1, c2, c3 = st.columns([1, 2, 1])
 with c2:
     if st.button("Submit Survey"):
-        check_responses = [st.session_state.responses[q] for q in questions_a + ["Ada Penumpang?"] + questions_b]
+        # Check all answers
+        required_questions = questions_a + ["Ada Penumpang?"] + questions_b
         if has_passengers == "Yes":
-            check_responses += [st.session_state.responses[q] for q in questions_c]
+            required_questions += questions_c
             
-        if not staff_id or not stop or not selected_bus or len(st.session_state.photos) != 3 or None in check_responses:
+        missing = [q for q in required_questions if st.session_state.responses.get(q) is None]
+        
+        if not staff_id or not stop or not selected_bus or len(st.session_state.photos) < 3 or missing:
             st.error("Sila pastikan semua soalan dijawab, No. Bas dipilih, dan 3 keping gambar disediakan.")
         else:
             saving_placeholder = st.empty()
@@ -329,28 +315,30 @@ with c2:
             try:
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 photo_urls = [gdrive_upload_file(p.getvalue(), f"{timestamp}_{idx}.jpg", "image/jpeg", FOLDER_ID) for idx, p in enumerate(st.session_state.photos)]
+                
                 row_data = [timestamp, staff_id, staff_dict[staff_id], current_depot, current_route, stop, selected_bus] + \
-                           [st.session_state.responses[q] for q in all_questions] + ["; ".join(photo_urls)]
+                           [st.session_state.responses.get(q) for q in all_questions] + ["; ".join(photo_urls)]
                 header_data = ["Timestamp", "Staff ID", "Staff Name", "Depot", "Route", "Bus Stop", "Bus Register No"] + all_questions + ["Photos"]
+                
                 gsheet_id = find_or_create_gsheet("survey_responses", FOLDER_ID)
                 append_row(gsheet_id, row_data, header_data)
                 
                 saving_placeholder.empty()
                 st.success("Submitted!")
                 
-                # --- THE FIX: MANUAL KEY RESET ---
-                # We loop through session_state and delete keys we want to reset.
-                # We skip 'staff_id_perm' and 'stop_perm' so they stay.
-                for key in list(st.session_state.keys()):
-                    if key not in ["staff_id_perm", "stop_perm"]:
-                        del st.session_state[key]
-                
-                # Re-initialize the basic lists so the app doesn't crash on rerun
+                # --- FORCED RESET LOGIC ---
+                # 1. Clear Photo list
                 st.session_state.photos = []
-                st.session_state.responses = {q: None for q in all_questions}
+                # 2. Clear responses dict
+                st.session_state.responses = {}
+                
+                # 3. Clear widget keys EXCEPT Staff and Stop
+                for key in list(st.session_state.keys()):
+                    if key not in ["staff_id", "bus_stop"]:
+                        del st.session_state[key]
                 
                 time.sleep(2)
                 st.rerun()
             except Exception as e:
                 saving_placeholder.empty()
-                st.error(f"Error saving data: {e}")
+                st.error(f"Error: {e}")
