@@ -9,11 +9,15 @@ import pickle
 import re
 from urllib.parse import urlencode
 from PIL import Image, ImageDraw, ImageFont
+import pytz  # Added for Malaysia Timezone
 
 from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 from google.auth.transport.requests import Request
+
+# --------- Timezone Setup ---------
+KL_TZ = pytz.timezone('Asia/Kuala_Lumpur')
 
 # --------- Page Setup ---------
 st.set_page_config(page_title="Bus Stop Survey", layout="wide")
@@ -103,7 +107,7 @@ st.markdown("""
 
     [data-testid="stCameraInput"] {
         border: 2px dashed #007AFF;
-        border-radius: 16px;
+        border-radius: 166px;
         padding: 10px;
     }
     
@@ -128,7 +132,8 @@ def add_watermark(image_bytes, stop_name):
     short_side = min(w, h)
     unit = short_side * 0.05 
     
-    now = datetime.now()
+    # ADJUSTED: Use Malaysia Time
+    now = datetime.now(KL_TZ)
     time_str = now.strftime("%I:%M %p")
     date_info = now.strftime("%b %d, %Y (%a)")
 
@@ -305,7 +310,6 @@ st.session_state.responses["Ada Penumpang?"] = has_passengers
 if has_passengers != "Yes":
     for q in questions_c: st.session_state.responses[q] = "No Passenger"
 else:
-    # Logic remains as per user's requirement to define these separately or as Yes
     for q in questions_c: 
         if st.session_state.responses[q] == "No Passenger": st.session_state.responses[q] = None
 st.divider()
@@ -367,7 +371,9 @@ if st.button("Submit Survey"):
         saving_placeholder.markdown('<div class="custom-spinner">⏳ Saving & Applying Massive Timemarks... Please wait.</div>', unsafe_allow_html=True)
         
         try:
-            timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+            # ADJUSTED: Use Malaysia Time for filenames
+            now_kl = datetime.now(KL_TZ)
+            timestamp_str = now_kl.strftime("%Y%m%d_%H%M%S")
             safe_stop_name = re.sub(r'[^a-zA-Z0-9]', '_', stop)
             
             media_urls = []
@@ -382,7 +388,8 @@ if st.button("Submit Survey"):
                 v_url = gdrive_upload_file(v.getvalue(), f"{safe_stop_name}_{timestamp_str}_VID_{idx+1}.{ext}", m_type or "video/mp4", FOLDER_ID)
                 media_urls.append(v_url)
 
-            final_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            # ADJUSTED: Use Malaysia Time for Sheet timestamp
+            final_ts = now_kl.strftime("%Y-%m-%d %H:%M:%S")
             row_data = [final_ts, staff_id, staff_dict[staff_id], current_depot, current_route, stop, selected_bus] + \
                         [st.session_state.responses[q] for q in all_questions] + ["; ".join(media_urls)]
             
@@ -393,19 +400,16 @@ if st.button("Submit Survey"):
             st.success("Submitted Successfully!")
             
             # --- REFRESH ALL / SET TO DEFAULT ---
-            # 1. Clear session data
             st.session_state.photos = []
             st.session_state.videos = []
             st.session_state.responses = {q: None for q in all_questions}
             st.session_state.saved_staff_id = None
             st.session_state.saved_stop = None
 
-            # 2. Clear widget keys (force refresh selectboxes and radio buttons)
             for key in list(st.session_state.keys()):
                 if key.startswith("r_") or key in ["has_pax", "bus_select", "staff_id_select", "stop_select"]:
                     del st.session_state[key]
             
-            # 3. Small delay and full rerun
             time.sleep(2)
             st.rerun()
 
