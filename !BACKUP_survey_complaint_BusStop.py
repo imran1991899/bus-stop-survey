@@ -1,5 +1,5 @@
 import streamlit as st
-import pandas as pd
+import pd as pd
 from datetime import datetime
 import pytz  # Handles the Malaysia Timezone
 from io import BytesIO
@@ -102,7 +102,7 @@ st.markdown("""
         border: none !important;
         height: 60px !important;
         font-weight: 600 !important;
-        border-radius: 16px !important;
+        border-radius: 166px !important;
         font-size: 18px !important;
         padding: 0 40px !important;
         width: 100%;
@@ -341,20 +341,22 @@ if st.button("Submit Survey"):
             
             media_urls = []
             for idx, p in enumerate(st.session_state.photos):
-                # --- MATCHED SIZE WATERMARK LOGIC ---
+                # --- EXTREME BOLD & HUGE WATERMARK LOGIC ---
                 img = Image.open(p).convert("RGB")
                 draw = ImageDraw.Draw(img)
                 
-                # Dynamic scaling to match high-resolution image needs
-                base_size = max(24, int(img.width * 0.045)) 
-                large_font_size = int(base_size * 3.5) # Time font
-                medium_font_size = int(base_size * 1.3) # Date/Name font
+                # Extreme Scaling: base size is 10% of image width
+                base_scale = int(img.width * 0.1) 
+                
+                # Font Sizes
+                size_large = int(base_scale * 1.5)  # The big Time (07:34)
+                size_medium = int(base_scale * 0.5) # Stop Name / Date
                 
                 try:
-                    # Using Bold font for all for maximum visibility
-                    font_large = ImageFont.truetype("arialbd.ttf", large_font_size)
-                    font_medium = ImageFont.truetype("arialbd.ttf", medium_font_size)
+                    font_large = ImageFont.truetype("arialbd.ttf", size_large)
+                    font_medium = ImageFont.truetype("arialbd.ttf", size_medium)
                 except:
+                    # Fallback if font file not found - though it will look smaller
                     font_large = ImageFont.load_default()
                     font_medium = ImageFont.load_default()
 
@@ -365,31 +367,33 @@ if st.button("Submit Survey"):
                 day_str = now_kl.strftime("%a")
                 stop_label = f"Bus Stop Name : {stop}"
 
-                # Position at Top Left Edge
-                x, y = 40, 40
+                # Starting coordinates (Top Left Edge)
+                x_start, y_start = 50, 50
 
-                # 1. Bus Stop Name (Bold Red)
-                draw.text((x, y), stop_label, font=font_medium, fill=(255, 69, 58))
+                # 1. Bus Stop Name (Top, Red)
+                draw.text((x_start, y_start), stop_label, font=font_medium, fill=(255, 69, 58))
                 
-                # 2. Main Time (Huge White)
-                y_time = y + int(medium_font_size * 1.6)
-                draw.text((x, y_time), time_now, font=font_large, fill="white")
+                # 2. Main Time (Massive White)
+                y_time = y_start + int(size_medium * 1.3)
+                draw.text((x_start, y_time), time_now, font=font_large, fill="white")
                 
-                # Spacing for suffix
+                # Calculate spacing for items to the right of the Time
                 time_width = draw.textlength(time_now, font=font_large)
-                x_suffix = x + time_width + 15
+                x_after_time = x_start + time_width + 20
                 
-                # 3. AM/PM Indicator
-                draw.text((x_suffix, y_time + int(large_font_size * 0.3)), am_pm, font=font_medium, fill="white")
+                # 3. AM/PM Indicator (Slightly lowered white text)
+                draw.text((x_after_time, y_time + int(size_large * 0.3)), am_pm, font=font_medium, fill="white")
                 
-                # 4. Thick Vertical Yellow Line
-                line_x = x_suffix + int(base_size * 2.2)
-                draw.line([(line_x, y_time + 10), (line_x, y_time + large_font_size - 10)], fill=(255, 204, 0), width=8)
+                # 4. Vertical Yellow Line (Thick)
+                line_x = x_after_time + int(size_medium * 1.5)
+                line_top = y_time + 10
+                line_bottom = y_time + size_large - 10
+                draw.line([(line_x, line_top), (line_x, line_bottom)], fill=(255, 204, 0), width=15)
                 
-                # 5. Date and Day (Aligned right of line)
-                x_date = line_x + 25
-                draw.text((x_date, y_time + 5), date_str, font=font_medium, fill="white")
-                draw.text((x_date, y_time + int(large_font_size * 0.6)), day_str, font=font_medium, fill="white")
+                # 5. Date and Day (Stacked to the right of the yellow line)
+                x_date = line_x + 30
+                draw.text((x_date, y_time + 10), date_str, font=font_medium, fill="white")
+                draw.text((x_date, y_time + int(size_large * 0.6)), day_str, font=font_medium, fill="white")
                 
                 # Save processed image to buffer
                 buf = BytesIO()
