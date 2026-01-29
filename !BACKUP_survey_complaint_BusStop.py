@@ -341,19 +341,19 @@ if st.button("Submit Survey"):
             
             media_urls = []
             for idx, p in enumerate(st.session_state.photos):
-                # --- ENHANCED BIG & BOLD WATERMARK LOGIC ---
+                # --- MATCHED SIZE WATERMARK LOGIC ---
                 img = Image.open(p).convert("RGB")
                 draw = ImageDraw.Draw(img)
                 
-                # Increased base sizing for "Big" effect
-                base_size = max(24, int(img.width * 0.04)) 
-                large_font_size = int(base_size * 2.8)
-                font_medium_size = int(base_size * 1.2)
+                # Dynamic scaling to match high-resolution image needs
+                base_size = max(24, int(img.width * 0.045)) 
+                large_font_size = int(base_size * 3.5) # Time font
+                medium_font_size = int(base_size * 1.3) # Date/Name font
                 
                 try:
-                    # Attempting to load Arial Bold; if unavailable, simulation via drawing twice
+                    # Using Bold font for all for maximum visibility
                     font_large = ImageFont.truetype("arialbd.ttf", large_font_size)
-                    font_medium = ImageFont.truetype("arialbd.ttf", font_medium_size)
+                    font_medium = ImageFont.truetype("arialbd.ttf", medium_font_size)
                 except:
                     font_large = ImageFont.load_default()
                     font_medium = ImageFont.load_default()
@@ -365,31 +365,31 @@ if st.button("Submit Survey"):
                 day_str = now_kl.strftime("%a")
                 stop_label = f"Bus Stop Name : {stop}"
 
-                # Starting coordinates (Top Left Edge)
-                x, y = 30, 30
+                # Position at Top Left Edge
+                x, y = 40, 40
 
-                # 1. Bus Stop Name (Bold Red Text)
+                # 1. Bus Stop Name (Bold Red)
                 draw.text((x, y), stop_label, font=font_medium, fill=(255, 69, 58))
                 
-                # 2. Main Time (Extra Large White Text)
-                y_time = y + int(base_size * 1.8)
+                # 2. Main Time (Huge White)
+                y_time = y + int(medium_font_size * 1.6)
                 draw.text((x, y_time), time_now, font=font_large, fill="white")
                 
-                # Horizontal spacing calculation
+                # Spacing for suffix
                 time_width = draw.textlength(time_now, font=font_large)
                 x_suffix = x + time_width + 15
                 
                 # 3. AM/PM Indicator
-                draw.text((x_suffix, y_time + int(large_font_size*0.25)), am_pm, font=font_medium, fill="white")
+                draw.text((x_suffix, y_time + int(large_font_size * 0.3)), am_pm, font=font_medium, fill="white")
                 
                 # 4. Thick Vertical Yellow Line
                 line_x = x_suffix + int(base_size * 2.2)
-                draw.line([(line_x, y_time + 10), (line_x, y_time + large_font_size + 20)], fill=(255, 204, 0), width=6)
+                draw.line([(line_x, y_time + 10), (line_x, y_time + large_font_size - 10)], fill=(255, 204, 0), width=8)
                 
-                # 5. Date and Day Column (Bold)
+                # 5. Date and Day (Aligned right of line)
                 x_date = line_x + 25
-                draw.text((x_date, y_time + 10), date_str, font=font_medium, fill="white")
-                draw.text((x_date, y_time + int(large_font_size*10.65)), day_str, font=font_medium, fill="white")
+                draw.text((x_date, y_time + 5), date_str, font=font_medium, fill="white")
+                draw.text((x_date, y_time + int(large_font_size * 0.6)), day_str, font=font_medium, fill="white")
                 
                 # Save processed image to buffer
                 buf = BytesIO()
@@ -427,4 +427,3 @@ if st.button("Submit Survey"):
             time.sleep(2); st.rerun()
         except Exception as e:
             saving_placeholder.empty(); st.error(f"Error: {e}")
-
