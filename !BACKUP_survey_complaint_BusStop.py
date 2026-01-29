@@ -6,6 +6,7 @@ import mimetypes
 import time
 import os
 import pickle
+import re
 from urllib.parse import urlencode
 
 from google_auth_oauthlib.flow import Flow
@@ -154,11 +155,9 @@ def get_authenticated_service():
     
     flow = Flow.from_client_secrets_file(CLIENT_SECRETS_FILE, scopes=SCOPES, 
                                        redirect_uri="https://bus-stop-survey-kwaazvrcnnrtfyniqjwzlc.streamlit.app/")
-                        #use this adjust for live --redirect_uri="https://bus-stop-survey-99f8wusughejfcfvrvxmyl.streamlit.app/")
     query_params = st.query_params
     if "code" in query_params:
         full_url = "https://bus-stop-survey-kwaazvrcnnrtfyniqjwzlc.streamlit.app/?" + urlencode(query_params)
-#-chnge this -full_url = "https://bus-stop-survey-99f8wusughejfcfvrvxmyl.streamlit.app/?" + urlencode(query_params)
         flow.fetch_token(authorization_response=full_url)
         creds = flow.credentials
         save_credentials(creds)
@@ -359,22 +358,32 @@ with c2:
             saving_placeholder.markdown('<div class="custom-spinner">⏳ Saving data... Please wait.</div>', unsafe_allow_html=True)
             
             try:
-                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                # Prepare naming components
+                timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+                # Remove spaces and special chars for file safety
+                safe_stop_name = re.sub(r'[^a-zA-Z0-9]', '_', stop)
                 
-                # Upload Photos
-                photo_urls = [gdrive_upload_file(p.getvalue(), f"{timestamp}_img_{idx}.jpg", "image/jpeg", FOLDER_ID) for idx, p in enumerate(st.session_state.photos)]
+                # Upload Photos with new naming
+                photo_urls = []
+                for idx, p in enumerate(st.session_state.photos):
+                    new_filename = f"{safe_stop_name}_{timestamp_str}_IMG_{idx+1}.jpg"
+                    url = gdrive_upload_file(p.getvalue(), new_filename, "image/jpeg", FOLDER_ID)
+                    photo_urls.append(url)
                 
-                # Upload Videos
+                # Upload Videos with new naming
                 video_urls = []
                 for idx, v in enumerate(st.session_state.videos):
                     m_type, _ = mimetypes.guess_type(v.name)
-                    v_url = gdrive_upload_file(v.getvalue(), f"{timestamp}_vid_{idx}.mp4", m_type or "video/mp4", FOLDER_ID)
+                    ext = v.name.split('.')[-1] if '.' in v.name else 'mp4'
+                    new_filename = f"{safe_stop_name}_{timestamp_str}_VID_{idx+1}.{ext}"
+                    v_url = gdrive_upload_file(v.getvalue(), new_filename, m_type or "video/mp4", FOLDER_ID)
                     video_urls.append(v_url)
 
                 # Combine media links for Sheet
                 all_media_links = photo_urls + video_urls
+                final_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 
-                row_data = [timestamp, staff_id, staff_dict[staff_id], current_depot, current_route, stop, selected_bus] + \
+                row_data = [final_timestamp, staff_id, staff_dict[staff_id], current_depot, current_route, stop, selected_bus] + \
                            [st.session_state.responses[q] for q in all_questions] + ["; ".join(all_media_links)]
                 
                 header_data = ["Timestamp", "Staff ID", "Staff Name", "Depot", "Route", "Bus Stop", "Bus Register No"] + all_questions + ["Media Links"]
@@ -394,4 +403,3 @@ with c2:
             except Exception as e:
                 saving_placeholder.empty()
                 st.error(f"Error saving data: {e}")
-
