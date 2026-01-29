@@ -317,28 +317,31 @@ with c2:
                 photo_urls = [gdrive_upload_file(p.getvalue(), f"{timestamp}_{idx}.jpg", "image/jpeg", FOLDER_ID) for idx, p in enumerate(st.session_state.photos)]
                 
                 row_data = [timestamp, staff_id, staff_dict[staff_id], current_depot, current_route, stop, selected_bus] + \
-                           [st.session_state.responses.get(q) for q in all_questions] + ["; ".join(photo_urls)]
+                            [st.session_state.responses.get(q) for q in all_questions] + ["; ".join(photo_urls)]
                 header_data = ["Timestamp", "Staff ID", "Staff Name", "Depot", "Route", "Bus Stop", "Bus Register No"] + all_questions + ["Photos"]
                 
                 gsheet_id = find_or_create_gsheet("survey_responses", FOLDER_ID)
                 append_row(gsheet_id, row_data, header_data)
                 
                 saving_placeholder.empty()
-                st.success("Submitted!")
+                st.success("Submitted successfully!")
                 
-                # --- FORCED RESET LOGIC ---
-                # 1. Clear Photo list
+                # --- NEW FORCED RESET LOGIC ---
+                # Clear internal data
                 st.session_state.photos = []
-                # 2. Clear responses dict
                 st.session_state.responses = {}
                 
-                # 3. Clear widget keys EXCEPT Staff and Stop
+                # Identify keys to keep
+                keep_keys = ["staff_id", "bus_stop"]
+                
+                # Clear all other session keys (Resetting widgets)
                 for key in list(st.session_state.keys()):
-                    if key not in ["staff_id", "bus_stop"]:
+                    if key not in keep_keys:
                         del st.session_state[key]
                 
                 time.sleep(2)
                 st.rerun()
+                
             except Exception as e:
                 saving_placeholder.empty()
                 st.error(f"Error: {e}")
