@@ -119,14 +119,16 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --------- Helper: Large Timemark Watermarking ---------
+# --------- Helper: Extra Large Timemark Watermarking (30% increase) ---------
 def add_watermark(image_bytes, stop_name):
     img = Image.open(BytesIO(image_bytes)).convert("RGB")
     draw = ImageDraw.Draw(img)
     w, h = img.size
     
-    # Scale unit to ensure the total watermark height is ~20% (0.2) of the picture
-    unit = h * 0.015 
+    # Calculate unit based on the shorter side to ensure scale consistency
+    # Increased scale by 30% from the previous version
+    short_side = min(w, h)
+    unit = short_side * 0.025 
     
     now = datetime.now()
     time_main = now.strftime("%I:%M")
@@ -135,40 +137,41 @@ def add_watermark(image_bytes, stop_name):
     day_str = now.strftime("%a")
 
     try:
-        # Increased font sizes to reach requested 0.2 scale
-        font_time = ImageFont.truetype("arial.ttf", int(unit * 12))
-        font_ampm = ImageFont.truetype("arial.ttf", int(unit * 4))
-        font_date = ImageFont.truetype("arial.ttf", int(unit * 4.5))
-        font_stop = ImageFont.truetype("arial.ttf", int(unit * 4.5))
+        # Extra large fonts
+        font_time = ImageFont.truetype("arial.ttf", int(unit * 15))
+        font_ampm = ImageFont.truetype("arial.ttf", int(unit * 5))
+        font_date = ImageFont.truetype("arial.ttf", int(unit * 6))
+        font_stop = ImageFont.truetype("arial.ttf", int(unit * 6))
     except:
         font_time = font_ampm = font_date = font_stop = ImageFont.load_default()
 
+    # Offset from edges
     margin_x = int(w * 0.05)
-    bottom_base = h - int(h * 0.05)
+    bottom_base = h - int(h * 0.08)
     
     # 1. Draw Time (Left)
-    time_pos_y = bottom_base - int(unit * 18)
-    draw.text((margin_x, time_pos_y), time_main, font=font_time, fill="white")
+    time_pos_y = bottom_base - int(unit * 25)
+    draw.text((margin_x, time_pos_y), time_main, font=font_time, fill="white", stroke_width=2, stroke_fill="black")
     
-    # Measure time width to place AM/PM and divider
+    # Measure time width
     time_bbox = draw.textbbox((margin_x, time_pos_y), time_main, font=font_time)
     time_width = time_bbox[2] - time_bbox[0]
     
     # 2. Draw AM/PM
-    draw.text((margin_x + time_width + int(unit * 1.5), time_pos_y + int(unit * 1.5)), time_ampm, font=font_ampm, fill="white")
+    draw.text((margin_x + time_width + int(unit * 2), time_pos_y + int(unit * 2)), time_ampm, font=font_ampm, fill="white", stroke_width=1, stroke_fill="black")
     
     # 3. Draw Vertical Orange Divider
-    divider_x = margin_x + time_width + int(unit * 9)
-    line_top = time_pos_y + int(unit * 2)
-    line_bottom = time_pos_y + int(unit * 12)
-    draw.line([(divider_x, line_top), (divider_x, line_bottom)], fill="#FFB400", width=int(unit * 0.6))
+    divider_x = margin_x + time_width + int(unit * 12)
+    line_top = time_pos_y + int(unit * 2.5)
+    line_bottom = time_pos_y + int(unit * 15)
+    draw.line([(divider_x, line_top), (divider_x, line_bottom)], fill="#FFB400", width=int(unit * 1.0))
     
     # 4. Draw Date and Day
-    draw.text((divider_x + int(unit * 2.5), line_top), date_str, font=font_date, fill="white")
-    draw.text((divider_x + int(unit * 2.5), line_top + int(unit * 5.5)), day_str, font=font_date, fill="white")
+    draw.text((divider_x + int(unit * 3), line_top), date_str, font=font_date, fill="white", stroke_width=1, stroke_fill="black")
+    draw.text((divider_x + int(unit * 3), line_top + int(unit * 7)), day_str, font=font_date, fill="white", stroke_width=1, stroke_fill="black")
     
-    # 5. Draw Bus Stop Name (Below the time/date block)
-    draw.text((margin_x, bottom_base - int(unit * 4)), stop_name, font=font_stop, fill="white")
+    # 5. Draw Bus Stop Name
+    draw.text((margin_x, bottom_base - int(unit * 5)), stop_name, font=font_stop, fill="white", stroke_width=1, stroke_fill="black")
     
     img_byte_arr = BytesIO()
     img.save(img_byte_arr, format='JPEG', quality=95)
@@ -372,7 +375,7 @@ if st.button("Submit Survey"):
         st.error("Sila pastikan semua soalan dijawab, No. Bas dipilih, dan 3 keping media disediakan.")
     else:
         saving_placeholder = st.empty()
-        saving_placeholder.markdown('<div class="custom-spinner">⏳ Saving data & Applying Large Timemark... Please wait.</div>', unsafe_allow_html=True)
+        saving_placeholder.markdown('<div class="custom-spinner">⏳ Saving data & Applying Extra Large Timemarks... Please wait.</div>', unsafe_allow_html=True)
         
         try:
             timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -380,6 +383,7 @@ if st.button("Submit Survey"):
             
             media_urls = []
             for idx, p in enumerate(st.session_state.photos):
+                # Watermark logic applied to every photo
                 processed_bytes = add_watermark(p.getvalue(), stop)
                 url = gdrive_upload_file(processed_bytes, f"{safe_stop_name}_{timestamp_str}_IMG_{idx+1}.jpg", "image/jpeg", FOLDER_ID)
                 media_urls.append(url)
