@@ -384,12 +384,12 @@ if st.button("Submit Survey"):
                 
                 # 4. Thick Vertical Yellow Line
                 line_x = x_suffix + int(base_size * 2.2)
-                draw.line([(line_x, y_time + 10), (line_x, y_time + large_font_size + 10)], fill=(255, 204, 0), width=6)
+                draw.line([(line_x, y_time + 10), (line_x, y_time + large_font_size + 20)], fill=(255, 204, 0), width=6)
                 
                 # 5. Date and Day Column (Bold)
                 x_date = line_x + 25
                 draw.text((x_date, y_time + 10), date_str, font=font_medium, fill="white")
-                draw.text((x_date, y_time + int(large_font_size*0.65)), day_str, font=font_medium, fill="white")
+                draw.text((x_date, y_time + int(large_font_size*10.65)), day_str, font=font_medium, fill="white")
                 
                 # Save processed image to buffer
                 buf = BytesIO()
@@ -427,3 +427,4 @@ if st.button("Submit Survey"):
             time.sleep(2); st.rerun()
         except Exception as e:
             saving_placeholder.empty(); st.error(f"Error: {e}")
+
