@@ -32,6 +32,18 @@ st.markdown("""
         color: #3A3A3C !important;
     }
 
+    /* Custom Light Orange Spinner/Alert Frame */
+    .custom-spinner {
+        padding: 20px;
+        background-color: #FFF9F0;
+        border: 2px solid #FFCC80;
+        border-radius: 14px;
+        color: #E67E22;
+        text-align: center;
+        font-weight: bold;
+        margin-bottom: 20px;
+    }
+
     /* Centering the Submit Button and Remove Buttons */
     .stButton {
         display: flex;
@@ -319,7 +331,11 @@ with c2:
         if not staff_id or not stop or not selected_bus or len(st.session_state.photos) != 3 or None in check_responses:
             st.error("Sila pastikan semua soalan dijawab, No. Bas dipilih, dan 3 keping gambar disediakan.")
         else:
-            with st.spinner("Saving data..."):
+            # Place for the custom Light Orange frame saving message
+            saving_placeholder = st.empty()
+            saving_placeholder.markdown('<div class="custom-spinner">⏳ Saving data... Please wait.</div>', unsafe_allow_html=True)
+            
+            try:
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 photo_urls = [gdrive_upload_file(p.getvalue(), f"{timestamp}_{idx}.jpg", "image/jpeg", FOLDER_ID) for idx, p in enumerate(st.session_state.photos)]
                 row_data = [timestamp, staff_id, staff_dict[staff_id], current_depot, current_route, stop, selected_bus] + \
@@ -328,15 +344,16 @@ with c2:
                 gsheet_id = find_or_create_gsheet("survey_responses", FOLDER_ID)
                 append_row(gsheet_id, row_data, header_data)
                 
-                # --- NEW REFRESH LOGIC ---
+                # --- REFRESH LOGIC ---
+                saving_placeholder.empty() # Clear the orange frame
                 st.success("Submitted!")
                 
                 # Clear questionnaire and photos
                 st.session_state.photos = []
                 st.session_state.responses = {q: None for q in all_questions}
                 
-                # Note: staff_id and stop are NOT cleared here because they are tied to 
-                # st.session_state.saved_staff_id and st.session_state.saved_stop
-                
                 time.sleep(2)
                 st.rerun()
+            except Exception as e:
+                saving_placeholder.empty()
+                st.error(f"Error saving data: {e}")
