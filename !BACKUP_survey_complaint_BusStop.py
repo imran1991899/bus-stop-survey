@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-import pytz  # Handles the Malaysia Timezone
+import pytz  
 from io import BytesIO
 import mimetypes
 import time
@@ -201,7 +201,7 @@ except Exception as e:
 
 allowed_stops = sorted(["AJ106 LRT AMPANG", "DAMANSARA INTAN", "ECOSKY RESIDENCE", "FAKULTI KEJURUTERAAN (UTARA)", "FAKULTI PERNIAGAAN DAN PERAKAUNAN", "FAKULTI UNDANG-UNDANG", "KILANG PLASTIK EKSPEDISI EMAS (OPP)", "KJ477 UTAR", "KJ560 SHELL SG LONG (OPP)", "KL107 LRT MASJID JAMEK", "KL1082 SK Methodist", "KL117 BSN LEBUH AMPANG", "KL1217 ILP KUALA LUMPUR", "KL2247 KOMERSIAL KIP", "KL377 WISMA SISTEM", "KOMERSIAL BURHANUDDIN (2)", "MASJID CYBERJAYA 10", "MRT SRI DELIMA PINTU C", "PERUMAHAN TTDI", "PJ312 Medan Selera Seksyen 19", "PJ476 MASJID SULTAN ABDUL AZIZ", "PJ721 ONE UTAMA NEW WING", "PPJ384 AURA RESIDENCE", "SA12 APARTMENT BAIDURI (OPP)", "SA26 PERUMAHAN SEKSYEN 11", "SCLAND EMPORIS", "SJ602 BANDAR BUKIT PUCHONG BP1", "SMK SERI HARTAMAS", "SMK SULTAN ABD SAMAD (TIMUR)"])
 
-staff_dict = {"10005475": "MOHD RIZAL BIN RAMLI", "10020779": "NUR FAEZAH BINTI HARUN", "10014181": "NORAINSYIRAH BINTI ARIFFIN", "10022768": "NORAZHA RAFFIZZI ZORKORNAINI", "10022769": "NUR HANIM HANIL", "10023845": "MUHAMMAD HAMKA BIN ROSLIM", "10002059": "MUHAMAD NIZAM BIN IBRAHIM", "10005562": "AZFAR NASRI BIN BURHAN", "10010659": "MOHD SHAFIEE BIN ABDULLAH", "10008350": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN", "10003214": "NIK MOHD FADIR BIN NIK MAT RAWI", "10016370": "AHMAD AZIM BIN ISA", "10022910": "NUR SHAHIDA BINTI MOHD TAMIJI ", "10023513": "MUHAMMAD SYAHMI BIN AZMEY", "10023273": "MOHD IDZHAM BIN ABU BAKAR", "10023577": "MOHAMAD NAIM MOHAMAD SAPRI", "10023853": "MUHAMAD IMRAN BIN MOHD NASRUDDIN", "10008842": "MIRAN NURSYAWALNI AMIR", "10015662": "MUHAMMAD HANIF BIN HASHIM", "10011944": "NUR HAZIRAH BINTI NAWI"}
+staff_dict = {"10005475": "MOHD RIZAL BIN RAMLI", "10020779": "NUR FAEZAH BINTI HARUN", "10014181": "NORAINSYIRAH BINTI ARIFFIN", "10022768": "NORAZHA RAFFIZZI ZORKORNAINI", "10022769": "NUR HANIM HANIL", "10023845": "MUHAMMAD HAMKA BIN ROSLIM", "10002059": "MUHAMAD I निजाम BIN IBRAHIM", "10005562": "AZFAR NASRI BIN BURHAN", "10010659": "MOHD SHAFIEE BIN ABDULLAH", "10008350": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN", "10003214": "NIK MOHD FADIR BIN NIK MAT RAWI", "10016370": "AHMAD AZIM BIN ISA", "10022910": "NUR SHAHIDA BINTI MOHD TAMIJI ", "10023513": "MUHAMMAD SYAHMI BIN AZMEY", "10023273": "MOHD IDZHAM BIN ABU BAKAR", "10023577": "MOHAMAD NAIM MOHAMAD SAPRI", "10023853": "MUHAMAD IMRAN BIN MOHD NASRUDDIN", "10008842": "MIRAN NURSYAWALNI AMIR", "10015662": "MUHAMMAD HANIF BIN HASHIM", "10011944": "NUR HAZIRAH BINTI NAWI"}
 
 if "saved_staff_id" not in st.session_state: st.session_state.saved_staff_id = None
 if "saved_stop" not in st.session_state: st.session_state.saved_stop = None
@@ -329,29 +329,26 @@ if st.button("Submit Survey"):
         saving_placeholder.markdown('<div class="custom-spinner">⏳ Saving data... Please wait.</div>', unsafe_allow_html=True)
         
         try:
-            # --- MALAYSIA KL TIMEZONE LOGIC ---
             kl_tz = pytz.timezone('Asia/Kuala_Lumpur')
             now_kl = datetime.now(kl_tz)
             
             timestamp_str = now_kl.strftime("%Y%m%d_%H%M%S")
             final_ts = now_kl.strftime("%Y-%m-%d %H:%M:%S")
-            # ----------------------------------
 
             safe_stop_name = re.sub(r'[^a-zA-Z0-9]', '_', stop)
             
             media_urls = []
             for idx, p in enumerate(st.session_state.photos):
-                # --- EXTREME BOLD & HUGE WATERMARK LOGIC ---
+                # --- WATERMARK LOGIC ---
                 img = Image.open(p).convert("RGB")
                 draw = ImageDraw.Draw(img)
                 
-                # Extreme Scaling: base size is 10% of image width
-                base_scale = int(img.width * 0.1) 
+                # Dynamic Scaling based on image width
+                # We want the text to be massive: ~18% of the image width
+                size_large = int(img.width * 0.18) 
+                size_medium = int(size_large * 0.35) 
                 
-                # Font Sizes
-                size_large = int(base_scale * 1.5)  # The big Time (07:34)
-                size_medium = int(base_scale * 0.5) # Stop Name / Date
-                
+                # Attempt to use a bold font
                 try:
                     font_large = ImageFont.truetype("arialbd.ttf", size_large)
                     font_medium = ImageFont.truetype("arialbd.ttf", size_medium)
@@ -359,40 +356,39 @@ if st.button("Submit Survey"):
                     font_large = ImageFont.load_default()
                     font_medium = ImageFont.load_default()
 
-                # Prepare Data Strings
+                # Prepare Strings
                 time_now = now_kl.strftime("%I:%M")
                 am_pm = now_kl.strftime("%p").lower()
                 date_str = now_kl.strftime("%b %d, %Y")
                 day_str = now_kl.strftime("%a")
                 stop_label = f"Bus Stop Name : {stop}"
 
-                # Starting coordinates (Top Left Edge)
-                x_start, y_start = 50, 50
-
-                # 1. Bus Stop Name (Top, Red)
-                draw.text((x_start, y_start), stop_label, font=font_medium, fill=(255, 69, 58))
+                # Coordinates (Bottom Left relative)
+                # To look like the Timemark app, we place it near the bottom
+                margin = int(img.width * 0.05)
+                y_base = img.height - margin - size_large
                 
-                # 2. Main Time (Massive White)
-                y_time = y_start + int(size_medium * 1.3)
-                draw.text((x_start, y_time), time_now, font=font_large, fill="white")
+                # 1. Bus Stop Name (Red - above the time)
+                draw.text((margin, y_base - size_medium - 10), stop_label, font=font_medium, fill=(255, 69, 58))
                 
-                # Calculate spacing for items to the right of the Time
+                # 2. Huge Time (White)
+                draw.text((margin, y_base), time_now, font=font_large, fill="white")
+                
+                # Calculate spacing for items to the right of Time
                 time_width = draw.textlength(time_now, font=font_large)
-                x_after_time = x_start + time_width + 20
+                x_after_time = margin + time_width + 15
                 
-                # 3. AM/PM Indicator
-                draw.text((x_after_time, y_time + int(size_large * 0.3)), am_pm, font=font_medium, fill="white")
+                # 3. AM/PM (Medium White)
+                draw.text((x_after_time, y_base + int(size_large * 0.1)), am_pm, font=font_medium, fill="white")
                 
-                # 4. Vertical Yellow Line (Thick)
-                line_x = x_after_time + int(size_medium * 1.5)
-                line_top = y_time + 10
-                line_bottom = y_time + size_large - 10
-                draw.line([(line_x, line_top), (line_x, line_bottom)], fill=(255, 204, 0), width=15)
+                # 4. Yellow Line (Keep it thin/clean - fixed at 8px)
+                line_x = x_after_time + int(size_medium * 1.8)
+                draw.line([(line_x, y_base + 10), (line_x, y_base + size_large - 10)], fill=(255, 204, 0), width=8)
                 
-                # 5. Date and Day
-                x_date = line_x + 30
-                draw.text((x_date, y_time + 10), date_str, font=font_medium, fill="white")
-                draw.text((x_date, y_time + int(size_large * 0.6)), day_str, font=font_medium, fill="white")
+                # 5. Date & Day (Right of yellow line)
+                x_date = line_x + 25
+                draw.text((x_date, y_base + 10), date_str, font=font_medium, fill="white")
+                draw.text((x_date, y_base + int(size_large * 0.5)), day_str, font=font_medium, fill="white")
                 
                 buf = BytesIO()
                 img.save(buf, format="JPEG", quality=95)
