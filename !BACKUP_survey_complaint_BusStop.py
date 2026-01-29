@@ -125,18 +125,17 @@ def add_watermark(image_bytes, stop_name):
     draw = ImageDraw.Draw(img)
     w, h = img.size
     
-    # FIX: Use the shorter side to determine scale so watermark is never "small"
+    # Base scale on the shorter side to prevent "tiny text" on high-res photos
     short_side = min(w, h)
-    unit = short_side * 0.03 
+    unit = short_side * 0.04 
     
     now = datetime.now()
     time_main = now.strftime("%I:%M")
     time_ampm = now.strftime("%p")
-    date_str = now.strftime("%b %d, %Y")
-    day_str = now.strftime("%a")
+    date_full = now.strftime("%b %d, %Y (%a)")
 
-    # Load SF-style Bold font (San Francisco fallbacks)
-    font_paths = ["/System/Library/Fonts/SFNS.ttf", "/System/Library/Fonts/HelveticaNeue.ttc", "arialbd.ttf"]
+    # Font handling (SF Bold style)
+    font_paths = ["/System/Library/Fonts/SFNS.ttf", "/System/Library/Fonts/HelveticaNeue-Bold.ttf", "arialbd.ttf"]
     
     def get_font(size):
         for path in font_paths:
@@ -146,38 +145,25 @@ def add_watermark(image_bytes, stop_name):
                 continue
         return ImageFont.load_default()
 
-    # Giant Font sizes (Calculated to be visible even in red circle areas)
-    font_time = get_font(int(unit * 15)) 
-    font_ampm = get_font(int(unit * 5))
-    font_date = get_font(int(unit * 5.5))
-    font_stop = get_font(int(unit * 6))
+    # Giant Font sizes
+    font_time = get_font(int(unit * 8)) 
+    font_sub = get_font(int(unit * 2.5))
+    font_stop = get_font(int(unit * 3))
 
-    margin_x = int(w * 0.05)
-    bottom_base = h - int(h * 0.08)
+    margin_x = int(w * 0.04)
+    # Start drawing from the bottom up
     
-    # 1. Draw Time (Giant) with Thick Black Stroke for visibility
-    time_pos_y = bottom_base - int(unit * 22)
-    draw.text((margin_x, time_pos_y), time_main, font=font_time, fill="white", stroke_width=4, stroke_fill="black")
+    # 1. Stop Name (Bottom-most)
+    stop_y = h - int(unit * 5)
+    draw.text((margin_x, stop_y), stop_name.upper(), font=font_stop, fill="white", stroke_width=3, stroke_fill="black")
     
-    # Measure time width
-    time_bbox = draw.textbbox((margin_x, time_pos_y), time_main, font=font_time)
-    time_width = time_bbox[2] - time_bbox[0]
+    # 2. Date and Day (Middle)
+    date_y = stop_y - int(unit * 3.5)
+    draw.text((margin_x, date_y), date_full, font=font_sub, fill="white", stroke_width=2, stroke_fill="black")
     
-    # 2. Draw AM/PM
-    draw.text((margin_x + time_width + int(unit * 2), time_pos_y + int(unit * 2)), time_ampm, font=font_ampm, fill="white", stroke_width=2, stroke_fill="black")
-    
-    # 3. Draw Vertical Orange Divider
-    divider_x = margin_x + time_width + int(unit * 12)
-    line_top = time_pos_y + int(unit * 2.5)
-    line_bottom = time_pos_y + int(unit * 14)
-    draw.line([(divider_x, line_top), (divider_x, line_bottom)], fill="#FFB400", width=int(unit * 1.2))
-    
-    # 4. Draw Date and Day
-    draw.text((divider_x + int(unit * 3), line_top), date_str, font=font_date, fill="white", stroke_width=2, stroke_fill="black")
-    draw.text((divider_x + int(unit * 3), line_top + int(unit * 6)), day_str, font=font_date, fill="white", stroke_width=2, stroke_fill="black")
-    
-    # 5. Draw Bus Stop Name
-    draw.text((margin_x, bottom_base - int(unit * 4)), stop_name.upper(), font=font_stop, fill="white", stroke_width=2, stroke_fill="black")
+    # 3. Time and AM/PM (Top of block)
+    time_y = date_y - int(unit * 8.5)
+    draw.text((margin_x, time_y), f"{time_main} {time_ampm}", font=font_time, fill="white", stroke_width=4, stroke_fill="black")
     
     img_byte_arr = BytesIO()
     img.save(img_byte_arr, format='JPEG', quality=95)
@@ -381,7 +367,7 @@ if st.button("Submit Survey"):
         st.error("Sila pastikan semua soalan dijawab, No. Bas dipilih, dan 3 keping media disediakan.")
     else:
         saving_placeholder = st.empty()
-        saving_placeholder.markdown('<div class="custom-spinner">⏳ Saving data & Applying Giant Timemark... Please wait.</div>', unsafe_allow_html=True)
+        saving_placeholder.markdown('<div class="custom-spinner">⏳ Saving data & Applying Giant Watermark... Please wait.</div>', unsafe_allow_html=True)
         
         try:
             timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
