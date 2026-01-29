@@ -8,6 +8,7 @@ import os
 import pickle
 import re
 from urllib.parse import urlencode
+from PIL import Image, ImageDraw, ImageFont
 
 from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
@@ -26,14 +27,12 @@ st.markdown("""
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
     }
 
-    /* Standard Widget Labels */
     label[data-testid="stWidgetLabel"] p {
         font-size: 18px !important;
         font-weight: 600 !important;
         color: #3A3A3C !important;
     }
 
-    /* Custom Spinner */
     .custom-spinner {
         padding: 20px;
         background-color: #FFF9F0;
@@ -45,7 +44,6 @@ st.markdown("""
         margin-bottom: 20px;
     }
 
-    /* Radio Group Styling */
     div[role="radiogroup"] {
         background-color: #E3E3E8 !important; 
         padding: 6px !important; 
@@ -91,7 +89,6 @@ st.markdown("""
         box-shadow: 0px 4px 12px rgba(0,0,0,0.15) !important;
     }
 
-    /* Submit Button */
     div.stButton > button {
         background-color: #007AFF !important;
         color: white !important;
@@ -104,7 +101,6 @@ st.markdown("""
         width: 100%;
     }
 
-    /* Camera Enhancement */
     [data-testid="stCameraInput"] {
         border: 2px dashed #007AFF;
         border-radius: 16px;
@@ -122,6 +118,43 @@ st.markdown("""
     }
     </style>
     """, unsafe_allow_html=True)
+
+# --------- Helper: Watermarking ---------
+def add_watermark(image_bytes, stop_name):
+    img = Image.open(BytesIO(image_bytes))
+    draw = ImageDraw.Draw(img)
+    
+    # Get current time and date
+    now = datetime.now()
+    time_str = now.strftime("%I:%M %p")
+    date_str = now.strftime("%b %d, %Y")
+    day_str = now.strftime("%a")
+    
+    # Define text
+    line1 = f"{time_str} | {date_str}"
+    line2 = f"{day_str}"
+    line3 = f"{stop_name}"
+    
+    # Attempt to load a clean font, fallback to default
+    try:
+        font_large = ImageFont.truetype("arial.ttf", 60)
+        font_small = ImageFont.truetype("arial.ttf", 40)
+    except:
+        font_large = ImageFont.load_default()
+        font_small = ImageFont.load_default()
+
+    # Position: Bottom Left
+    w, h = img.size
+    margin = 40
+    
+    # Draw text with slight shadow/outline for readability
+    draw.text((margin, h - 220), line1, font=font_large, fill="white")
+    draw.text((margin, h - 150), line2, font=font_small, fill="white")
+    draw.text((margin, h - 90), line3, font=font_small, fill="white")
+    
+    img_byte_arr = BytesIO()
+    img.save(img_byte_arr, format='JPEG', quality=95)
+    return img_byte_arr.getvalue()
 
 # --------- Google API Configuration ---------
 FOLDER_ID = "1DjtLxgyQXwgjq_N6I_-rtYcBcnWhzMGp"
@@ -204,7 +237,6 @@ if "saved_stop" not in st.session_state: st.session_state.saved_stop = None
 if "photos" not in st.session_state: st.session_state.photos = []
 if "videos" not in st.session_state: st.session_state.videos = []
 
-# MODIFIED: Removed "(NA jika tiada)" text
 questions_a = ["1. BC menggunakan telefon bimbit?", "2. BC memperlahankan/memberhentikan bas?", "3. BC memandu di lorong 1 (kiri)?", "4. Bas penuh dengan penumpang?", "5. BC tidak mengambil penumpang?", "6. BC berlaku tidak sopan?"]
 questions_c = ["7. Penumpang beri isyarat menahan? (NA jika tiada)", "8. Penumpang leka/tidak peka? (NA jika tiada)", "9. Penumpang tiba lewat?", "10. Penumpang menunggu di luar kawasan hentian?"]
 questions_b = ["11. Hentian terlindung dari pandangan BC? (semak, pokok, Gerai, lain2)", "12. Hentian terhalang oleh kenderaan parkir?", "13. Persekitaran bahaya untuk bas berhenti?", "14. Terdapat pembinaan berhampiran?", "15. Mempunyai bumbung?", "16. Mempunyai tiang?", "17. Mempunyai petak hentian?", "18. Mempunyai layby?"]
@@ -243,7 +275,6 @@ def render_grid_questions(q_list):
         with col1:
             q = q_list[i]
             st.markdown(f"**{q}**")
-            # MODIFIED: Removed NA option logic for Section A questions
             opts = ["Yes", "No", "NA"] if "NA" in q else ["Yes", "No"]
             st.session_state.responses[q] = st.radio(label=q, options=opts, index=None, key=f"r_{q}", horizontal=True, label_visibility="collapsed")
         if i + 1 < len(q_list):
@@ -259,16 +290,13 @@ render_grid_questions(questions_a)
 st.divider()
 
 st.subheader("C. PENUMPANG")
-# MODIFIED: Removed sub-questions, just keeping the main "Ada Penumpang?" question
 st.markdown("**ada penumpang?**")
 has_passengers = st.radio("ada penumpang?", options=["Yes", "No"], index=None, key="has_pax", horizontal=True, label_visibility="collapsed")
 st.session_state.responses["Ada Penumpang?"] = has_passengers
 
-# Keep logic for data structure but don't render sub-questions
 if has_passengers != "Yes":
     for q in questions_c: st.session_state.responses[q] = "No Passenger"
 else:
-    # Optional: If you still want to record 'NA' for these internally since UI is hidden
     for q in questions_c: st.session_state.responses[q] = "Yes"
 st.divider()
 
@@ -276,10 +304,8 @@ st.subheader("B. KEADAAN HENTIAN BAS")
 render_grid_questions(questions_b)
 st.divider()
 
-# --------- High Resolution Media Section ---------
+# --------- Media Section ---------
 st.subheader("📸 Media Upload (3 Items Required)")
-st.info("💡 **TIP:** For high-resolution photos or video recording, use the **Upload** button and select 'Camera'.")
-
 current_media_count = len(st.session_state.photos) + len(st.session_state.videos)
 
 if current_media_count < 3:
@@ -301,7 +327,6 @@ if current_media_count < 3:
                 st.session_state.photos.append(file_in)
             st.rerun()
 
-# Display uploaded items
 if st.session_state.photos or st.session_state.videos:
     media_cols = st.columns(3)
     current_idx = 0
@@ -329,17 +354,20 @@ if st.button("Submit Survey"):
         st.error("Sila pastikan semua soalan dijawab, No. Bas dipilih, dan 3 keping media disediakan.")
     else:
         saving_placeholder = st.empty()
-        saving_placeholder.markdown('<div class="custom-spinner">⏳ Saving data... Please wait.</div>', unsafe_allow_html=True)
+        saving_placeholder.markdown('<div class="custom-spinner">⏳ Saving data & Watermarking... Please wait.</div>', unsafe_allow_html=True)
         
         try:
             timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
             safe_stop_name = re.sub(r'[^a-zA-Z0-9]', '_', stop)
             
             media_urls = []
+            # Process Photos with Watermark
             for idx, p in enumerate(st.session_state.photos):
-                url = gdrive_upload_file(p.getvalue(), f"{safe_stop_name}_{timestamp_str}_IMG_{idx+1}.jpg", "image/jpeg", FOLDER_ID)
+                watermarked_bytes = add_watermark(p.getvalue(), stop)
+                url = gdrive_upload_file(watermarked_bytes, f"{safe_stop_name}_{timestamp_str}_IMG_{idx+1}.jpg", "image/jpeg", FOLDER_ID)
                 media_urls.append(url)
             
+            # Upload Videos (No watermark supported for video in this script)
             for idx, v in enumerate(st.session_state.videos):
                 m_type, _ = mimetypes.guess_type(v.name)
                 ext = v.name.split('.')[-1] if '.' in v.name else 'mp4'
@@ -356,7 +384,6 @@ if st.button("Submit Survey"):
             saving_placeholder.empty() 
             st.success("Submitted Successfully!")
             
-            # --- RESET LOGIC ---
             st.session_state.photos, st.session_state.videos = [], []
             st.session_state.responses = {q: None for q in all_questions}
             if "bus_select" in st.session_state:
