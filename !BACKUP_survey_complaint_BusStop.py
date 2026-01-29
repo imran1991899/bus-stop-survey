@@ -217,6 +217,7 @@ staff_dict = {"10005475": "MOHD RIZAL BIN RAMLI", "10020779": "NUR FAEZAH BINTI 
 if "saved_staff_id" not in st.session_state: st.session_state.saved_staff_id = None
 if "saved_stop" not in st.session_state: st.session_state.saved_stop = None
 if "photos" not in st.session_state: st.session_state.photos = []
+if "videos" not in st.session_state: st.session_state.videos = []
 
 # Question Lists
 questions_a = ["1. BC menggunakan telefon bimbit?", "2. BC memperlahankan/memberhentikan bas?", "3. BC memandu di lorong 1 (kiri)?", "4. Bas penuh dengan penumpang?", "5. BC tidak mengambil penumpang? (NA jika tiada)", "6. BC berlaku tidak sopan? (NA jika tiada)"]
@@ -314,9 +315,26 @@ if st.session_state.photos:
     for idx, pic in enumerate(st.session_state.photos):
         with img_cols[idx]:
             st.image(pic, use_container_width=True)
-            if st.button(f"Remove", key=f"remove_{idx}"):
+            if st.button(f"Remove Photo {idx+1}", key=f"remove_pic_{idx}"):
                 st.session_state.photos.pop(idx)
                 st.rerun()
+
+st.divider()
+
+# --------- Video Section ---------
+st.subheader("🎥 Upload Video (Optional)")
+vid_up = st.file_uploader("Upload Video (MP4, MOV, AVI)", type=["mp4", "mov", "avi", "mkv"])
+if vid_up:
+    if vid_up not in st.session_state.videos:
+        st.session_state.videos = [vid_up] # For now, restricting to 1 video for stability
+        st.rerun()
+
+if st.session_state.videos:
+    for idx, vid in enumerate(st.session_state.videos):
+        st.video(vid)
+        if st.button(f"Remove Video", key=f"remove_vid_{idx}"):
+            st.session_state.videos.pop(idx)
+            st.rerun()
 
 st.divider()
 
@@ -331,25 +349,36 @@ with c2:
         if not staff_id or not stop or not selected_bus or len(st.session_state.photos) != 3 or None in check_responses:
             st.error("Sila pastikan semua soalan dijawab, No. Bas dipilih, dan 3 keping gambar disediakan.")
         else:
-            # Place for the custom Light Orange frame saving message
             saving_placeholder = st.empty()
-            saving_placeholder.markdown('<div class="custom-spinner">⏳ Saving data... Please wait.</div>', unsafe_allow_html=True)
+            saving_placeholder.markdown('<div class="custom-spinner">⏳ Saving data & media... Please wait.</div>', unsafe_allow_html=True)
             
             try:
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                photo_urls = [gdrive_upload_file(p.getvalue(), f"{timestamp}_{idx}.jpg", "image/jpeg", FOLDER_ID) for idx, p in enumerate(st.session_state.photos)]
+                
+                # Upload Photos
+                photo_urls = [gdrive_upload_file(p.getvalue(), f"IMG_{timestamp}_{idx}.jpg", "image/jpeg", FOLDER_ID) for idx, p in enumerate(st.session_state.photos)]
+                
+                # Upload Videos
+                video_urls = []
+                for idx, v in enumerate(st.session_state.videos):
+                    mime_type, _ = mimetypes.guess_type(v.name)
+                    v_url = gdrive_upload_file(v.getvalue(), f"VID_{timestamp}_{idx}_{v.name}", mime_type or "video/mp4", FOLDER_ID)
+                    video_urls.append(v_url)
+
                 row_data = [timestamp, staff_id, staff_dict[staff_id], current_depot, current_route, stop, selected_bus] + \
-                           [st.session_state.responses[q] for q in all_questions] + ["; ".join(photo_urls)]
-                header_data = ["Timestamp", "Staff ID", "Staff Name", "Depot", "Route", "Bus Stop", "Bus Register No"] + all_questions + ["Photos"]
+                           [st.session_state.responses[q] for q in all_questions] + ["; ".join(photo_urls)] + ["; ".join(video_urls)]
+                
+                header_data = ["Timestamp", "Staff ID", "Staff Name", "Depot", "Route", "Bus Stop", "Bus Register No"] + all_questions + ["Photos", "Videos"]
+                
                 gsheet_id = find_or_create_gsheet("survey_responses", FOLDER_ID)
                 append_row(gsheet_id, row_data, header_data)
                 
-                # --- REFRESH LOGIC ---
-                saving_placeholder.empty() # Clear the orange frame
+                saving_placeholder.empty()
                 st.success("Submitted Successfully!")
                 
-                # Clear questionnaire and photos
+                # Clear questionnaire and media
                 st.session_state.photos = []
+                st.session_state.videos = []
                 st.session_state.responses = {q: None for q in all_questions}
                 
                 time.sleep(2)
@@ -357,8 +386,3 @@ with c2:
             except Exception as e:
                 saving_placeholder.empty()
                 st.error(f"Error saving data: {e}")
-
-
-
-
-
