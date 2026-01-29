@@ -273,18 +273,21 @@ st.divider()
 st.subheader("📸 Media Upload (3 Items Required)")
 st.info("💡 **TIP:** For high-resolution photos or video recording, use the **Upload** button and select 'Camera'.")
 
-if (len(st.session_state.photos) + len(st.session_state.videos)) < 3:
+current_media_count = len(st.session_state.photos) + len(st.session_state.videos)
+
+if current_media_count < 3:
     col_cam, col_up = st.columns(2)
     with col_cam:
-        cam_in = st.camera_input(f"Quick Capture (Standard Res)")
+        # Changed key to be dynamic based on count to prevent double-firing
+        cam_in = st.camera_input(f"Quick Capture #{current_media_count + 1}", key=f"cam_trigger_{current_media_count}")
         if cam_in: 
             st.session_state.photos.append(cam_in)
             st.rerun()
     with col_up:
-        # File uploader acts as a high-res camera trigger on mobile
-        file_in = st.file_uploader(f"Upload / Take Photo & Video (High Res)", 
+        # Changed key to be dynamic based on count
+        file_in = st.file_uploader(f"Upload Media #{current_media_count + 1}", 
                                    type=["jpg", "png", "jpeg", "mp4", "mov", "avi"],
-                                   key=f"file_up_{len(st.session_state.photos)+len(st.session_state.videos)}")
+                                   key=f"file_trigger_{current_media_count}")
         if file_in: 
             mime_type, _ = mimetypes.guess_type(file_in.name)
             if mime_type and mime_type.startswith("video"):
@@ -348,8 +351,20 @@ if st.button("Submit Survey"):
             
             saving_placeholder.empty() 
             st.success("Submitted Successfully!")
+            
+            # --- RESET LOGIC ---
+            # 1. Clear Photos and Videos
             st.session_state.photos, st.session_state.videos = [], []
+            # 2. Reset All Responses to None
             st.session_state.responses = {q: None for q in all_questions}
+            # 3. Clear the Bus Select widget (not Staff/Stop)
+            if "bus_select" in st.session_state:
+                del st.session_state["bus_select"]
+            # 4. Clear all radio widget keys
+            for key in list(st.session_state.keys()):
+                if key.startswith("r_") or key == "has_pax":
+                    del st.session_state[key]
+            
             time.sleep(2); st.rerun()
         except Exception as e:
             saving_placeholder.empty(); st.error(f"Error: {e}")
