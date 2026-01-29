@@ -11,6 +11,12 @@ from urllib.parse import urlencode
 from PIL import Image, ImageDraw, ImageFont
 import pytz 
 
+# Essential Google API Imports
+from google_auth_oauthlib.flow import Flow
+from googleapiclient.discovery import build  # <--- THIS FIXES THE NAMEERROR
+from googleapiclient.http import MediaIoBaseUpload
+from google.auth.transport.requests import Request
+
 # --------- Timezone Setup ---------
 KL_TZ = pytz.timezone('Asia/Kuala_Lumpur')
 
@@ -124,35 +130,33 @@ def add_watermark(image_bytes, stop_name):
     draw = ImageDraw.Draw(img)
     w, h = img.size
     
-    # Scale based on image width
+    # Text is much bigger now (8% of width)
     font_scale = int(w * 0.08) 
     
     now = datetime.now(KL_TZ)
     time_str = now.strftime("%I:%M %p")
-    # Date and Stop name combined or stacked for impact
     info_str = f"{now.strftime('%d/%m/%y')} | {stop_name.upper()}"
 
-    # Load Arial (bold preferred for visibility)
+    # Use Arial Bold
     try:
         font_main = ImageFont.truetype("arialbd.ttf", font_scale)
         font_sub = ImageFont.truetype("arialbd.ttf", int(font_scale * 0.5))
     except:
+        # Fallback if font file is missing
         font_main = ImageFont.load_default()
         font_sub = ImageFont.load_default()
 
-    # Position at absolute edge of bottom left
+    # Move text as close to the bottom-left edge as possible
     margin_left = int(w * 0.02)
     margin_bottom = int(h * 0.02)
 
-    # Calculate line heights
     sub_height = font_sub.getbbox(info_str)[3]
     main_height = font_main.getbbox(time_str)[3]
 
-    # Draw bottom-up for tight grouping
     y_pos_sub = h - margin_bottom - sub_height
-    y_pos_main = y_pos_sub - main_height - 5 # Very tight gap
+    y_pos_main = y_pos_sub - main_height - 5 
 
-    # Draw text with NO stroke, pure white
+    # Pure white text, NO black stroke
     draw.text((margin_left, y_pos_main), time_str, font=font_main, fill="white")
     draw.text((margin_left, y_pos_sub), info_str, font=font_sub, fill="white")
     
