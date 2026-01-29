@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
- arrogance the datetime import datetime
-import pytz  
+from datetime import datetime
 from io import BytesIO
 import mimetypes
 import time
@@ -9,9 +8,6 @@ import os
 import pickle
 import re
 from urllib.parse import urlencode
-
-# Required for image processing
-from PIL import Image, ImageDraw, ImageFont
 
 from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
@@ -275,40 +271,32 @@ st.divider()
 
 # --------- High Resolution Media Section ---------
 st.subheader("📸 Media Upload (3 Items Required)")
-st.info("💡 **TIP:** You can now select up to 3 pictures at once from your gallery.")
+st.info("💡 **TIP:** For high-resolution photos or video recording, use the **Upload** button and select 'Camera'.")
 
-total_uploaded = len(st.session_state.photos) + len(st.session_state.videos)
+current_media_count = len(st.session_state.photos) + len(st.session_state.videos)
 
-if total_uploaded < 3:
+if current_media_count < 3:
     col_cam, col_up = st.columns(2)
     with col_cam:
-        # Camera still one-by-one for accuracy
-        cam_in = st.camera_input(f"Quick Capture ({total_uploaded + 1}/3)", key=f"cam_trigger_{total_uploaded}")
+        # Changed key to be dynamic based on count to prevent double-firing
+        cam_in = st.camera_input(f"Quick Capture #{current_media_count + 1}", key=f"cam_trigger_{current_media_count}")
         if cam_in: 
             st.session_state.photos.append(cam_in)
             st.rerun()
-            
     with col_up:
-        # ALLOW MULTIPLE SELECTION FROM GALLERY
-        files_in = st.file_uploader(f"Select Gallery Media (Max {3 - total_uploaded} more)", 
+        # Changed key to be dynamic based on count
+        file_in = st.file_uploader(f"Upload Media #{current_media_count + 1}", 
                                    type=["jpg", "png", "jpeg", "mp4", "mov", "avi"],
-                                   accept_multiple_files=True,
-                                   key=f"gallery_trigger_{total_uploaded}")
-        
-        if files_in: 
-            # Process each file selected in the batch
-            for f in files_in:
-                if len(st.session_state.photos) + len(st.session_state.videos) < 3:
-                    mime_type, _ = mimetypes.guess_type(f.name)
-                    if mime_type and mime_type.startswith("video"):
-                        st.session_state.videos.append(f)
-                    else:
-                        st.session_state.photos.append(f)
-                else:
-                    st.warning("Max 3 items reached. Some files were ignored.")
-                    break
+                                   key=f"file_trigger_{current_media_count}")
+        if file_in: 
+            mime_type, _ = mimetypes.guess_type(file_in.name)
+            if mime_type and mime_type.startswith("video"):
+                st.session_state.videos.append(file_in)
+            else:
+                st.session_state.photos.append(file_in)
             st.rerun()
 
+# Display uploaded items
 if st.session_state.photos or st.session_state.videos:
     media_cols = st.columns(3)
     current_idx = 0
@@ -340,58 +328,12 @@ if st.button("Submit Survey"):
         saving_placeholder.markdown('<div class="custom-spinner">⏳ Saving data... Please wait.</div>', unsafe_allow_html=True)
         
         try:
-            kl_tz = pytz.timezone('Asia/Kuala_Lumpur')
-            now_kl = datetime.now(kl_tz)
-            
-            timestamp_str = now_kl.strftime("%Y%m%d_%H%M%S")
-            final_ts = now_kl.strftime("%Y-%m-%d %H:%M:%S")
-
+            timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
             safe_stop_name = re.sub(r'[^a-zA-Z0-9]', '_', stop)
             
             media_urls = []
             for idx, p in enumerate(st.session_state.photos):
-                img = Image.open(p).convert("RGB")
-                draw = ImageDraw.Draw(img)
-                
-                size_large = int(img.height * 0.15) 
-                size_medium = int(img.height * 0.045) 
-                
-                try:
-                    font_large = ImageFont.truetype("arialbd.ttf", size_large)
-                    font_medium = ImageFont.truetype("arialbd.ttf", size_medium)
-                except:
-                    font_large = ImageFont.load_default()
-                    font_medium = ImageFont.load_default()
-
-                time_now = now_kl.strftime("%I:%M")
-                am_pm = now_kl.strftime("%p").lower()
-                date_str = now_kl.strftime("%b %d, %Y")
-                day_str = now_kl.strftime("%a")
-                stop_label = f"Bus Stop Name : {stop}"
-
-                margin_x = int(img.width * 0.05)
-                margin_y = int(img.height * 0.08)
-                y_base = img.height - margin_y
-                
-                draw.text((margin_x, y_base - size_large - size_medium - 40), stop_label, font=font_medium, fill=(255, 69, 58))
-                draw.text((margin_x, y_base - size_large), time_now, font=font_large, fill="white")
-                
-                time_width = draw.textlength(time_now, font=font_large)
-                x_after_time = margin_x + time_width + 30
-                
-                draw.text((x_after_time, y_base - size_large + int(size_large * 0.1)), am_pm, font=font_medium, fill="white")
-                line_x = x_after_time + int(size_medium * 1.5)
-                draw.line([(line_x, y_base - size_large + 20), (line_x, y_base - 20)], fill=(255, 204, 0), width=6)
-                
-                x_date = line_x + 30
-                draw.text((x_date, y_base - size_large + 20), date_str, font=font_medium, fill="white")
-                draw.text((x_date, y_base - size_medium - 20), day_str, font=font_medium, fill="white")
-                
-                buf = BytesIO()
-                img.save(buf, format="JPEG", quality=90)
-                processed_bytes = buf.getvalue()
-
-                url = gdrive_upload_file(processed_bytes, f"{safe_stop_name}_{timestamp_str}_IMG_{idx+1}.jpg", "image/jpeg", FOLDER_ID)
+                url = gdrive_upload_file(p.getvalue(), f"{safe_stop_name}_{timestamp_str}_IMG_{idx+1}.jpg", "image/jpeg", FOLDER_ID)
                 media_urls.append(url)
             
             for idx, v in enumerate(st.session_state.videos):
@@ -400,6 +342,7 @@ if st.button("Submit Survey"):
                 v_url = gdrive_upload_file(v.getvalue(), f"{safe_stop_name}_{timestamp_str}_VID_{idx+1}.{ext}", m_type or "video/mp4", FOLDER_ID)
                 media_urls.append(v_url)
 
+            final_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             row_data = [final_ts, staff_id, staff_dict[staff_id], current_depot, current_route, stop, selected_bus] + \
                        [st.session_state.responses[q] for q in all_questions] + ["; ".join(media_urls)]
             
@@ -409,10 +352,15 @@ if st.button("Submit Survey"):
             saving_placeholder.empty() 
             st.success("Submitted Successfully!")
             
+            # --- RESET LOGIC ---
+            # 1. Clear Photos and Videos
             st.session_state.photos, st.session_state.videos = [], []
+            # 2. Reset All Responses to None
             st.session_state.responses = {q: None for q in all_questions}
+            # 3. Clear the Bus Select widget (not Staff/Stop)
             if "bus_select" in st.session_state:
                 del st.session_state["bus_select"]
+            # 4. Clear all radio widget keys
             for key in list(st.session_state.keys()):
                 if key.startswith("r_") or key == "has_pax":
                     del st.session_state[key]
