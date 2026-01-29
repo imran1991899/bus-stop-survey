@@ -42,9 +42,29 @@ st.markdown("""
         margin-bottom: 20px;
     }
 
-    .stButton {
-        display: flex;
-        justify-content: center;
+    /* Standard Blue Button */
+    div.stButton > button:first-child {
+        background-color: #007AFF !important;
+        color: white !important;
+        border: none !important;
+        height: 60px !important;
+        border-radius: 16px !important;
+        font-size: 18px !important;
+        width: 100%;
+    }
+
+    /* Reset Yellow Button Styling */
+    div[data-testid="stVerticalBlock"] div.stButton > button {
+        border-radius: 16px !important;
+        height: 60px !important;
+        font-size: 18px !important;
+    }
+    
+    /* Specific styling for the Reset button key */
+    button[kind="secondaryCustom"] {
+        background-color: #FFCC00 !important;
+        color: #000000 !important;
+        border: none !important;
     }
 
     div[role="radiogroup"] {
@@ -95,15 +115,6 @@ st.markdown("""
     div[role="radiogroup"] label:has(input:checked) p {
         color: #000000 !important; 
     }
-
-    div.stButton > button {
-        background-color: #007AFF !important;
-        color: white !important;
-        border: none !important;
-        height: 60px !important;
-        border-radius: 16px !important;
-        font-size: 18px !important;
-    }
     
     [data-testid="stCameraInput"] label div {
         color: #FFD700 !important; 
@@ -111,6 +122,15 @@ st.markdown("""
     }
     </style>
     """, unsafe_allow_html=True)
+
+# --------- Helper Reset Function ---------
+def reset_form_data():
+    st.session_state.photos = []
+    st.session_state.responses = {}
+    keep_keys = ["staff_id", "bus_stop"]
+    for key in list(st.session_state.keys()):
+        if key not in keep_keys:
+            del st.session_state[key]
 
 # --------- Google API Configuration ---------
 FOLDER_ID = "1DjtLxgyQXwgjq_N6I_-rtYcBcnWhzMGp"
@@ -295,53 +315,52 @@ if st.session_state.photos:
 
 st.divider()
 
-# --------- Submit ---------
-c1, c2, c3 = st.columns([1, 2, 1])
+# --------- Submit and Reset Buttons ---------
+c1, c2, reset_col = st.columns([1, 2, 2])
 with c2:
-    if st.button("Submit Survey"):
-        # Check all answers
-        required_questions = questions_a + ["Ada Penumpang?"] + questions_b
-        if has_passengers == "Yes":
-            required_questions += questions_c
-            
-        missing = [q for q in required_questions if st.session_state.responses.get(q) is None]
+    submit_clicked = st.button("Submit Survey", use_container_width=True)
+
+with reset_col:
+    # Yellow button trigger
+    if st.button("Reset Form", use_container_width=True):
+        reset_form_data()
+        st.rerun()
+    # Apply custom yellow styling to this specific button via markdown/css inject logic above
+    st.markdown('<style>div.stButton > button[kind="secondary"] { background-color: #FFCC00 !important; color: black !important; }</style>', unsafe_allow_html=True)
+
+if submit_clicked:
+    # Check all answers
+    required_questions = questions_a + ["Ada Penumpang?"] + questions_b
+    if has_passengers == "Yes":
+        required_questions += questions_c
         
-        if not staff_id or not stop or not selected_bus or len(st.session_state.photos) < 3 or missing:
-            st.error("Sila pastikan semua soalan dijawab, No. Bas dipilih, dan 3 keping gambar disediakan.")
-        else:
-            saving_placeholder = st.empty()
-            saving_placeholder.markdown('<div class="custom-spinner">⏳ Saving data... Please wait.</div>', unsafe_allow_html=True)
+    missing = [q for q in required_questions if st.session_state.responses.get(q) is None]
+    
+    if not staff_id or not stop or not selected_bus or len(st.session_state.photos) < 3 or missing:
+        st.error("Sila pastikan semua soalan dijawab, No. Bas dipilih, dan 3 keping gambar disediakan.")
+    else:
+        saving_placeholder = st.empty()
+        saving_placeholder.markdown('<div class="custom-spinner">⏳ Saving data... Please wait.</div>', unsafe_allow_html=True)
+        
+        try:
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            photo_urls = [gdrive_upload_file(p.getvalue(), f"{timestamp}_{idx}.jpg", "image/jpeg", FOLDER_ID) for idx, p in enumerate(st.session_state.photos)]
             
-            try:
-                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                photo_urls = [gdrive_upload_file(p.getvalue(), f"{timestamp}_{idx}.jpg", "image/jpeg", FOLDER_ID) for idx, p in enumerate(st.session_state.photos)]
-                
-                row_data = [timestamp, staff_id, staff_dict[staff_id], current_depot, current_route, stop, selected_bus] + \
-                            [st.session_state.responses.get(q) for q in all_questions] + ["; ".join(photo_urls)]
-                header_data = ["Timestamp", "Staff ID", "Staff Name", "Depot", "Route", "Bus Stop", "Bus Register No"] + all_questions + ["Photos"]
-                
-                gsheet_id = find_or_create_gsheet("survey_responses", FOLDER_ID)
-                append_row(gsheet_id, row_data, header_data)
-                
-                saving_placeholder.empty()
-                st.success("Submitted successfully!")
-                
-                # --- NEW FORCED RESET LOGIC ---
-                # Clear internal data
-                st.session_state.photos = []
-                st.session_state.responses = {}
-                
-                # Identify keys to keep
-                keep_keys = ["staff_id", "bus_stop"]
-                
-                # Clear all other session keys (Resetting widgets)
-                for key in list(st.session_state.keys()):
-                    if key not in keep_keys:
-                        del st.session_state[key]
-                
-                time.sleep(2)
-                st.rerun()
-                
-            except Exception as e:
-                saving_placeholder.empty()
-                st.error(f"Error: {e}")
+            row_data = [timestamp, staff_id, staff_dict[staff_id], current_depot, current_route, stop, selected_bus] + \
+                        [st.session_state.responses.get(q) for q in all_questions] + ["; ".join(photo_urls)]
+            header_data = ["Timestamp", "Staff ID", "Staff Name", "Depot", "Route", "Bus Stop", "Bus Register No"] + all_questions + ["Photos"]
+            
+            gsheet_id = find_or_create_gsheet("survey_responses", FOLDER_ID)
+            append_row(gsheet_id, row_data, header_data)
+            
+            saving_placeholder.empty()
+            st.success("Submitted successfully!")
+            
+            # Reset after submission
+            reset_form_data()
+            time.sleep(2)
+            st.rerun()
+            
+        except Exception as e:
+            saving_placeholder.empty()
+            st.error(f"Error: {e}")
