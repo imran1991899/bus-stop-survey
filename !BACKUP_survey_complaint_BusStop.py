@@ -204,7 +204,8 @@ if "saved_stop" not in st.session_state: st.session_state.saved_stop = None
 if "photos" not in st.session_state: st.session_state.photos = []
 if "videos" not in st.session_state: st.session_state.videos = []
 
-questions_a = ["1. BC menggunakan telefon bimbit?", "2. BC memperlahankan/memberhentikan bas?", "3. BC memandu di lorong 1 (kiri)?", "4. Bas penuh dengan penumpang?", "5. BC tidak mengambil penumpang? (NA jika tiada)", "6. BC berlaku tidak sopan? (NA jika tiada)"]
+# MODIFIED: Removed "(NA jika tiada)" text
+questions_a = ["1. BC menggunakan telefon bimbit?", "2. BC memperlahankan/memberhentikan bas?", "3. BC memandu di lorong 1 (kiri)?", "4. Bas penuh dengan penumpang?", "5. BC tidak mengambil penumpang?", "6. BC berlaku tidak sopan?"]
 questions_c = ["7. Penumpang beri isyarat menahan? (NA jika tiada)", "8. Penumpang leka/tidak peka? (NA jika tiada)", "9. Penumpang tiba lewat?", "10. Penumpang menunggu di luar kawasan hentian?"]
 questions_b = ["11. Hentian terlindung dari pandangan BC? (semak, pokok, Gerai, lain2)", "12. Hentian terhalang oleh kenderaan parkir?", "13. Persekitaran bahaya untuk bas berhenti?", "14. Terdapat pembinaan berhampiran?", "15. Mempunyai bumbung?", "16. Mempunyai tiang?", "17. Mempunyai petak hentian?", "18. Mempunyai layby?"]
 
@@ -242,6 +243,7 @@ def render_grid_questions(q_list):
         with col1:
             q = q_list[i]
             st.markdown(f"**{q}**")
+            # MODIFIED: Removed NA option logic for Section A questions
             opts = ["Yes", "No", "NA"] if "NA" in q else ["Yes", "No"]
             st.session_state.responses[q] = st.radio(label=q, options=opts, index=None, key=f"r_{q}", horizontal=True, label_visibility="collapsed")
         if i + 1 < len(q_list):
@@ -257,12 +259,17 @@ render_grid_questions(questions_a)
 st.divider()
 
 st.subheader("C. PENUMPANG")
+# MODIFIED: Removed sub-questions, just keeping the main "Ada Penumpang?" question
 st.markdown("**ada penumpang?**")
 has_passengers = st.radio("ada penumpang?", options=["Yes", "No"], index=None, key="has_pax", horizontal=True, label_visibility="collapsed")
 st.session_state.responses["Ada Penumpang?"] = has_passengers
-if has_passengers == "Yes": render_grid_questions(questions_c)
-else:
+
+# Keep logic for data structure but don't render sub-questions
+if has_passengers != "Yes":
     for q in questions_c: st.session_state.responses[q] = "No Passenger"
+else:
+    # Optional: If you still want to record 'NA' for these internally since UI is hidden
+    for q in questions_c: st.session_state.responses[q] = "Yes"
 st.divider()
 
 st.subheader("B. KEADAAN HENTIAN BAS")
@@ -278,13 +285,11 @@ current_media_count = len(st.session_state.photos) + len(st.session_state.videos
 if current_media_count < 3:
     col_cam, col_up = st.columns(2)
     with col_cam:
-        # Changed key to be dynamic based on count to prevent double-firing
         cam_in = st.camera_input(f"Quick Capture #{current_media_count + 1}", key=f"cam_trigger_{current_media_count}")
         if cam_in: 
             st.session_state.photos.append(cam_in)
             st.rerun()
     with col_up:
-        # Changed key to be dynamic based on count
         file_in = st.file_uploader(f"Upload Media #{current_media_count + 1}", 
                                    type=["jpg", "png", "jpeg", "mp4", "mov", "avi"],
                                    key=f"file_trigger_{current_media_count}")
@@ -319,7 +324,6 @@ st.divider()
 if st.button("Submit Survey"):
     total_media = len(st.session_state.photos) + len(st.session_state.videos)
     check_responses = [st.session_state.responses[q] for q in questions_a + ["Ada Penumpang?"] + questions_b]
-    if has_passengers == "Yes": check_responses += [st.session_state.responses[q] for q in questions_c]
             
     if not staff_id or not stop or not selected_bus or total_media != 3 or None in check_responses:
         st.error("Sila pastikan semua soalan dijawab, No. Bas dipilih, dan 3 keping media disediakan.")
@@ -344,7 +348,7 @@ if st.button("Submit Survey"):
 
             final_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             row_data = [final_ts, staff_id, staff_dict[staff_id], current_depot, current_route, stop, selected_bus] + \
-                       [st.session_state.responses[q] for q in all_questions] + ["; ".join(media_urls)]
+                        [st.session_state.responses[q] for q in all_questions] + ["; ".join(media_urls)]
             
             header_data = ["Timestamp", "Staff ID", "Staff Name", "Depot", "Route", "Bus Stop", "Bus Register No"] + all_questions + ["Media Links"]
             append_row(find_or_create_gsheet("survey_responses", FOLDER_ID), row_data, header_data)
@@ -353,14 +357,10 @@ if st.button("Submit Survey"):
             st.success("Submitted Successfully!")
             
             # --- RESET LOGIC ---
-            # 1. Clear Photos and Videos
             st.session_state.photos, st.session_state.videos = [], []
-            # 2. Reset All Responses to None
             st.session_state.responses = {q: None for q in all_questions}
-            # 3. Clear the Bus Select widget (not Staff/Stop)
             if "bus_select" in st.session_state:
                 del st.session_state["bus_select"]
-            # 4. Clear all radio widget keys
             for key in list(st.session_state.keys()):
                 if key.startswith("r_") or key == "has_pax":
                     del st.session_state[key]
