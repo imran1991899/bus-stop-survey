@@ -213,9 +213,7 @@ allowed_stops = sorted([
 
 staff_dict = {"10005475": "MOHD RIZAL BIN RAMLI", "10020779": "NUR FAEZAH BINTI HARUN", "10014181": "NORAINSYIRAH BINTI ARIFFIN", "10022768": "NORAZHA RAFFIZZI ZORKORNAINI", "10022769": "NUR HANIM HANIL", "10023845": "MUHAMMAD HAMKA BIN ROSLIM", "10002059": "MUHAMAD NIZAM BIN IBRAHIM", "10005562": "AZFAR NASRI BIN BURHAN", "10010659": "MOHD SHAHFIEE BIN ABDULLAH", "10008350": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN", "10003214": "NIK MOHD FADIR BIN NIK MAT RAWI", "10016370": "AHMAD AZIM BIN ISA", "10022910": "NUR SHAHIDA BINTI MOHD TAMIJI ", "10023513": "MUHAMMAD SYAHMI BIN AZMEY", "10023273": "MOHD IDZHAM BIN ABU BAKAR", "10023577": "MOHAMAD NAIM MOHAMAD SAPRI", "10023853": "MUHAMAD IMRAN BIN MOHD NASRUDDIN", "10008842": "MIRAN NURSYAWALNI AMIR", "10015662": "MUHAMMAD HANIF BIN HASHIM", "10011944": "NUR HAZIRAH BINTI NAWI"}
 
-# initialize persistence
-if "saved_staff_id" not in st.session_state: st.session_state.saved_staff_id = None
-if "saved_stop" not in st.session_state: st.session_state.saved_stop = None
+# initialize photos
 if "photos" not in st.session_state: st.session_state.photos = []
 
 # Question Lists
@@ -231,20 +229,14 @@ st.title("BC and Bus Stop Survey")
 
 col_staff, col_stop = st.columns(2)
 with col_staff:
-    staff_id = st.selectbox("👤 Staff ID", options=list(staff_dict.keys()), 
-                            index=list(staff_dict.keys()).index(st.session_state.saved_staff_id) if st.session_state.saved_staff_id in staff_dict else None, 
-                            placeholder="Pilih ID Staf...", key="staff_id_select")
+    staff_id = st.selectbox("👤 Staff ID", options=list(staff_dict.keys()), index=None, placeholder="Pilih ID Staf...", key="staff_id_perm")
     if staff_id:
         st.info(f"**Nama:** {staff_dict[staff_id]}")
-        st.session_state.saved_staff_id = staff_id
 
 with col_stop:
-    stop = st.selectbox("📍 Bus Stop", allowed_stops, 
-                        index=allowed_stops.index(st.session_state.saved_stop) if st.session_state.saved_stop in allowed_stops else None, 
-                        placeholder="Pilih Hentian Bas...", key="stop_select")
+    stop = st.selectbox("📍 Bus Stop", allowed_stops, index=None, placeholder="Pilih Hentian Bas...", key="stop_perm")
     current_route, current_depot = "", ""
     if stop:
-        st.session_state.saved_stop = stop
         matched_stop_data = stops_df[stops_df["Stop Name"] == stop]
         current_route = " / ".join(map(str, matched_stop_data["Route Number"].unique()))
         current_depot = " / ".join(map(str, routes_df[routes_df["Route Number"].isin(matched_stop_data["Route Number"].unique())]["Depot"].unique()))
@@ -299,12 +291,12 @@ st.subheader("📸 Take Photo (3 Photos Required)")
 if len(st.session_state.photos) < 3:
     col_cam, col_up = st.columns(2)
     with col_cam:
-        cam_in = st.camera_input(f"Take Photo (Ambil Gambar #{len(st.session_state.photos)+1})")
+        cam_in = st.camera_input(f"Take Photo (Ambil Gambar #{len(st.session_state.photos)+1})", key=f"cam_{len(st.session_state.photos)}")
         if cam_in: 
             st.session_state.photos.append(cam_in)
             st.rerun()
     with col_up:
-        file_in = st.file_uploader(f"Upload Gambar #{len(st.session_state.photos)+1}", type=["jpg", "png", "jpeg"])
+        file_in = st.file_uploader(f"Upload Gambar #{len(st.session_state.photos)+1}", type=["jpg", "png", "jpeg"], key=f"file_{len(st.session_state.photos)}")
         if file_in: 
             st.session_state.photos.append(file_in)
             st.rerun()
@@ -331,7 +323,6 @@ with c2:
         if not staff_id or not stop or not selected_bus or len(st.session_state.photos) != 3 or None in check_responses:
             st.error("Sila pastikan semua soalan dijawab, No. Bas dipilih, dan 3 keping gambar disediakan.")
         else:
-            # Place for the custom Light Orange frame saving message
             saving_placeholder = st.empty()
             saving_placeholder.markdown('<div class="custom-spinner">⏳ Saving data... Please wait.</div>', unsafe_allow_html=True)
             
@@ -344,11 +335,17 @@ with c2:
                 gsheet_id = find_or_create_gsheet("survey_responses", FOLDER_ID)
                 append_row(gsheet_id, row_data, header_data)
                 
-                # --- REFRESH LOGIC ---
-                saving_placeholder.empty() # Clear the orange frame
+                saving_placeholder.empty()
                 st.success("Submitted!")
                 
-                # Clear questionnaire and photos
+                # --- THE FIX: MANUAL KEY RESET ---
+                # We loop through session_state and delete keys we want to reset.
+                # We skip 'staff_id_perm' and 'stop_perm' so they stay.
+                for key in list(st.session_state.keys()):
+                    if key not in ["staff_id_perm", "stop_perm"]:
+                        del st.session_state[key]
+                
+                # Re-initialize the basic lists so the app doesn't crash on rerun
                 st.session_state.photos = []
                 st.session_state.responses = {q: None for q in all_questions}
                 
