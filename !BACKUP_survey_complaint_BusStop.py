@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
+ arrogance the datetime import datetime
 import pytz  
 from io import BytesIO
 import mimetypes
@@ -275,27 +275,38 @@ st.divider()
 
 # --------- High Resolution Media Section ---------
 st.subheader("📸 Media Upload (3 Items Required)")
-st.info("💡 **TIP:** For high-resolution photos or video recording, use the **Upload** button and select 'Camera'.")
+st.info("💡 **TIP:** You can now select up to 3 pictures at once from your gallery.")
 
-current_media_count = len(st.session_state.photos) + len(st.session_state.videos)
+total_uploaded = len(st.session_state.photos) + len(st.session_state.videos)
 
-if current_media_count < 3:
+if total_uploaded < 3:
     col_cam, col_up = st.columns(2)
     with col_cam:
-        cam_in = st.camera_input(f"Quick Capture #{current_media_count + 1}", key=f"cam_trigger_{current_media_count}")
+        # Camera still one-by-one for accuracy
+        cam_in = st.camera_input(f"Quick Capture ({total_uploaded + 1}/3)", key=f"cam_trigger_{total_uploaded}")
         if cam_in: 
             st.session_state.photos.append(cam_in)
             st.rerun()
+            
     with col_up:
-        file_in = st.file_uploader(f"Upload Media #{current_media_count + 1}", 
+        # ALLOW MULTIPLE SELECTION FROM GALLERY
+        files_in = st.file_uploader(f"Select Gallery Media (Max {3 - total_uploaded} more)", 
                                    type=["jpg", "png", "jpeg", "mp4", "mov", "avi"],
-                                   key=f"file_trigger_{current_media_count}")
-        if file_in: 
-            mime_type, _ = mimetypes.guess_type(file_in.name)
-            if mime_type and mime_type.startswith("video"):
-                st.session_state.videos.append(file_in)
-            else:
-                st.session_state.photos.append(file_in)
+                                   accept_multiple_files=True,
+                                   key=f"gallery_trigger_{total_uploaded}")
+        
+        if files_in: 
+            # Process each file selected in the batch
+            for f in files_in:
+                if len(st.session_state.photos) + len(st.session_state.videos) < 3:
+                    mime_type, _ = mimetypes.guess_type(f.name)
+                    if mime_type and mime_type.startswith("video"):
+                        st.session_state.videos.append(f)
+                    else:
+                        st.session_state.photos.append(f)
+                else:
+                    st.warning("Max 3 items reached. Some files were ignored.")
+                    break
             st.rerun()
 
 if st.session_state.photos or st.session_state.videos:
@@ -339,56 +350,39 @@ if st.button("Submit Survey"):
             
             media_urls = []
             for idx, p in enumerate(st.session_state.photos):
-                # --- NEW PERCENTAGE BASED FONT LOGIC ---
                 img = Image.open(p).convert("RGB")
                 draw = ImageDraw.Draw(img)
                 
-                # Scale fonts based on Image HEIGHT (making it huge even on 4K photos)
-                # 15% height for Time, 5% for the rest
                 size_large = int(img.height * 0.15) 
                 size_medium = int(img.height * 0.045) 
                 
                 try:
-                    # Bold font is critical for visibility
                     font_large = ImageFont.truetype("arialbd.ttf", size_large)
                     font_medium = ImageFont.truetype("arialbd.ttf", size_medium)
                 except:
                     font_large = ImageFont.load_default()
                     font_medium = ImageFont.load_default()
 
-                # Strings
                 time_now = now_kl.strftime("%I:%M")
                 am_pm = now_kl.strftime("%p").lower()
                 date_str = now_kl.strftime("%b %d, %Y")
                 day_str = now_kl.strftime("%a")
                 stop_label = f"Bus Stop Name : {stop}"
 
-                # Coordinates (Anchored to Bottom Left)
                 margin_x = int(img.width * 0.05)
                 margin_y = int(img.height * 0.08)
-                
-                # y_base is the bottom line of the large time text
                 y_base = img.height - margin_y
                 
-                # 1. Bus Stop Name (Red - placed significantly above)
                 draw.text((margin_x, y_base - size_large - size_medium - 40), stop_label, font=font_medium, fill=(255, 69, 58))
-                
-                # 2. Huge Time (White)
                 draw.text((margin_x, y_base - size_large), time_now, font=font_large, fill="white")
                 
-                # Get width of time to place items to the right
                 time_width = draw.textlength(time_now, font=font_large)
                 x_after_time = margin_x + time_width + 30
                 
-                # 3. AM/PM
                 draw.text((x_after_time, y_base - size_large + int(size_large * 0.1)), am_pm, font=font_medium, fill="white")
-                
-                # 4. Yellow Line (Thin but long)
                 line_x = x_after_time + int(size_medium * 1.5)
-                # Line height matches the large text height
                 draw.line([(line_x, y_base - size_large + 20), (line_x, y_base - 20)], fill=(255, 204, 0), width=6)
                 
-                # 5. Date & Day (Stacked)
                 x_date = line_x + 30
                 draw.text((x_date, y_base - size_large + 20), date_str, font=font_medium, fill="white")
                 draw.text((x_date, y_base - size_medium - 20), day_str, font=font_medium, fill="white")
@@ -415,7 +409,6 @@ if st.button("Submit Survey"):
             saving_placeholder.empty() 
             st.success("Submitted Successfully!")
             
-            # --- RESET LOGIC ---
             st.session_state.photos, st.session_state.videos = [], []
             st.session_state.responses = {q: None for q in all_questions}
             if "bus_select" in st.session_state:
