@@ -1,5 +1,5 @@
 import streamlit as st
-import pd as pd
+import pandas as pd
 from datetime import datetime
 import pytz  # Handles the Malaysia Timezone
 from io import BytesIO
@@ -102,7 +102,7 @@ st.markdown("""
         border: none !important;
         height: 60px !important;
         font-weight: 600 !important;
-        border-radius: 166px !important;
+        border-radius: 16px !important;
         font-size: 18px !important;
         padding: 0 40px !important;
         width: 100%;
@@ -356,7 +356,6 @@ if st.button("Submit Survey"):
                     font_large = ImageFont.truetype("arialbd.ttf", size_large)
                     font_medium = ImageFont.truetype("arialbd.ttf", size_medium)
                 except:
-                    # Fallback if font file not found - though it will look smaller
                     font_large = ImageFont.load_default()
                     font_medium = ImageFont.load_default()
 
@@ -381,7 +380,7 @@ if st.button("Submit Survey"):
                 time_width = draw.textlength(time_now, font=font_large)
                 x_after_time = x_start + time_width + 20
                 
-                # 3. AM/PM Indicator (Slightly lowered white text)
+                # 3. AM/PM Indicator
                 draw.text((x_after_time, y_time + int(size_large * 0.3)), am_pm, font=font_medium, fill="white")
                 
                 # 4. Vertical Yellow Line (Thick)
@@ -390,16 +389,14 @@ if st.button("Submit Survey"):
                 line_bottom = y_time + size_large - 10
                 draw.line([(line_x, line_top), (line_x, line_bottom)], fill=(255, 204, 0), width=15)
                 
-                # 5. Date and Day (Stacked to the right of the yellow line)
+                # 5. Date and Day
                 x_date = line_x + 30
                 draw.text((x_date, y_time + 10), date_str, font=font_medium, fill="white")
                 draw.text((x_date, y_time + int(size_large * 0.6)), day_str, font=font_medium, fill="white")
                 
-                # Save processed image to buffer
                 buf = BytesIO()
                 img.save(buf, format="JPEG", quality=95)
                 processed_bytes = buf.getvalue()
-                # ---------------------------------------------
 
                 url = gdrive_upload_file(processed_bytes, f"{safe_stop_name}_{timestamp_str}_IMG_{idx+1}.jpg", "image/jpeg", FOLDER_ID)
                 media_urls.append(url)
