@@ -125,8 +125,9 @@ def add_watermark(image_bytes, stop_name):
     draw = ImageDraw.Draw(img)
     w, h = img.size
     
-    # Scale unit set to ensure visibility on high-res images
-    unit = h * 0.015 
+    # FIX: Use the shorter side to determine scale so watermark is never "small"
+    short_side = min(w, h)
+    unit = short_side * 0.03 
     
     now = datetime.now()
     time_main = now.strftime("%I:%M")
@@ -134,7 +135,7 @@ def add_watermark(image_bytes, stop_name):
     date_str = now.strftime("%b %d, %Y")
     day_str = now.strftime("%a")
 
-    # Load SF-style Bold font (San Francisco fallbacks to Arial Bold or Helvetica Bold)
+    # Load SF-style Bold font (San Francisco fallbacks)
     font_paths = ["/System/Library/Fonts/SFNS.ttf", "/System/Library/Fonts/HelveticaNeue.ttc", "arialbd.ttf"]
     
     def get_font(size):
@@ -145,38 +146,38 @@ def add_watermark(image_bytes, stop_name):
                 continue
         return ImageFont.load_default()
 
-    # Giant Font sizes (~20x bigger than standard)
-    font_time = get_font(int(unit * 20)) # Massive time
-    font_ampm = get_font(int(unit * 6))
-    font_date = get_font(int(unit * 6.5))
-    font_stop = get_font(int(unit * 7))
+    # Giant Font sizes (Calculated to be visible even in red circle areas)
+    font_time = get_font(int(unit * 15)) 
+    font_ampm = get_font(int(unit * 5))
+    font_date = get_font(int(unit * 5.5))
+    font_stop = get_font(int(unit * 6))
 
     margin_x = int(w * 0.05)
-    bottom_base = h - int(h * 0.05)
+    bottom_base = h - int(h * 0.08)
     
-    # 1. Draw Time (Giant) with black stroke for Apple-style contrast
-    time_pos_y = bottom_base - int(unit * 30)
-    draw.text((margin_x, time_pos_y), time_main, font=font_time, fill="white", stroke_width=3, stroke_fill="black")
+    # 1. Draw Time (Giant) with Thick Black Stroke for visibility
+    time_pos_y = bottom_base - int(unit * 22)
+    draw.text((margin_x, time_pos_y), time_main, font=font_time, fill="white", stroke_width=4, stroke_fill="black")
     
-    # Measure time width to place elements
+    # Measure time width
     time_bbox = draw.textbbox((margin_x, time_pos_y), time_main, font=font_time)
     time_width = time_bbox[2] - time_bbox[0]
     
     # 2. Draw AM/PM
-    draw.text((margin_x + time_width + int(unit * 2), time_pos_y + int(unit * 2.5)), time_ampm, font=font_ampm, fill="white", stroke_width=1, stroke_fill="black")
+    draw.text((margin_x + time_width + int(unit * 2), time_pos_y + int(unit * 2)), time_ampm, font=font_ampm, fill="white", stroke_width=2, stroke_fill="black")
     
     # 3. Draw Vertical Orange Divider
     divider_x = margin_x + time_width + int(unit * 12)
-    line_top = time_pos_y + int(unit * 3)
-    line_bottom = time_pos_y + int(unit * 18)
-    draw.line([(divider_x, line_top), (divider_x, line_bottom)], fill="#FFB400", width=int(unit * 0.8))
+    line_top = time_pos_y + int(unit * 2.5)
+    line_bottom = time_pos_y + int(unit * 14)
+    draw.line([(divider_x, line_top), (divider_x, line_bottom)], fill="#FFB400", width=int(unit * 1.2))
     
     # 4. Draw Date and Day
-    draw.text((divider_x + int(unit * 3), line_top), date_str, font=font_date, fill="white", stroke_width=1, stroke_fill="black")
-    draw.text((divider_x + int(unit * 3), line_top + int(unit * 7.5)), day_str, font=font_date, fill="white", stroke_width=1, stroke_fill="black")
+    draw.text((divider_x + int(unit * 3), line_top), date_str, font=font_date, fill="white", stroke_width=2, stroke_fill="black")
+    draw.text((divider_x + int(unit * 3), line_top + int(unit * 6)), day_str, font=font_date, fill="white", stroke_width=2, stroke_fill="black")
     
     # 5. Draw Bus Stop Name
-    draw.text((margin_x, bottom_base - int(unit * 6)), stop_name, font=font_stop, fill="white", stroke_width=1, stroke_fill="black")
+    draw.text((margin_x, bottom_base - int(unit * 4)), stop_name.upper(), font=font_stop, fill="white", stroke_width=2, stroke_fill="black")
     
     img_byte_arr = BytesIO()
     img.save(img_byte_arr, format='JPEG', quality=95)
