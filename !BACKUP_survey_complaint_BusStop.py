@@ -107,7 +107,7 @@ st.markdown("""
 
     [data-testid="stCameraInput"] {
         border: 2px dashed #007AFF;
-        border-radius: 166px;
+        border-radius: 20px; /* Changed from 166px to 20px for a rounded square */
         padding: 10px;
     }
     
@@ -132,7 +132,6 @@ def add_watermark(image_bytes, stop_name):
     short_side = min(w, h)
     unit = short_side * 0.05 
     
-    # ADJUSTED: Use Malaysia Time
     now = datetime.now(KL_TZ)
     time_str = now.strftime("%I:%M %p")
     date_info = now.strftime("%b %d, %Y (%a)")
@@ -151,19 +150,28 @@ def add_watermark(image_bytes, stop_name):
                 continue
         return ImageFont.load_default()
 
-    font_time = get_massive_font(int(unit * 10)) 
-    font_sub = get_massive_font(int(unit * 3.5))
+    # Font sizes
+    font_time = get_massive_font(int(unit * 5)) 
+    font_sub = get_massive_font(int(unit * 2.5))
 
-    margin_x = int(w * 0.05)
+    margin_x = int(w * 0.03)
+    margin_bottom = int(h * 0.03)
+    line_spacing = int(unit * 0.5) # Tight gap between lines
+
+    # Calculate text heights to stack from bottom up
+    # 1. Bus Stop (Bottom)
+    # 2. Date (Middle)
+    # 3. Time (Top)
     
-    stop_y = h - int(unit * 6)
-    draw.text((margin_x, stop_y), stop_name.upper(), font=font_sub, fill="white", stroke_width=4, stroke_fill="black")
+    # We draw bottom to top to ensure "Edge below left"
+    stop_y = h - margin_bottom - int(unit * 2.5)
+    draw.text((margin_x, stop_y), stop_name.upper(), font=font_sub, fill="white", stroke_width=2, stroke_fill="black")
     
-    date_y = stop_y - int(unit * 4)
-    draw.text((margin_x, date_y), date_info, font=font_sub, fill="white", stroke_width=3, stroke_fill="black")
+    date_y = stop_y - int(unit * 2.5) - line_spacing
+    draw.text((margin_x, date_y), date_info, font=font_sub, fill="white", stroke_width=2, stroke_fill="black")
     
-    time_y = date_y - int(unit * 10)
-    draw.text((margin_x, time_y), time_str, font=font_time, fill="white", stroke_width=6, stroke_fill="black")
+    time_y = date_y - int(unit * 5) - line_spacing
+    draw.text((margin_x, time_y), time_str, font=font_time, fill="white", stroke_width=3, stroke_fill="black")
     
     img_byte_arr = BytesIO()
     img.save(img_byte_arr, format='JPEG', quality=95)
@@ -371,7 +379,6 @@ if st.button("Submit Survey"):
         saving_placeholder.markdown('<div class="custom-spinner">⏳ Saving & Applying Massive Timemarks... Please wait.</div>', unsafe_allow_html=True)
         
         try:
-            # ADJUSTED: Use Malaysia Time for filenames
             now_kl = datetime.now(KL_TZ)
             timestamp_str = now_kl.strftime("%Y%m%d_%H%M%S")
             safe_stop_name = re.sub(r'[^a-zA-Z0-9]', '_', stop)
@@ -388,7 +395,6 @@ if st.button("Submit Survey"):
                 v_url = gdrive_upload_file(v.getvalue(), f"{safe_stop_name}_{timestamp_str}_VID_{idx+1}.{ext}", m_type or "video/mp4", FOLDER_ID)
                 media_urls.append(v_url)
 
-            # ADJUSTED: Use Malaysia Time for Sheet timestamp
             final_ts = now_kl.strftime("%Y-%m-%d %H:%M:%S")
             row_data = [final_ts, staff_id, staff_dict[staff_id], current_depot, current_route, stop, selected_bus] + \
                         [st.session_state.responses[q] for q in all_questions] + ["; ".join(media_urls)]
@@ -399,7 +405,6 @@ if st.button("Submit Survey"):
             saving_placeholder.empty() 
             st.success("Submitted Successfully!")
             
-            # --- REFRESH ALL / SET TO DEFAULT ---
             st.session_state.photos = []
             st.session_state.videos = []
             st.session_state.responses = {q: None for q in all_questions}
