@@ -310,7 +310,7 @@ with c2:
         if not staff_id or not stop or not selected_bus or len(st.session_state.photos) != 3 or None in check_responses:
             st.error("Sila pastikan semua soalan dijawab, No. Bas dipilih, dan 3 keping gambar disediakan.")
         else:
-            with st.spinner("Menghantar data ke Google Drive..."):
+            with st.spinner("Saving data..."):
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 photo_urls = [gdrive_upload_file(p.getvalue(), f"{timestamp}_{idx}.jpg", "image/jpeg", FOLDER_ID) for idx, p in enumerate(st.session_state.photos)]
                 row_data = [timestamp, staff_id, staff_dict[staff_id], current_depot, current_route, stop, selected_bus] + \
@@ -318,9 +318,10 @@ with c2:
                 header_data = ["Timestamp", "Staff ID", "Staff Name", "Depot", "Route", "Bus Stop", "Bus Register No"] + all_questions + ["Photos"]
                 gsheet_id = find_or_create_gsheet("survey_responses", FOLDER_ID)
                 append_row(gsheet_id, row_data, header_data)
-                st.success("Tinjauan berjaya dihantar!")
+                st.success("Submitted!")
                 st.session_state.photos = []
                 st.session_state.responses = {q: None for q in all_questions}
                 time.sleep(2)
                 st.rerun()
+
 
