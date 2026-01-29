@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+import pytz  # Handles the Malaysia Timezone
 from io import BytesIO
 import mimetypes
 import time
@@ -278,13 +279,11 @@ current_media_count = len(st.session_state.photos) + len(st.session_state.videos
 if current_media_count < 3:
     col_cam, col_up = st.columns(2)
     with col_cam:
-        # Changed key to be dynamic based on count to prevent double-firing
         cam_in = st.camera_input(f"Quick Capture #{current_media_count + 1}", key=f"cam_trigger_{current_media_count}")
         if cam_in: 
             st.session_state.photos.append(cam_in)
             st.rerun()
     with col_up:
-        # Changed key to be dynamic based on count
         file_in = st.file_uploader(f"Upload Media #{current_media_count + 1}", 
                                    type=["jpg", "png", "jpeg", "mp4", "mov", "avi"],
                                    key=f"file_trigger_{current_media_count}")
@@ -296,7 +295,6 @@ if current_media_count < 3:
                 st.session_state.photos.append(file_in)
             st.rerun()
 
-# Display uploaded items
 if st.session_state.photos or st.session_state.videos:
     media_cols = st.columns(3)
     current_idx = 0
@@ -328,7 +326,14 @@ if st.button("Submit Survey"):
         saving_placeholder.markdown('<div class="custom-spinner">⏳ Saving data... Please wait.</div>', unsafe_allow_html=True)
         
         try:
-            timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+            # --- MALAYSIA KL TIMEZONE LOGIC ---
+            kl_tz = pytz.timezone('Asia/Kuala_Lumpur')
+            now_kl = datetime.now(kl_tz)
+            
+            timestamp_str = now_kl.strftime("%Y%m%d_%H%M%S")
+            final_ts = now_kl.strftime("%Y-%m-%d %H:%M:%S")
+            # ----------------------------------
+
             safe_stop_name = re.sub(r'[^a-zA-Z0-9]', '_', stop)
             
             media_urls = []
@@ -342,7 +347,6 @@ if st.button("Submit Survey"):
                 v_url = gdrive_upload_file(v.getvalue(), f"{safe_stop_name}_{timestamp_str}_VID_{idx+1}.{ext}", m_type or "video/mp4", FOLDER_ID)
                 media_urls.append(v_url)
 
-            final_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             row_data = [final_ts, staff_id, staff_dict[staff_id], current_depot, current_route, stop, selected_bus] + \
                        [st.session_state.responses[q] for q in all_questions] + ["; ".join(media_urls)]
             
@@ -353,14 +357,10 @@ if st.button("Submit Survey"):
             st.success("Submitted Successfully!")
             
             # --- RESET LOGIC ---
-            # 1. Clear Photos and Videos
             st.session_state.photos, st.session_state.videos = [], []
-            # 2. Reset All Responses to None
             st.session_state.responses = {q: None for q in all_questions}
-            # 3. Clear the Bus Select widget (not Staff/Stop)
             if "bus_select" in st.session_state:
                 del st.session_state["bus_select"]
-            # 4. Clear all radio widget keys
             for key in list(st.session_state.keys()):
                 if key.startswith("r_") or key == "has_pax":
                     del st.session_state[key]
