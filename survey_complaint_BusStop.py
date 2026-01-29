@@ -9,8 +9,9 @@ import pickle
 import re
 from urllib.parse import urlencode
 from PIL import Image, ImageDraw, ImageFont
-import pytz  # Added for Malaysia Timezone
+import pytz 
 
+# Essential Google API Imports
 from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
@@ -123,58 +124,44 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --------- Helper: MASSIVE Watermarking ---------
+# --------- Helper: MASSIVE ORANGE WATERMARK ---------
 def add_watermark(image_bytes, stop_name):
     img = Image.open(BytesIO(image_bytes)).convert("RGB")
     draw = ImageDraw.Draw(img)
     w, h = img.size
     
-    short_side = min(w, h)
-    # Unit for scaling fonts
-    unit = short_side * 0.05 
+    # Scale increased to 16% of width (2x bigger than before)
+    font_scale = int(w * 0.16) 
     
     now = datetime.now(KL_TZ)
     time_str = now.strftime("%I:%M %p")
-    date_info = now.strftime("%b %d, %Y (%a)")
+    info_str = f"{now.strftime('%d/%m/%y')} | {stop_name.upper()}"
 
-    font_paths = [
-        "/System/Library/Fonts/SFNS.ttf", 
-        "/System/Library/Fonts/HelveticaNeue-Bold.ttf", 
-        "arialbd.ttf"
-    ]
-    
-    def get_massive_font(size):
-        for path in font_paths:
-            try:
-                return ImageFont.truetype(path, size)
-            except:
-                continue
-        return ImageFont.load_default()
+    # Use Arial Bold
+    try:
+        font_main = ImageFont.truetype("arialbd.ttf", font_scale)
+        font_sub = ImageFont.truetype("arialbd.ttf", int(font_scale * 0.4))
+    except:
+        font_main = ImageFont.load_default()
+        font_sub = ImageFont.load_default()
 
-    # Font sizes increased for better visibility without stroke
-    size_time = int(unit * 4.5)
-    size_sub = int(unit * 2.2)
-    
-    font_time = get_massive_font(size_time) 
-    font_sub = get_massive_font(size_sub)
+    # Move text to the absolute edge of bottom-left
+    margin_left = int(w * 0.02)
+    margin_bottom = int(h * 0.02)
 
-    # Margin from the edges
-    margin_x = int(w * 0.04)
-    margin_bottom = int(h * 0.04)
+    # Get heights for tight stacking
+    sub_bbox = font_sub.getbbox(info_str)
+    main_bbox = font_main.getbbox(time_str)
+    sub_height = sub_bbox[3] - sub_bbox[1]
+    main_height = main_bbox[3] - main_bbox[1]
 
-    # Calculate stacking (Bottom to Top)
-    # 1. Bus Stop (Bottom)
-    # 2. Date (Above Stop)
-    # 3. Time (Above Date)
-    
-    stop_y = h - margin_bottom - size_sub
-    date_y = stop_y - size_sub - 5  # Closer spacing
-    time_y = date_y - size_time - 5 # Closer spacing
+    # Stacking from bottom up
+    y_pos_sub = h - margin_bottom - sub_height
+    y_pos_main = y_pos_sub - main_height - 10 # Tight gap
 
-    # Draw Text - Removed stroke_width and stroke_fill
-    draw.text((margin_x, stop_y), stop_name.upper(), font=font_sub, fill="white")
-    draw.text((margin_x, date_y), date_info, font=font_sub, fill="white")
-    draw.text((margin_x, time_y), time_str, font=font_time, fill="white")
+    # Draw Time (ORANGE) and Info (WHITE) - NO STROKE
+    draw.text((margin_left, y_pos_main), time_str, font=font_main, fill="orange")
+    draw.text((margin_left, y_pos_sub), info_str, font=font_sub, fill="white")
     
     img_byte_arr = BytesIO()
     img.save(img_byte_arr, format='JPEG', quality=95)
@@ -379,7 +366,7 @@ if st.button("Submit Survey"):
         st.error("Sila pastikan semua soalan dijawab, No. Bas dipilih, dan 3 keping media disediakan.")
     else:
         saving_placeholder = st.empty()
-        saving_placeholder.markdown('<div class="custom-spinner">⏳ Saving & Applying Massive Timemarks... Please wait.</div>', unsafe_allow_html=True)
+        saving_placeholder.markdown('<div class="custom-spinner">⏳ Saving & Applying Timemarks... Please wait.</div>', unsafe_allow_html=True)
         
         try:
             now_kl = datetime.now(KL_TZ)
