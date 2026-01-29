@@ -347,8 +347,8 @@ if st.button("Submit Survey"):
                 
                 # Increased base sizing for "Big" effect
                 base_size = max(24, int(img.width * 0.04)) 
-                large_font_size = int(base_size * 2.8)
-                font_medium_size = int(base_size * 1.2)
+                large_font_size = int(base_size * 10.8)
+                font_medium_size = int(base_size * 5.2)
                 
                 try:
                     # Attempting to load Arial Bold; if unavailable, simulation via drawing twice
@@ -427,3 +427,4 @@ if st.button("Submit Survey"):
             time.sleep(2); st.rerun()
         except Exception as e:
             saving_placeholder.empty(); st.error(f"Error: {e}")
+
