@@ -13,7 +13,7 @@ import pytz
 
 # Essential Google API Imports
 from google_auth_oauthlib.flow import Flow
-from googleapiclient.discovery import build  # <--- THIS FIXES THE NAMEERROR
+from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 from google.auth.transport.requests import Request
 
@@ -124,14 +124,14 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --------- Helper: BIG ARIAL WATERMARK ---------
+# --------- Helper: MASSIVE ORANGE WATERMARK ---------
 def add_watermark(image_bytes, stop_name):
     img = Image.open(BytesIO(image_bytes)).convert("RGB")
     draw = ImageDraw.Draw(img)
     w, h = img.size
     
-    # Text is much bigger now (8% of width)
-    font_scale = int(w * 0.08) 
+    # Scale increased to 16% of width (2x bigger than before)
+    font_scale = int(w * 0.16) 
     
     now = datetime.now(KL_TZ)
     time_str = now.strftime("%I:%M %p")
@@ -140,24 +140,27 @@ def add_watermark(image_bytes, stop_name):
     # Use Arial Bold
     try:
         font_main = ImageFont.truetype("arialbd.ttf", font_scale)
-        font_sub = ImageFont.truetype("arialbd.ttf", int(font_scale * 0.5))
+        font_sub = ImageFont.truetype("arialbd.ttf", int(font_scale * 0.4))
     except:
-        # Fallback if font file is missing
         font_main = ImageFont.load_default()
         font_sub = ImageFont.load_default()
 
-    # Move text as close to the bottom-left edge as possible
+    # Move text to the absolute edge of bottom-left
     margin_left = int(w * 0.02)
     margin_bottom = int(h * 0.02)
 
-    sub_height = font_sub.getbbox(info_str)[3]
-    main_height = font_main.getbbox(time_str)[3]
+    # Get heights for tight stacking
+    sub_bbox = font_sub.getbbox(info_str)
+    main_bbox = font_main.getbbox(time_str)
+    sub_height = sub_bbox[3] - sub_bbox[1]
+    main_height = main_bbox[3] - main_bbox[1]
 
+    # Stacking from bottom up
     y_pos_sub = h - margin_bottom - sub_height
-    y_pos_main = y_pos_sub - main_height - 5 
+    y_pos_main = y_pos_sub - main_height - 10 # Tight gap
 
-    # Pure white text, NO black stroke
-    draw.text((margin_left, y_pos_main), time_str, font=font_main, fill="white")
+    # Draw Time (ORANGE) and Info (WHITE) - NO STROKE
+    draw.text((margin_left, y_pos_main), time_str, font=font_main, fill="orange")
     draw.text((margin_left, y_pos_sub), info_str, font=font_sub, fill="white")
     
     img_byte_arr = BytesIO()
