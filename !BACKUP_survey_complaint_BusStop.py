@@ -201,7 +201,7 @@ except Exception as e:
 
 allowed_stops = sorted(["AJ106 LRT AMPANG", "DAMANSARA INTAN", "ECOSKY RESIDENCE", "FAKULTI KEJURUTERAAN (UTARA)", "FAKULTI PERNIAGAAN DAN PERAKAUNAN", "FAKULTI UNDANG-UNDANG", "KILANG PLASTIK EKSPEDISI EMAS (OPP)", "KJ477 UTAR", "KJ560 SHELL SG LONG (OPP)", "KL107 LRT MASJID JAMEK", "KL1082 SK Methodist", "KL117 BSN LEBUH AMPANG", "KL1217 ILP KUALA LUMPUR", "KL2247 KOMERSIAL KIP", "KL377 WISMA SISTEM", "KOMERSIAL BURHANUDDIN (2)", "MASJID CYBERJAYA 10", "MRT SRI DELIMA PINTU C", "PERUMAHAN TTDI", "PJ312 Medan Selera Seksyen 19", "PJ476 MASJID SULTAN ABDUL AZIZ", "PJ721 ONE UTAMA NEW WING", "PPJ384 AURA RESIDENCE", "SA12 APARTMENT BAIDURI (OPP)", "SA26 PERUMAHAN SEKSYEN 11", "SCLAND EMPORIS", "SJ602 BANDAR BUKIT PUCHONG BP1", "SMK SERI HARTAMAS", "SMK SULTAN ABD SAMAD (TIMUR)"])
 
-staff_dict = {"10005475": "MOHD RIZAL BIN RAMLI", "10020779": "NUR FAEZAH BINTI HARUN", "10014181": "NORAINSYIRAH BINTI ARIFFIN", "10022768": "NORAZHA RAFFIZZI ZORKORNAINI", "10022769": "NUR HANIM HANIL", "10023845": "MUHAMMAD HAMKA BIN ROSLIM", "10002059": "MUHAMAD I निजाम BIN IBRAHIM", "10005562": "AZFAR NASRI BIN BURHAN", "10010659": "MOHD SHAFIEE BIN ABDULLAH", "10008350": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN", "10003214": "NIK MOHD FADIR BIN NIK MAT RAWI", "10016370": "AHMAD AZIM BIN ISA", "10022910": "NUR SHAHIDA BINTI MOHD TAMIJI ", "10023513": "MUHAMMAD SYAHMI BIN AZMEY", "10023273": "MOHD IDZHAM BIN ABU BAKAR", "10023577": "MOHAMAD NAIM MOHAMAD SAPRI", "10023853": "MUHAMAD IMRAN BIN MOHD NASRUDDIN", "10008842": "MIRAN NURSYAWALNI AMIR", "10015662": "MUHAMMAD HANIF BIN HASHIM", "10011944": "NUR HAZIRAH BINTI NAWI"}
+staff_dict = {"10005475": "MOHD RIZAL BIN RAMLI", "10020779": "NUR FAEZAH BINTI HARUN", "10014181": "NORAINSYIRAH BINTI ARIFFIN", "10022768": "NORAZHA RAFFIZZI ZORKORNAINI", "10022769": "NUR HANIM HANIL", "10023845": "MUHAMMAD HAMKA BIN ROSLIM", "10002059": "MUHAMAD NIZAM BIN IBRAHIM", "10005562": "AZFAR NASRI BIN BURHAN", "10010659": "MOHD SHAFIEE BIN ABDULLAH", "10008350": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN", "10003214": "NIK MOHD FADIR BIN NIK MAT RAWI", "10016370": "AHMAD AZIM BIN ISA", "10022910": "NUR SHAHIDA BINTI MOHD TAMIJI ", "10023513": "MUHAMMAD SYAHMI BIN AZMEY", "10023273": "MOHD IDZHAM BIN ABU BAKAR", "10023577": "MOHAMAD NAIM MOHAMAD SAPRI", "10023853": "MUHAMAD IMRAN BIN MOHD NASRUDDIN", "10008842": "MIRAN NURSYAWALNI AMIR", "10015662": "MUHAMMAD HANIF BIN HASHIM", "10011944": "NUR HAZIRAH BINTI NAWI"}
 
 if "saved_staff_id" not in st.session_state: st.session_state.saved_staff_id = None
 if "saved_stop" not in st.session_state: st.session_state.saved_stop = None
@@ -339,59 +339,62 @@ if st.button("Submit Survey"):
             
             media_urls = []
             for idx, p in enumerate(st.session_state.photos):
-                # --- WATERMARK LOGIC ---
+                # --- NEW PERCENTAGE BASED FONT LOGIC ---
                 img = Image.open(p).convert("RGB")
                 draw = ImageDraw.Draw(img)
                 
-                # Dynamic Scaling based on image width
-                # We want the text to be massive: ~18% of the image width
-                size_large = int(img.width * 0.18) 
-                size_medium = int(size_large * 0.35) 
+                # Scale fonts based on Image HEIGHT (making it huge even on 4K photos)
+                # 15% height for Time, 5% for the rest
+                size_large = int(img.height * 0.15) 
+                size_medium = int(img.height * 0.045) 
                 
-                # Attempt to use a bold font
                 try:
+                    # Bold font is critical for visibility
                     font_large = ImageFont.truetype("arialbd.ttf", size_large)
                     font_medium = ImageFont.truetype("arialbd.ttf", size_medium)
                 except:
                     font_large = ImageFont.load_default()
                     font_medium = ImageFont.load_default()
 
-                # Prepare Strings
+                # Strings
                 time_now = now_kl.strftime("%I:%M")
                 am_pm = now_kl.strftime("%p").lower()
                 date_str = now_kl.strftime("%b %d, %Y")
                 day_str = now_kl.strftime("%a")
                 stop_label = f"Bus Stop Name : {stop}"
 
-                # Coordinates (Bottom Left relative)
-                # To look like the Timemark app, we place it near the bottom
-                margin = int(img.width * 0.05)
-                y_base = img.height - margin - size_large
+                # Coordinates (Anchored to Bottom Left)
+                margin_x = int(img.width * 0.05)
+                margin_y = int(img.height * 0.08)
                 
-                # 1. Bus Stop Name (Red - above the time)
-                draw.text((margin, y_base - size_medium - 10), stop_label, font=font_medium, fill=(255, 69, 58))
+                # y_base is the bottom line of the large time text
+                y_base = img.height - margin_y
+                
+                # 1. Bus Stop Name (Red - placed significantly above)
+                draw.text((margin_x, y_base - size_large - size_medium - 40), stop_label, font=font_medium, fill=(255, 69, 58))
                 
                 # 2. Huge Time (White)
-                draw.text((margin, y_base), time_now, font=font_large, fill="white")
+                draw.text((margin_x, y_base - size_large), time_now, font=font_large, fill="white")
                 
-                # Calculate spacing for items to the right of Time
+                # Get width of time to place items to the right
                 time_width = draw.textlength(time_now, font=font_large)
-                x_after_time = margin + time_width + 15
+                x_after_time = margin_x + time_width + 30
                 
-                # 3. AM/PM (Medium White)
-                draw.text((x_after_time, y_base + int(size_large * 0.1)), am_pm, font=font_medium, fill="white")
+                # 3. AM/PM
+                draw.text((x_after_time, y_base - size_large + int(size_large * 0.1)), am_pm, font=font_medium, fill="white")
                 
-                # 4. Yellow Line (Keep it thin/clean - fixed at 8px)
-                line_x = x_after_time + int(size_medium * 1.8)
-                draw.line([(line_x, y_base + 10), (line_x, y_base + size_large - 10)], fill=(255, 204, 0), width=8)
+                # 4. Yellow Line (Thin but long)
+                line_x = x_after_time + int(size_medium * 1.5)
+                # Line height matches the large text height
+                draw.line([(line_x, y_base - size_large + 20), (line_x, y_base - 20)], fill=(255, 204, 0), width=6)
                 
-                # 5. Date & Day (Right of yellow line)
-                x_date = line_x + 25
-                draw.text((x_date, y_base + 10), date_str, font=font_medium, fill="white")
-                draw.text((x_date, y_base + int(size_large * 0.5)), day_str, font=font_medium, fill="white")
+                # 5. Date & Day (Stacked)
+                x_date = line_x + 30
+                draw.text((x_date, y_base - size_large + 20), date_str, font=font_medium, fill="white")
+                draw.text((x_date, y_base - size_medium - 20), day_str, font=font_medium, fill="white")
                 
                 buf = BytesIO()
-                img.save(buf, format="JPEG", quality=95)
+                img.save(buf, format="JPEG", quality=90)
                 processed_bytes = buf.getvalue()
 
                 url = gdrive_upload_file(processed_bytes, f"{safe_stop_name}_{timestamp_str}_IMG_{idx+1}.jpg", "image/jpeg", FOLDER_ID)
