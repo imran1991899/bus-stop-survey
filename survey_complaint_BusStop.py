@@ -153,10 +153,10 @@ def get_authenticated_service():
         return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
     
     flow = Flow.from_client_secrets_file(CLIENT_SECRETS_FILE, scopes=SCOPES, 
-                                       redirect_uri="https://bus-stop-survey-kwaazvrcnnrtfyniqjwzlc.streamlit.app/")
+                                       redirect_uri="https://bus-stop-survey-99f8wusughejfcfvrvxmyl.streamlit.app/")
     query_params = st.query_params
     if "code" in query_params:
-        full_url = "https://bus-stop-survey-kwaazvrcnnrtfyniqjwzlc.streamlit.app/?" + urlencode(query_params)
+        full_url = "https://bus-stop-survey-99f8wusughejfcfvrvxmyl.streamlit.app/?" + urlencode(query_params)
         flow.fetch_token(authorization_response=full_url)
         creds = flow.credentials
         save_credentials(creds)
@@ -392,3 +392,4 @@ with c2:
             except Exception as e:
                 saving_placeholder.empty()
                 st.error(f"Error saving data: {e}")
+
