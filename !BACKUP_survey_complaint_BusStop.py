@@ -11,12 +11,6 @@ from urllib.parse import urlencode
 from PIL import Image, ImageDraw, ImageFont
 import pytz 
 
-# Essential Google API Imports
-from google_auth_oauthlib.flow import Flow
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseUpload
-from google.auth.transport.requests import Request
-
 # --------- Timezone Setup ---------
 KL_TZ = pytz.timezone('Asia/Kuala_Lumpur')
 
@@ -63,37 +57,6 @@ st.markdown("""
         min-height: 58px !important; 
     }
 
-    [data-testid="stWidgetSelectionVisualizer"] {
-        display: none !important;
-    }
-
-    div[role="radiogroup"] label {
-        background-color: transparent !important;
-        border: none !important;
-        padding: 14px 0px !important; 
-        border-radius: 11px !important;
-        transition: all 0.2s ease-in-out !important;
-        flex: 1 !important;
-        display: flex !important;
-        justify-content: center !important;
-        align-items: center !important;
-        margin: 0 !important;
-    }
-
-    div[role="radiogroup"] label p {
-        font-size: 16px !important; 
-        margin: 0 !important;
-        padding: 0 20px !important;
-        white-space: nowrap !important; 
-        color: #444444 !important; 
-        font-weight: 700 !important; 
-    }
-
-    div[role="radiogroup"] label:has(input:checked) {
-        background-color: #FFFFFF !important;
-        box-shadow: 0px 4px 12px rgba(0,0,0,0.15) !important;
-    }
-
     div.stButton > button {
         background-color: #007AFF !important;
         color: white !important;
@@ -111,88 +74,63 @@ st.markdown("""
         border-radius: 20px; 
         padding: 10px;
     }
-    
-    [data-testid="stCameraInput"] video {
-        border-radius: 12px;
-        object-fit: cover;
-    }
-
-    [data-testid="stCameraInput"] label div {
-        color: #007AFF !important;
-        font-weight: bold !important;
-    }
     </style>
     """, unsafe_allow_html=True)
 
-# --------- Helper: ULTRA-VISIBLE MASSIVE WATERMARK ---------
+# --------- Helper: FORCED MEGA BANNER WATERMARK ---------
 def add_watermark(image_bytes, stop_name):
-    img = Image.open(BytesIO(image_bytes)).convert("RGBA") # Use RGBA for transparency overlay
-    overlay = Image.new('RGBA', img.size, (0,0,0,0))
-    draw = ImageDraw.Draw(overlay)
+    img = Image.open(BytesIO(image_bytes)).convert("RGBA")
     w, h = img.size
     
-    # 1. MASSIVE DYNAMIC FONT SCALING
-    # Scale based on height to ensure it takes up significant screen real estate
-    font_scale = int(h * 0.12) 
-    sub_font_scale = int(font_scale * 0.35)
+    # 1. FORCED SCALE: Use a very high base (minimum 300px height for text)
+    # This ensures high-res photos (4000px+) still get massive text
+    base_unit = max(h, w)
+    main_font_size = int(base_unit * 0.12)  # 12% of the largest dimension
+    sub_font_size = int(main_font_size * 0.4)
     
+    overlay = Image.new('RGBA', img.size, (0,0,0,0))
+    draw = ImageDraw.Draw(overlay)
+
     now = datetime.now(KL_TZ)
     time_str = now.strftime("%I:%M %p")
     info_str = f"{now.strftime('%d/%m/%Y')} | {stop_name.upper()}"
 
     try:
-        font_main = ImageFont.truetype("arialbd.ttf", font_scale)
-        font_sub = ImageFont.truetype("arialbd.ttf", sub_font_scale)
+        # Standard fonts on most systems
+        font_main = ImageFont.truetype("arialbd.ttf", main_font_size)
+        font_sub = ImageFont.truetype("arialbd.ttf", sub_font_size)
     except:
         font_main = ImageFont.load_default()
         font_sub = ImageFont.load_default()
 
-    # 2. CALCULATE POSITIONS
-    main_bbox = font_main.getbbox(time_str)
-    sub_bbox = font_sub.getbbox(info_str)
-    
-    main_w = main_bbox[2] - main_bbox[0]
-    main_h = main_bbox[3] - main_bbox[1]
-    sub_w = sub_bbox[2] - sub_bbox[0]
-    sub_h = sub_bbox[3] - sub_bbox[1]
+    # 2. BANNER BACKGROUND (STRETCHES FULL WIDTH)
+    # Height of black box is roughly 25% of the photo height
+    banner_height = int(h * 0.25)
+    draw.rectangle([0, h - banner_height, w, h], fill=(0, 0, 0, 180))
 
-    padding = int(w * 0.04)
-    bg_margin = int(h * 0.02)
+    # 3. TEXT POSITIONING
+    # Centered vertically within the banner
+    margin_x = int(w * 0.05)
+    y_center = h - (banner_height / 2)
     
-    # Position: Bottom Left
-    x_pos = padding
-    y_pos_sub = h - padding - sub_h
-    y_pos_main = y_pos_sub - main_h - bg_margin
-
-    # 3. DRAW SEMI-TRANSPARENT BACKGROUND BOX
-    # Creates a dark rectangle behind the text for 100% visibility
-    box_padding = int(padding * 0.5)
-    box_coords = [
-        0, 
-        y_pos_main - box_padding, 
-        max(main_w, sub_w) + (padding * 2), 
-        h
-    ]
-    draw.rectangle(box_coords, fill=(0, 0, 0, 160)) # Black with 60% opacity
-
-    # 4. DRAW TEXT WITH THICK OUTLINE
-    stroke = max(3, int(font_scale * 0.04))
+    # Draw Time (ORANGE)
+    draw.text((margin_x, y_center - main_font_size), time_str, font=font_main, fill="orange")
     
-    # Time (Giant Orange)
-    draw.text((x_pos, y_pos_main), time_str, font=font_main, fill="orange", 
-              stroke_width=stroke, stroke_fill="black")
-    
-    # Info (Large White)
-    draw.text((x_pos, y_pos_sub), info_str, font=font_sub, fill="white", 
-              stroke_width=int(stroke/2), stroke_fill="black")
+    # Draw Info (WHITE)
+    draw.text((margin_x, y_center + 10), info_str, font=font_sub, fill="white")
 
-    # Combine and save
+    # Flatten and return
     combined = Image.alpha_composite(img, overlay).convert("RGB")
     img_byte_arr = BytesIO()
-    combined.save(img_byte_arr, format='JPEG', quality=95)
+    combined.save(img_byte_arr, format='JPEG', quality=90)
     return img_byte_arr.getvalue()
 
 # --------- Google API Configuration ---------
+from google_auth_oauthlib.flow import Flow
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseUpload
+from google.auth.transport.requests import Request
+
 FOLDER_ID = "1DjtLxgyQXwgjq_N6I_-rtYcBcnWhzMGp"
 CLIENT_SECRETS_FILE = "client_secrets2.json"
 SCOPES = ["https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/spreadsheets"]
@@ -261,15 +199,12 @@ try:
     bus_df = pd.read_excel("bus_list.xlsx", sheet_name="bus list", usecols=[1])
     bus_list = sorted(bus_df.iloc[:, 0].dropna().astype(str).unique().tolist())
 except Exception as e:
-    st.error(f"Error loading bus_list.xlsx: {e}")
     bus_list = []
 
 allowed_stops = sorted(["AJ106 LRT AMPANG", "DAMANSARA INTAN", "ECOSKY RESIDENCE", "FAKULTI KEJURUTERAAN (UTARA)", "FAKULTI PERNIAGAAN DAN PERAKAUNAN", "FAKULTI UNDANG-UNDANG", "KILANG PLASTIK EKSPEDISI EMAS (OPP)", "KJ477 UTAR", "KJ560 SHELL SG LONG (OPP)", "KL107 LRT MASJID JAMEK", "KL1082 SK Methodist", "KL117 BSN LEBUH AMPANG", "KL1217 ILP KUALA LUMPUR", "KL2247 KOMERSIAL KIP", "KL377 WISMA SISTEM", "KOMERSIAL BURHANUDDIN (2)", "MASJID CYBERJAYA 10", "MRT SRI DELIMA PINTU C", "PERUMAHAN TTDI", "PJ312 Medan Selera Seksyen 19", "PJ476 MASJID SULTAN ABDUL AZIZ", "PJ721 ONE UTAMA NEW WING", "PPJ384 AURA RESIDENCE", "SA12 APARTMENT BAIDURI (OPP)", "SA26 PERUMAHAN SEKSYEN 11", "SCLAND EMPORIS", "SJ602 BANDAR BUKIT PUCHONG BP1", "SMK SERI HARTAMAS", "SMK SULTAN ABD SAMAD (TIMUR)"])
 
-staff_dict = {"10005475": "MOHD RIZAL BIN RAMLI", "10020779": "NUR FAEZAH BINTI HARUN", "10014181": "NORAINSYIRAH BINTI ARIFFIN", "10022768": "NORAZHA RAFFIZZI ZORKORNAINI", "10022769": "NUR HANIM HANIL", "10023845": "MUHAMMAD HAMKA BIN ROSLIM", "10002059": "MUHAMAD NIZAM BIN IBRAHIM", "10005562": "AZFAR NASRI BIN BURHAN", "10010659": "MOHD SHAFIEE BIN ABDULLAH", "10008350": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN", "10003214": "NIK MOHD FADIR BIN NIK MAT RAWI", "10016370": "AHMAD AZIM BIN ISA", "10022910": "NUR SHAHIDA BINTI MOHD TAMIJI ", "10023513": "MUHAMMAD SYAHMI BIN AZMEY", "10023273": "MOHD IDZHAM BIN ABU BAKAR", "10023577": "MOHAMAD NAIM MOHAMAD SAPRI", "10023853": "MUHAMAD IMRAN BIN MOHD NASRUDDIN", "10008842": "MIRAN NURSYAWALNI AMIR", "10015662": "MUHAMMAD HANDIF BIN HASHIM", "10011944": "NUR HAZIRAH BINTI NAWI"}
+staff_dict = {"10005475": "MOHD RIZAL BIN RAMLI", "10020779": "NUR FAEZAH BINTI HARUN", "10014181": "NORAINSYIRAH BINTI ARIFFIN", "10022768": "NORAZHA RAFFIZZI ZORKORNAINI", "10022769": "NUR HANIM HANIL", "10023845": "MUHAMMAD HAMKA BIN ROSLIM", "10002059": "MUHAMAD NIZAM BIN IBRAHIM", "10005562": "AZFAR NASRI BIN BURHAN", "10010659": "MOHD SHAFIEE BIN ABDULLAH", "10008350": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN", "10003214": "NIK MOHD FADIR BIN NIK MAT RAWI", "10016370": "AHMAD AZIM BIN ISA", "10022910": "NUR SHAHIDA BINTI MOHD TAMIJI ", "10023513": "MUHAMMAD SYAHMI BIN AZMEY", "10023273": "MOHD IDZHAM BIN ABU BAKAR", "10023577": "MOHAMAD NAIM MOHAMAD SAPRI", "10023853": "MUHAMAD IMRAN BIN MOHD NASRUDDIN", "10008842": "MIRAN NURSYAWALNI AMIR", "10015662": "MUHAMMAD HANIF BIN HASHIM", "10011944": "NUR HAZIRAH BINTI NAWI"}
 
-if "saved_staff_id" not in st.session_state: st.session_state.saved_staff_id = None
-if "saved_stop" not in st.session_state: st.session_state.saved_stop = None
 if "photos" not in st.session_state: st.session_state.photos = []
 if "videos" not in st.session_state: st.session_state.videos = []
 
@@ -285,20 +220,13 @@ st.title("BC and Bus Stop Survey")
 
 col_staff, col_stop = st.columns(2)
 with col_staff:
-    staff_id = st.selectbox("👤 OE Staff ID", options=list(staff_dict.keys()), 
-                            index=list(staff_dict.keys()).index(st.session_state.saved_staff_id) if st.session_state.saved_staff_id in staff_dict else None, 
-                            placeholder="Pilih ID Staf...", key="staff_id_select")
-    if staff_id:
-        st.info(f"**Nama:** {staff_dict[staff_id]}")
-        st.session_state.saved_staff_id = staff_id
+    staff_id = st.selectbox("👤 OE Staff ID", options=list(staff_dict.keys()), index=None, placeholder="Pilih ID Staf...")
+    if staff_id: st.info(f"**Nama:** {staff_dict[staff_id]}")
 
 with col_stop:
-    stop = st.selectbox("📍 Bus Stop", allowed_stops, 
-                        index=allowed_stops.index(st.session_state.saved_stop) if st.session_state.saved_stop in allowed_stops else None, 
-                        placeholder="Pilih Hentian Bas...", key="stop_select")
+    stop = st.selectbox("📍 Bus Stop", allowed_stops, index=None, placeholder="Pilih Hentian Bas...")
     current_route, current_depot = "", ""
     if stop:
-        st.session_state.saved_stop = stop
         matched_stop_data = stops_df[stops_df["Stop Name"] == stop]
         current_route = " / ".join(map(str, matched_stop_data["Route Number"].unique()))
         current_depot = " / ".join(map(str, routes_df[routes_df["Route Number"].isin(matched_stop_data["Route Number"].unique())]["Depot"].unique()))
@@ -321,22 +249,19 @@ def render_grid_questions(q_list):
                 st.session_state.responses[q] = st.radio(label=q, options=opts, index=None, key=f"r_{q}", horizontal=True, label_visibility="collapsed")
 
 st.subheader("A. KELAKUAN KAPTEN BAS")
-selected_bus = st.selectbox("🚌 Pilih No. Bas", options=bus_list, index=None, placeholder="Pilih no pendaftaran bas...", key="bus_select")
+selected_bus = st.selectbox("🚌 Pilih No. Bas", options=bus_list, index=None, placeholder="Pilih no pendaftaran bas...")
 render_grid_questions(questions_a)
 st.divider()
 
 st.subheader("C. PENUMPANG")
-st.markdown("**ada penumpang?**")
-has_passengers = st.radio("ada penumpang?", options=["Yes", "No"], index=None, key="has_pax", horizontal=True, label_visibility="collapsed")
+has_passengers = st.radio("Ada penumpang?", options=["Yes", "No"], index=None, horizontal=True)
 st.session_state.responses["Ada Penumpang?"] = has_passengers
-
-if has_passengers != "Yes":
-    for q in questions_c: st.session_state.responses[q] = "No Passenger"
+if has_passengers == "Yes":
+    render_grid_questions(questions_c)
 else:
-    for q in questions_c: 
-        if st.session_state.responses[q] == "No Passenger": st.session_state.responses[q] = None
-st.divider()
+    for q in questions_c: st.session_state.responses[q] = "No Passenger"
 
+st.divider()
 st.subheader("B. KEADAAN HENTIAN BAS")
 render_grid_questions(questions_b)
 st.divider()
@@ -348,14 +273,12 @@ current_media_count = len(st.session_state.photos) + len(st.session_state.videos
 if current_media_count < 3:
     col_cam, col_up = st.columns(2)
     with col_cam:
-        cam_in = st.camera_input(f"Quick Capture #{current_media_count + 1}", key=f"cam_trigger_{current_media_count}")
+        cam_in = st.camera_input(f"Quick Capture #{current_media_count + 1}")
         if cam_in: 
             st.session_state.photos.append(cam_in)
             st.rerun()
     with col_up:
-        file_in = st.file_uploader(f"Upload Media #{current_media_count + 1}", 
-                                   type=["jpg", "png", "jpeg", "mp4", "mov", "avi"],
-                                   key=f"file_trigger_{current_media_count}")
+        file_in = st.file_uploader(f"Upload Media #{current_media_count + 1}", type=["jpg", "png", "jpeg", "mp4", "mov", "avi"])
         if file_in: 
             mime_type, _ = mimetypes.guess_type(file_in.name)
             if mime_type and mime_type.startswith("video"):
@@ -366,32 +289,27 @@ if current_media_count < 3:
 
 if st.session_state.photos or st.session_state.videos:
     media_cols = st.columns(3)
-    current_idx = 0
     for idx, pic in enumerate(st.session_state.photos):
-        with media_cols[current_idx % 3]:
+        with media_cols[idx % 3]:
             st.image(pic, use_container_width=True)
-            if st.button(f"Remove Photo {idx}", key=f"rm_p_{idx}"):
+            if st.button(f"Remove Photo {idx}"):
                 st.session_state.photos.pop(idx); st.rerun()
-        current_idx += 1
     for idx, vid in enumerate(st.session_state.videos):
-        with media_cols[current_idx % 3]:
+        with media_cols[(len(st.session_state.photos) + idx) % 3]:
             st.video(vid)
-            if st.button(f"Remove Video {idx}", key=f"rm_v_{idx}"):
+            if st.button(f"Remove Video {idx}"):
                 st.session_state.videos.pop(idx); st.rerun()
-        current_idx += 1
 
 st.divider()
 
 # --------- Submit Logic ---------
 if st.button("Submit Survey"):
     total_media = len(st.session_state.photos) + len(st.session_state.videos)
-    check_responses = [st.session_state.responses[q] for q in questions_a + ["Ada Penumpang?"] + questions_b]
-            
-    if not staff_id or not stop or not selected_bus or total_media != 3 or None in check_responses:
-        st.error("Sila pastikan semua soalan dijawab, No. Bas dipilih, dan 3 keping media disediakan.")
+    if not staff_id or not stop or not selected_bus or total_media != 3:
+        st.error("Sila pastikan semua soalan dijawab dan 3 keping media disediakan.")
     else:
         saving_placeholder = st.empty()
-        saving_placeholder.markdown('<div class="custom-spinner">⏳ Saving & Applying Timemarks... Please wait.</div>', unsafe_allow_html=True)
+        saving_placeholder.markdown('<div class="custom-spinner">⏳ Saving & Applying Mega-Timemarks... Please wait.</div>', unsafe_allow_html=True)
         
         try:
             now_kl = datetime.now(KL_TZ)
@@ -419,17 +337,9 @@ if st.button("Submit Survey"):
             
             saving_placeholder.empty() 
             st.success("Submitted Successfully!")
-            
             st.session_state.photos = []
             st.session_state.videos = []
             st.session_state.responses = {q: None for q in all_questions}
-            st.session_state.saved_staff_id = None
-            st.session_state.saved_stop = None
-
-            for key in list(st.session_state.keys()):
-                if key.startswith("r_") or key in ["has_pax", "bus_select", "staff_id_select", "stop_select"]:
-                    del st.session_state[key]
-            
             time.sleep(2)
             st.rerun()
 
