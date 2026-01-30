@@ -11,12 +11,6 @@ from urllib.parse import urlencode
 from PIL import Image, ImageDraw, ImageFont
 import pytz 
 
-# Essential Google API Imports
-from google_auth_oauthlib.flow import Flow
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseUpload
-from google.auth.transport.requests import Request
-
 # --------- Timezone Setup ---------
 KL_TZ = pytz.timezone('Asia/Kuala_Lumpur')
 
@@ -130,44 +124,48 @@ def add_watermark(image_bytes, stop_name):
     draw = ImageDraw.Draw(img)
     w, h = img.size
     
-    # Scale increased to 16% of width (2x bigger than before)
-    font_scale = int(w * 0.56) 
+    # Scale increased to 40% of width - EXTREMELY LARGE
+    font_scale = int(w * 0.40) 
+    stroke_width = max(2, int(font_scale * 0.05)) # Added thick outline for visibility
     
     now = datetime.now(KL_TZ)
     time_str = now.strftime("%I:%M %p")
     info_str = f"{now.strftime('%d/%m/%y')} | {stop_name.upper()}"
 
-    # Use Arial Bold
     try:
+        # Using a very large font size
         font_main = ImageFont.truetype("arialbd.ttf", font_scale)
-        font_sub = ImageFont.truetype("arialbd.ttf", int(font_scale * 0.10))
+        font_sub = ImageFont.truetype("arialbd.ttf", int(font_scale * 0.25))
     except:
         font_main = ImageFont.load_default()
         font_sub = ImageFont.load_default()
 
-    # Move text to the absolute edge of bottom-left
-    margin_left = int(w * 0.02)
-    margin_bottom = int(h * 0.02)
+    # Move text higher up from the bottom so it's not cut off
+    margin_left = int(w * 0.05)
+    margin_bottom = int(h * 0.08)
 
-    # Get heights for tight stacking
     sub_bbox = font_sub.getbbox(info_str)
     main_bbox = font_main.getbbox(time_str)
     sub_height = sub_bbox[3] - sub_bbox[1]
     main_height = main_bbox[3] - main_bbox[1]
 
-    # Stacking from bottom up
     y_pos_sub = h - margin_bottom - sub_height
-    y_pos_main = y_pos_sub - main_height - 10 # Tight gap
+    y_pos_main = y_pos_sub - main_height - int(h * 0.02)
 
-    # Draw Time (ORANGE) and Info (WHITE) - NO STROKE
-    draw.text((margin_left, y_pos_main), time_str, font=font_main, fill="orange")
-    draw.text((margin_left, y_pos_sub), info_str, font=font_sub, fill="white")
+    # Draw with stroke (outline) to ensure it is visible regardless of background color
+    draw.text((margin_left, y_pos_main), time_str, font=font_main, fill="orange", stroke_width=stroke_width, stroke_fill="black")
+    draw.text((margin_left, y_pos_sub), info_str, font=font_sub, fill="white", stroke_width=int(stroke_width/2), stroke_fill="black")
     
     img_byte_arr = BytesIO()
     img.save(img_byte_arr, format='JPEG', quality=95)
     return img_byte_arr.getvalue()
 
 # --------- Google API Configuration ---------
+from google_auth_oauthlib.flow import Flow
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseUpload
+from google.auth.transport.requests import Request
+
 FOLDER_ID = "1DjtLxgyQXwgjq_N6I_-rtYcBcnWhzMGp"
 CLIENT_SECRETS_FILE = "client_secrets2.json"
 SCOPES = ["https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/spreadsheets"]
@@ -241,7 +239,7 @@ except Exception as e:
 
 allowed_stops = sorted(["AJ106 LRT AMPANG", "DAMANSARA INTAN", "ECOSKY RESIDENCE", "FAKULTI KEJURUTERAAN (UTARA)", "FAKULTI PERNIAGAAN DAN PERAKAUNAN", "FAKULTI UNDANG-UNDANG", "KILANG PLASTIK EKSPEDISI EMAS (OPP)", "KJ477 UTAR", "KJ560 SHELL SG LONG (OPP)", "KL107 LRT MASJID JAMEK", "KL1082 SK Methodist", "KL117 BSN LEBUH AMPANG", "KL1217 ILP KUALA LUMPUR", "KL2247 KOMERSIAL KIP", "KL377 WISMA SISTEM", "KOMERSIAL BURHANUDDIN (2)", "MASJID CYBERJAYA 10", "MRT SRI DELIMA PINTU C", "PERUMAHAN TTDI", "PJ312 Medan Selera Seksyen 19", "PJ476 MASJID SULTAN ABDUL AZIZ", "PJ721 ONE UTAMA NEW WING", "PPJ384 AURA RESIDENCE", "SA12 APARTMENT BAIDURI (OPP)", "SA26 PERUMAHAN SEKSYEN 11", "SCLAND EMPORIS", "SJ602 BANDAR BUKIT PUCHONG BP1", "SMK SERI HARTAMAS", "SMK SULTAN ABD SAMAD (TIMUR)"])
 
-staff_dict = {"10005475": "MOHD RIZAL BIN RAMLI", "10020779": "NUR FAEZAH BINTI HARUN", "10014181": "NORAINSYIRAH BINTI ARIFFIN", "10022768": "NORAZHA RAFFIZZI ZORKORNAINI", "10022769": "NUR HANIM HANIL", "10023845": "MUHAMMAD HAMKA BIN ROSLIM", "10002059": "MUHAMAD NIZAM BIN IBRAHIM", "10005562": "AZFAR NASRI BIN BURHAN", "10010659": "MOHD SHAFIEE BIN ABDULLAH", "10008350": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN", "10003214": "NIK MOHD FADIR BIN NIK MAT RAWI", "10016370": "AHMAD AZIM BIN ISA", "10022910": "NUR SHAHIDA BINTI MOHD TAMIJI ", "10023513": "MUHAMMAD SYAHMI BIN AZMEY", "10023273": "MOHD IDZHAM BIN ABU BAKAR", "10023577": "MOHAMAD NAIM MOHAMAD SAPRI", "10023853": "MUHAMAD IMRAN BIN MOHD NASRUDDIN", "10008842": "MIRAN NURSYAWALNI AMIR", "10015662": "MUHAMMAD HANDIF BIN HASHIM", "10011944": "NUR HAZIRAH BINTI NAWI"}
+staff_dict = {"10005475": "MOHD RIZAL BIN RAMLI", "10020779": "NUR FAEZAH BINTI HARUN", "10014181": "NORAINSYIRAH BINTI ARIFFIN", "10022768": "NORAZHA RAFFIZZI ZORKORNAINI", "10022769": "NUR HANIM HANIL", "10023845": "MUHAMMAD HAMKA BIN ROSLIM", "10002059": "MUHAMAD NIZAM BIN IBRAHIM", "10005562": "AZFAR NASRI BIN BURHAN", "10010659": "MOHD SHAFIEE BIN ABDULLAH", "10008350": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN", "10003214": "NIK MOHD FADIR BIN NIK MAT RAWI", "10016370": "AHMAD AZIM BIN ISA", "10022910": "NUR SHAHIDA BINTI MOHD TAMIJI ", "10023513": "MUHAMMAD SYAHMI BIN AZMEY", "10023273": "MOHD IDZHAM BIN ABU BAKAR", "10023577": "MOHAMAD NAIM MOHAMAD SAPRI", "10023853": "MUHAMAD IMRAN BIN MOHD NASRUDDIN", "10008842": "MIRAN NURSYAWALNI AMIR", "10015662": "MUHAMMAD HANIF BIN HASHIM", "10011944": "NUR HAZIRAH BINTI NAWI"}
 
 if "saved_staff_id" not in st.session_state: st.session_state.saved_staff_id = None
 if "saved_stop" not in st.session_state: st.session_state.saved_stop = None
@@ -411,11 +409,3 @@ if st.button("Submit Survey"):
         except Exception as e:
             saving_placeholder.empty()
             st.error(f"Error: {e}")
-
-
-
-
-
-
-
-
