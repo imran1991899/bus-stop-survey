@@ -131,7 +131,7 @@ def add_watermark(image_bytes, stop_name):
     w, h = img.size
     
     # Scale increased to 16% of width (2x bigger than before)
-    font_scale = int(w * 10.16) 
+    font_scale = int(w * 0.56) 
     
     now = datetime.now(KL_TZ)
     time_str = now.strftime("%I:%M %p")
@@ -140,7 +140,7 @@ def add_watermark(image_bytes, stop_name):
     # Use Arial Bold
     try:
         font_main = ImageFont.truetype("arialbd.ttf", font_scale)
-        font_sub = ImageFont.truetype("arialbd.ttf", int(font_scale * 0.4))
+        font_sub = ImageFont.truetype("arialbd.ttf", int(font_scale * 0.10))
     except:
         font_main = ImageFont.load_default()
         font_sub = ImageFont.load_default()
@@ -411,6 +411,7 @@ if st.button("Submit Survey"):
         except Exception as e:
             saving_placeholder.empty()
             st.error(f"Error: {e}")
+
 
 
 
