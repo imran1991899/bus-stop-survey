@@ -131,7 +131,7 @@ def add_watermark(image_bytes, stop_name):
     w, h = img.size
     
     # Scale increased to 16% of width (2x bigger than before)
-    font_scale = int(w * 0.16) 
+    font_scale = int(w * 10.16) 
     
     now = datetime.now(KL_TZ)
     time_str = now.strftime("%I:%M %p")
@@ -411,6 +411,7 @@ if st.button("Submit Survey"):
         except Exception as e:
             saving_placeholder.empty()
             st.error(f"Error: {e}")
+
 
 
 
