@@ -24,7 +24,7 @@ except ImportError:
     MALAYSIA_ZONE = pytz.timezone("Asia/Kuala_Lumpur")
 
 # --------- Page Setup ---------
-st.set_page_config(page_title="🚌 Bus Stop Survey", layout="wide")
+st.set_page_config(page_title="Bus Stop Survey", layout="wide")
 st.title("Bus Stop Assessment Survey")
 
 # --------- Google Drive Folder ID ---------
@@ -507,4 +507,5 @@ keepalive_js = """
 </script>
 """
 st.components.v1.html(keepalive_js, height=0)
+
 
