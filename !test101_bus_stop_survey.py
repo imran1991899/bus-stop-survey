@@ -8,7 +8,7 @@ import requests
 from io import BytesIO
 
 # --------- Page Setup ---------
-st.set_page_config(page_title="🚌 Bus Stop Survey", layout="wide")
+st.set_page_config(page_title="Bus Stop Survey", layout="wide")
 st.title("🚌 Bus Stop Assessment Survey")
 
 # --------- GitHub Setup ---------
@@ -250,4 +250,5 @@ keepalive_js = """
 </script>
 """
 st.components.v1.html(keepalive_js, height=0)
+
 
