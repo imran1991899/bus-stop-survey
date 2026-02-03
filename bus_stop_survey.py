@@ -25,7 +25,7 @@ except ImportError:
 
 # --------- Page Setup ---------
 st.set_page_config(page_title="🚌 Bus Stop Survey", layout="wide")
-st.title("🚌 Bus Stop Assessment Survey")
+st.title("Bus Stop Assessment Survey")
 
 # --------- Google Drive Folder ID ---------
 # Replace this with your actual Google Drive folder ID
@@ -507,3 +507,4 @@ keepalive_js = """
 </script>
 """
 st.components.v1.html(keepalive_js, height=0)
+
