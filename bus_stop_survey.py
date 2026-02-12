@@ -194,6 +194,7 @@ for key, default in {
     "other_text": "",
     "photos": [],
     "show_success": False,
+    "time_of_day": "Daytime",
 }.items():
     if key not in st.session_state:
         st.session_state[key] = default
@@ -217,7 +218,6 @@ selected_route = st.selectbox("2️⃣ Select Route Number", filtered_routes,
 st.session_state.selected_route = selected_route
 
 # --------- Bus Stop ---------
-# Filter stops and prepare display string with Stop ID (Column E)
 filtered_stops_df = stops_df[
     (stops_df["Route Number"] == selected_route) & 
     stops_df["Stop Name"].notna() & 
@@ -225,7 +225,6 @@ filtered_stops_df = stops_df[
     stops_df["dr"].notna()
 ].sort_values(by=["dr", "Order"])
 
-# Create list of strings: "Stop Name (id:StopID)"
 filtered_stops = [
     f"{row['Stop Name']} (id:{str(row.iloc[4]).split('.')[0]})" 
     for _, row in filtered_stops_df.iterrows()
@@ -334,6 +333,9 @@ if st.session_state.photos:
 
 # --------- Submit ---------
 with st.form(key="survey_form"):
+    # Time of Day selection before Submit button
+    st.session_state.time_of_day = st.radio("⏰ Select Time of Day", ["Daytime", "Nighttime"], horizontal=True)
+    
     submit = st.form_submit_button("✅ Submit Survey")
     if submit:
         if not staff_id.strip() or len(staff_id) != 8 or not staff_id.isdigit():
@@ -365,8 +367,22 @@ with st.form(key="survey_form"):
                     cond_list.remove(remarks_label)
                     cond_list.append(f"Remarks: {st.session_state.get('remarks_text', '').replace(';', ',')}")
 
-                row = [timestamp, staff_id, selected_depot, selected_route, selected_stop, condition, activity_category, "; ".join(cond_list), "; ".join(photo_links)]
-                header = ["Timestamp", "Staff ID", "Depot", "Route", "Bus Stop", "Condition", "Activity", "Situational Conditions", "Photos"]
+                # Building the row with placeholders to reach Column N (14th column)
+                # Cols 1-9: Data
+                # Cols 10-13: Empty placeholders
+                # Col 14: Time of Day
+                row = [
+                    timestamp, staff_id, selected_depot, selected_route, 
+                    selected_stop, condition, activity_category, 
+                    "; ".join(cond_list), "; ".join(photo_links),
+                    "", "", "", "", st.session_state.time_of_day
+                ]
+                
+                header = [
+                    "Timestamp", "Staff ID", "Depot", "Route", "Bus Stop", 
+                    "Condition", "Activity", "Situational Conditions", "Photos",
+                    "", "", "", "", "Time of Day"
+                ]
 
                 gsheet_id = find_or_create_gsheet("survey_responses", FOLDER_ID)
                 append_row_to_gsheet(gsheet_id, row, header)
