@@ -261,24 +261,23 @@ options = onboard_options if activity_category == "1. On Board in the Bus" else 
 if options:
     st.markdown("6️⃣ Specific Situational Conditions (Select all that apply)")
     
-    # Mutually Exclusive Logic for "Tiada Masalah" or "Tiada penumpang menunggu"
+    # Mutually Exclusive Logic: "Tiada Masalah" / "Tiada penumpang menunggu" vs Others (including Other)
     exclusive_labels = ["1. Tiada Masalah", "1. Tiada penumpang menunggu"]
     
+    # Check current state
+    has_exclusive_selected = any(any(ex in s for ex in exclusive_labels) for s in st.session_state.specific_conditions)
+    has_others_selected = any(not any(ex in s for ex in exclusive_labels) for s in st.session_state.specific_conditions)
+
     for opt in options:
-        # Check if the current option is the "Tiada Masalah" equivalent for this list
-        is_exclusive = any(ex in opt for ex in exclusive_labels)
-        
+        is_exclusive_opt = any(ex in opt for ex in exclusive_labels)
         checked = opt in st.session_state.specific_conditions
         
-        # If exclusive is checked, disable others. If others are checked, disable exclusive.
+        # Disable logic
         disabled = False
         if not checked:
-            has_exclusive = any(any(ex in s for ex in exclusive_labels) for s in st.session_state.specific_conditions)
-            has_others = any(not any(ex in s for ex in exclusive_labels) for s in st.session_state.specific_conditions)
-            
-            if is_exclusive and has_others:
+            if is_exclusive_opt and has_others_selected:
                 disabled = True
-            elif not is_exclusive and has_exclusive:
+            elif not is_exclusive_opt and has_exclusive_selected:
                 disabled = True
 
         if st.checkbox(opt, value=checked, key=opt, disabled=disabled):
