@@ -200,6 +200,14 @@ for key, default in {
     if key not in st.session_state:
         st.session_state[key] = default
 
+# Function to handle radio state changes instantly
+def handle_ground_status_change():
+    st.session_state.ground_status = st.session_state.temp_ground_status
+    if st.session_state.ground_status == "Tiada Isu":
+        st.session_state.specific_conditions = {"1. Tiada Isu"}
+    elif st.session_state.ground_status == "Isu":
+        st.session_state.specific_conditions.discard("1. Tiada Isu")
+
 # --------- Survey Questions ---------
 
 staff_id = st.text_input("👤 Staff ID (8 digits)", value=st.session_state.staff_id)
@@ -274,16 +282,21 @@ if activity_category == "1. On Board in the Bus":
 
 elif activity_category == "2. On Ground Location":
     st.markdown("6️⃣ Ground Assessment")
-    ground_status = st.radio("Is there an issue?", ["", "Tiada Isu", "Isu"], index=["", "Tiada Isu", "Isu"].index(st.session_state.ground_status))
-    st.session_state.ground_status = ground_status
+    
+    # Use key and on_change to prevent jumpy UI
+    ground_status_options = ["", "Tiada Isu", "Isu"]
+    st.radio(
+        "Is there an issue?", 
+        ground_status_options, 
+        index=ground_status_options.index(st.session_state.ground_status),
+        key="temp_ground_status",
+        on_change=handle_ground_status_change
+    )
 
-    if ground_status == "Tiada Isu":
-        st.session_state.specific_conditions = {"1. Tiada Isu"}
-    elif ground_status == "Isu":
+    if st.session_state.ground_status == "Tiada Isu":
+        st.info("Status: No issues detected.")
+    elif st.session_state.ground_status == "Isu":
         onground_issues = ["2. Infrastruktur sudah tiada/musnah", "3. Terlindung oleh pokok", "4. Terhalang oleh kenderaan parkir", "5. Hentian gelap dan tiada lampu jalan", "6. Perubahan Nama,Coordinate, Lokasi hentian", "7. Ada Infra, tiada bus bay ", "8. Ada Tiang, tiada bus bay ", "9. Hentian rosak & vandalism", "10. Keselamatan bas - lokasi hentian tidak sesuai ", "11. Keselamatan pax - Lokasi hentian tidak sesuai", "12. Other (Please specify below)", "13. Remarks"]
-        
-        # Filter existing set to only include actual ground issues (removing Tiada Isu if it was there)
-        st.session_state.specific_conditions.discard("1. Tiada Isu")
         
         st.markdown("Select all that apply:")
         for opt in onground_issues:
@@ -292,8 +305,6 @@ elif activity_category == "2. On Ground Location":
                 st.session_state.specific_conditions.add(opt)
             else:
                 st.session_state.specific_conditions.discard(opt)
-    else:
-        st.session_state.specific_conditions = set()
 
 # Handle 'Other' text area
 if any("Other" in s for s in st.session_state.specific_conditions):
