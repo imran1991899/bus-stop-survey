@@ -191,6 +191,7 @@ for key, default in {
     "condition": "1. Covered Bus Stop",
     "activity_category": "",
     "specific_conditions": set(),
+    "ground_status": "",
     "other_text": "",
     "photos": [],
     "show_success": False,
@@ -253,45 +254,46 @@ activity_category = st.selectbox("5️⃣ Categorizing Activities", activity_opt
     index=activity_options.index(st.session_state.activity_category) if st.session_state.activity_category in activity_options else 0)
 st.session_state.activity_category = activity_category
 
-onboard_options = ["1. Tiada penumpang menunggu", "2. Tiada isyarat (penumpang tidak menahan bas)", "3. Tidak berhenti/memperlahankan bas", "4. Salah tempat menunggu", "5. Bas penuh", "6. Mengejar masa waybill (punctuality)", "7. Kesesakan lalu lintas", "8. Kekeliruan laluan oleh pemandu baru", "9. Terdapat laluan tutup atas sebab tertentu (baiki jalan, pokok tumbang, lawatan delegasi)", "10. Hentian terlalu hampir simpang masuk", "11. Hentian berdekatan dengan traffic light", "12. Other (Please specify below)", "13. Remarks"]
-onground_options = ["1. Tiada Masalah", "2. Infrastruktur sudah tiada/musnah", "3. Terlindung oleh pokok", "4. Terhalang oleh kenderaan parkir", "5. Hentian gelap dan tiada lampu jalan", "6. Perubahan Nama,Coordinate, Lokasi hentian", "7. Ada Infra, tiada bus bay ", "8. Ada Tiang, tiada bus bay ", "9. Hentian rosak & vandalism", "10. Keselamatan bas - lokasi hentian tidak sesuai ", "11. Keselamatan pax - Lokasi hentian tidak sesuai", "12. Other (Please specify below)", "13. Remarks"]
+# --------- Specific Situational Conditions Logic ---------
 
-options = onboard_options if activity_category == "1. On Board in the Bus" else (onground_options if activity_category == "2. On Ground Location" else [])
-
-if options:
+if activity_category == "1. On Board in the Bus":
+    onboard_options = ["1. Tiada penumpang menunggu", "2. Tiada isyarat (penumpang tidak menahan bas)", "3. Tidak berhenti/memperlahankan bas", "4. Salah tempat menunggu", "5. Bas penuh", "6. Mengejar masa waybill (punctuality)", "7. Kesesakan lalu lintas", "8. Kekeliruan laluan oleh pemandu baru", "9. Terdapat laluan tutup atas sebab tertentu (baiki jalan, pokok tumbang, lawatan delegasi)", "10. Hentian terlalu hampir simpang masuk", "11. Hentian berdekatan dengan traffic light", "12. Other (Please specify below)", "13. Remarks"]
+    
     st.markdown("6️⃣ Specific Situational Conditions (Select all that apply)")
-    
-    # Mutually Exclusive Logic: "Tiada Masalah" / "Tiada penumpang menunggu" vs Others (including Other)
-    exclusive_labels = ["1. Tiada Masalah", "1. Tiada penumpang menunggu"]
-    
-    # Check current state
-    has_exclusive_selected = any(any(ex in s for ex in exclusive_labels) for s in st.session_state.specific_conditions)
-    has_others_selected = any(not any(ex in s for ex in exclusive_labels) for s in st.session_state.specific_conditions)
+    has_exclusive = any("1. Tiada penumpang menunggu" in s for s in st.session_state.specific_conditions)
+    has_others = any("1. Tiada penumpang menunggu" not in s for s in st.session_state.specific_conditions)
 
-    for opt in options:
-        is_exclusive_opt = any(ex in opt for ex in exclusive_labels)
+    for opt in onboard_options:
+        is_excl = "1. Tiada penumpang menunggu" in opt
+        disabled = (is_excl and has_others) or (not is_excl and has_exclusive)
         checked = opt in st.session_state.specific_conditions
-        
-        # Disable logic
-        disabled = False
-        if not checked:
-            if is_exclusive_opt and has_others_selected:
-                disabled = True
-            elif not is_exclusive_opt and has_exclusive_selected:
-                disabled = True
-
         if st.checkbox(opt, value=checked, key=opt, disabled=disabled):
             st.session_state.specific_conditions.add(opt)
         else:
             st.session_state.specific_conditions.discard(opt)
 
-other_label = next((opt for opt in options if "Other" in opt), None)
-if other_label and other_label in st.session_state.specific_conditions:
+elif activity_category == "2. On Ground Location":
+    st.markdown("6️⃣ Ground Assessment")
+    ground_status = st.radio("Is there an issue?", ["", "Tiada Isu", "Isu"], index=["", "Tiada Isu", "Isu"].index(st.session_state.ground_status))
+    st.session_state.ground_status = ground_status
+
+    if ground_status == "Tiada Isu":
+        st.session_state.specific_conditions = {"1. Tiada Isu"}
+    elif ground_status == "Isu":
+        onground_issues = ["2. Infrastruktur sudah tiada/musnah", "3. Terlindung oleh pokok", "4. Terhalang oleh kenderaan parkir", "5. Hentian gelap dan tiada lampu jalan", "6. Perubahan Nama,Coordinate, Lokasi hentian", "7. Ada Infra, tiada bus bay ", "8. Ada Tiang, tiada bus bay ", "9. Hentian rosak & vandalism", "10. Keselamatan bas - lokasi hentian tidak sesuai ", "11. Keselamatan pax - Lokasi hentian tidak sesuai", "12. Other (Please specify below)", "13. Remarks"]
+        
+        selected_issues = st.multiselect("Select the specific issues:", onground_issues, default=[s for s in st.session_state.specific_conditions if s != "1. Tiada Isu"])
+        st.session_state.specific_conditions = set(selected_issues)
+    else:
+        st.session_state.specific_conditions = set()
+
+# Handle 'Other' text area
+if any("Other" in s for s in st.session_state.specific_conditions):
     other_text = st.text_area("📝 Please describe 'Other' (min 2 words)", height=150, value=st.session_state.other_text)
     st.session_state.other_text = other_text
 
 # --------- Photo Section ---------
-st.markdown("7️⃣ Add up to 5 Photos (Camera or Upload from device)")
+st.markdown("7️⃣ Add up to 5 Photos")
 if len(st.session_state.photos) < 5:
     photo = st.camera_input(f"📷 Take Photo #{len(st.session_state.photos) + 1}")
     if photo:
@@ -314,11 +316,10 @@ if st.session_state.photos:
         st.session_state.photos.pop(to_delete)
         st.rerun()
 
-# 8. Daytime/Nighttime Dropdown with Empty Default
+# 8. Daytime/Nighttime Dropdown
 time_options = ["", "Daytime", "Nighttime"]
 current_time_val = st.session_state.time_of_day if st.session_state.time_of_day in time_options else ""
-selected_time = st.selectbox("8️⃣ Daytime / Nighttime", time_options, 
-    index=time_options.index(current_time_val))
+selected_time = st.selectbox("8️⃣ Daytime / Nighttime", time_options, index=time_options.index(current_time_val))
 st.session_state.time_of_day = selected_time
 
 # --------- Submit ---------
@@ -329,8 +330,10 @@ with st.form(key="submit_form"):
             st.warning("❗ Staff ID must be 8 digits.")
         elif not st.session_state.photos:
             st.warning("❗ Please add at least one photo.")
-        elif not st.session_state.time_of_day or st.session_state.time_of_day == "":
+        elif not st.session_state.time_of_day:
             st.warning("❗ Please select Daytime or Nighttime.")
+        elif not st.session_state.specific_conditions:
+            st.warning("❗ Please provide an assessment in Section 6.")
         else:
             try:
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -343,7 +346,6 @@ with st.form(key="submit_form"):
 
                 cond_list = list(st.session_state.specific_conditions)
                 
-                # --- MAPPING TO COLUMN N (Index 13) ---
                 row = [
                     timestamp, staff_id, selected_depot, selected_route, 
                     selected_stop, condition, activity_category, 
@@ -351,16 +353,12 @@ with st.form(key="submit_form"):
                     "", "", "", "", st.session_state.time_of_day
                 ]
                 
-                header = [
-                    "Timestamp", "Staff ID", "Depot", "Route", "Bus Stop", 
-                    "Condition", "Activity", "Situational Conditions", "Photos",
-                    "Empty1", "Empty2", "Empty3", "Empty4", "Day/Night"
-                ]
+                header = ["Timestamp", "Staff ID", "Depot", "Route", "Bus Stop", "Condition", "Activity", "Situational Conditions", "Photos", "Empty1", "Empty2", "Empty3", "Empty4", "Day/Night"]
 
                 gsheet_id = find_or_create_gsheet("survey_responses", FOLDER_ID)
                 append_row_to_gsheet(gsheet_id, row, header)
 
-                st.session_state.update({"activity_category": "", "specific_conditions": set(), "other_text": "", "photos": [], "show_success": True, "time_of_day": None})
+                st.session_state.update({"activity_category": "", "specific_conditions": set(), "ground_status": "", "other_text": "", "photos": [], "show_success": True, "time_of_day": None})
                 st.rerun()
             except Exception as e:
                 st.error(f"❌ Failed to submit: {e}")
