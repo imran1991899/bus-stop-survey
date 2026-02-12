@@ -199,25 +199,23 @@ for key, default in {
     if key not in st.session_state:
         st.session_state[key] = default
 
-# --------- Staff ID ---------
+# --------- Survey Questions ---------
+
 staff_id = st.text_input("👤 Staff ID (8 digits)", value=st.session_state.staff_id)
 if staff_id and (not staff_id.isdigit() or len(staff_id) != 8):
     st.warning("⚠️ Staff ID must be exactly 8 digits.")
 st.session_state.staff_id = staff_id
 
-# --------- Depot ---------
 depots = routes_df["Depot"].dropna().unique()
 selected_depot = st.selectbox("1️⃣ Select Depot", depots, 
     index=list(depots).index(st.session_state.selected_depot) if st.session_state.selected_depot in depots else 0)
 st.session_state.selected_depot = selected_depot
 
-# --------- Route ---------
 filtered_routes = routes_df[routes_df["Depot"] == selected_depot]["Route Number"].dropna().unique()
 selected_route = st.selectbox("2️⃣ Select Route Number", filtered_routes, 
     index=list(filtered_routes).index(st.session_state.selected_route) if st.session_state.selected_route in filtered_routes else 0)
 st.session_state.selected_route = selected_route
 
-# --------- Bus Stop ---------
 filtered_stops_df = stops_df[
     (stops_df["Route Number"] == selected_route) & 
     stops_df["Stop Name"].notna() & 
@@ -225,12 +223,10 @@ filtered_stops_df = stops_df[
     stops_df["dr"].notna()
 ].sort_values(by=["dr", "Order"])
 
-# Handle Stop ID logic (Column E index 4)
 filtered_stops = []
 for _, row in filtered_stops_df.iterrows():
     name = str(row['Stop Name'])
     try:
-        # Check if column index 4 exists and is not empty
         id_val = row.iloc[4]
         if pd.isna(id_val) or str(id_val).strip() == "":
             filtered_stops.append(name)
@@ -247,19 +243,17 @@ selected_stop = st.selectbox("3️⃣ Select Bus Stop", filtered_stops,
     index=filtered_stops.index(st.session_state.selected_stop) if st.session_state.selected_stop in filtered_stops else 0)
 st.session_state.selected_stop = selected_stop
 
-# --------- Condition ---------
 conditions = ["1. Covered Bus Stop", "2. Pole Only", "3. Layby", "4. Non-Infrastructure"]
 condition = st.selectbox("4️⃣ Bus Stop Condition", conditions, 
     index=conditions.index(st.session_state.condition) if st.session_state.condition in conditions else 0)
 st.session_state.condition = condition
 
-# --------- Activity Category ---------
 activity_options = ["", "1. On Board in the Bus", "2. On Ground Location"]
 activity_category = st.selectbox("5️⃣ Categorizing Activities", activity_options, 
     index=activity_options.index(st.session_state.activity_category) if st.session_state.activity_category in activity_options else 0)
 st.session_state.activity_category = activity_category
 
-# --------- Situational Conditions ---------
+# Situational Conditions
 onboard_options = ["1. Tiada penumpang menunggu", "2. Tiada isyarat (penumpang tidak menahan bas)", "3. Tidak berhenti/memperlahankan bas", "4. Salah tempat menunggu", "5. Bas penuh", "6. Mengejar masa waybill (punctuality)", "7. Kesesakan lalu lintas", "8. Kekeliruan laluan oleh pemandu baru", "9. Terdapat laluan tutup atas sebab tertentu (baiki jalan, pokok tumbang, lawatan delegasi)", "10. Hentian terlalu hampir simpang masuk", "11. Hentian berdekatan dengan traffic light", "12. Other (Please specify below)", "13. Remarks"]
 onground_options = ["1. Tiada Masalah", "2. Infrastruktur sudah tiada/musnah", "3. Terlindung oleh pokok", "4. Terhalang oleh kenderaan parkir", "5. Hentian gelap dan tiada lampu jalan", "6. Perubahan Nama,Coordinate, Lokasi hentian", "7. Ada Infra, tiada bus bay ", "8. Ada Tiang, tiada bus bay ", "9. Hentian rosak & vandalism", "10. Keselamatan bas - lokasi hentian tidak sesuai ", "11. Keselamatan pax - Lokasi hentian tidak sesuai", "12. Other (Please specify below)", "13. Remarks"]
 
@@ -267,7 +261,6 @@ options = onboard_options if activity_category == "1. On Board in the Bus" else 
 
 if options:
     st.markdown("6️⃣ Specific Situational Conditions (Select all that apply)")
-    st.session_state.specific_conditions = {c for c in st.session_state.specific_conditions if c in options}
     for opt in options:
         checked = opt in st.session_state.specific_conditions
         if st.checkbox(opt, value=checked, key=opt):
@@ -277,28 +270,15 @@ if options:
 else:
     st.info("Please select an Activity Category.")
 
-# --------- Descriptions ---------
 other_label = next((opt for opt in options if "Other" in opt), None)
 if other_label and other_label in st.session_state.specific_conditions:
     other_text = st.text_area("📝 Please describe 'Other' (min 2 words)", height=150, value=st.session_state.other_text)
     st.session_state.other_text = other_text
-else:
-    st.session_state.other_text = ""
 
-remarks_label = next((opt for opt in options if "Remarks" in opt), None)
-if remarks_label in st.session_state.specific_conditions:
-    remarks_text = st.text_area("💬 Remarks", height=100, value=st.session_state.get("remarks_text", ""))
-    st.session_state["remarks_text"] = remarks_text
-
-# --------- Photo Upload ---------
-st.markdown("7️⃣ Add Photos")
+st.markdown("7️⃣ Add up to 5 Photos")
 if len(st.session_state.photos) < 5:
     photo = st.camera_input(f"📷 Take Photo #{len(st.session_state.photos) + 1}")
     if photo: st.session_state.photos.append(photo)
-
-if len(st.session_state.photos) < 5:
-    upload_photo = st.file_uploader(f"📁 Upload Photo #{len(st.session_state.photos) + 1}", type=["png", "jpg", "jpeg"])
-    if upload_photo: st.session_state.photos.append(upload_photo)
 
 if st.session_state.photos:
     to_delete = None
@@ -308,46 +288,47 @@ if st.session_state.photos:
         if cols[1].button(f"❌ Delete #{i+1}", key=f"del_{i}"): to_delete = i
     if to_delete is not None: st.session_state.photos.pop(to_delete)
 
+# New Question 8 (Separate from Submit logic but before button)
+time_options = ["Daytime", "Nighttime"]
+st.session_state.time_of_day = st.selectbox("8️⃣ Daytime / Nighttime", time_options, 
+    index=time_options.index(st.session_state.time_of_day))
+
 # --------- Submit ---------
 with st.form(key="survey_form"):
-    # Daytime/Nighttime radio button before submit
-    st.session_state.time_of_day = st.radio("⏰ Select Time of Day", ["Daytime", "Nighttime"], horizontal=True)
-    
     submit = st.form_submit_button("✅ Submit Survey")
     if submit:
         if not staff_id.strip() or len(staff_id) != 8:
-            st.warning("❗ Invalid Staff ID.")
+            st.warning("❗ Staff ID must be 8 digits.")
         elif not st.session_state.photos:
-            st.warning("❗ No photos added.")
+            st.warning("❗ Please add at least one photo.")
         else:
             try:
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 photo_links = []
                 for idx, img in enumerate(st.session_state.photos):
                     content = img.getvalue() if hasattr(img, "getvalue") else img.read()
-                    filename = f"{timestamp}_{idx}.jpg"
+                    filename = f"{timestamp}_photo{idx+1}.jpg"
                     link, _ = gdrive_upload_file(content, filename, "image/jpeg", FOLDER_ID)
                     photo_links.append(link)
 
-                # Process situational conditions
-                processed_conds = list(st.session_state.specific_conditions)
-                if other_label in processed_conds:
-                    processed_conds.remove(other_label)
-                    processed_conds.append(f"Other: {st.session_state.other_text}")
-
-                # Build row to reach Column AB (index 27)
-                # Cols 1-9: Main data
-                # Cols 10-27: Empty spacers
-                # Col 28: Time of Day (AB)
-                spacers = [""] * 18
+                cond_list = list(st.session_state.specific_conditions)
+                
+                # Build Row to map to Column N
+                # Cols 1-9: Survey Data
+                # Cols 10, 11, 12, 13: Empty placeholders
+                # Col 14 (Column N): Daytime/Nighttime
                 row = [
                     timestamp, staff_id, selected_depot, selected_route, 
                     selected_stop, condition, activity_category, 
-                    "; ".join(processed_conds), "; ".join(photo_links)
-                ] + spacers + [st.session_state.time_of_day]
-
-                # Update header to match column AB
-                header = ["Timestamp", "Staff ID", "Depot", "Route", "Bus Stop", "Condition", "Activity", "Situational Conditions", "Photos"] + spacers + ["Time of Day"]
+                    "; ".join(cond_list), "; ".join(photo_links),
+                    "", "", "", "", st.session_state.time_of_day
+                ]
+                
+                header = [
+                    "Timestamp", "Staff ID", "Depot", "Route", "Bus Stop", 
+                    "Condition", "Activity", "Situational Conditions", "Photos",
+                    "", "", "", "", "Day/Night"
+                ]
 
                 gsheet_id = find_or_create_gsheet("survey_responses", FOLDER_ID)
                 append_row_to_gsheet(gsheet_id, row, header)
@@ -355,7 +336,7 @@ with st.form(key="survey_form"):
                 st.session_state.update({"activity_category": "", "specific_conditions": set(), "other_text": "", "photos": [], "show_success": True})
                 st.rerun()
             except Exception as e:
-                st.error(f"❌ Submission failed: {e}")
+                st.error(f"❌ Failed to submit: {e}")
 
 if st.session_state.get("show_success", False):
     st.success("✅ Submission complete!")
