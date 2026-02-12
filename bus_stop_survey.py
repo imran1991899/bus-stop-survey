@@ -225,10 +225,20 @@ filtered_stops_df = stops_df[
     stops_df["dr"].notna()
 ].sort_values(by=["dr", "Order"])
 
-filtered_stops = [
-    f"{row['Stop Name']} (id:{str(row.iloc[4]).split('.')[0]})" 
-    for _, row in filtered_stops_df.iterrows()
-]
+# Handle Stop ID logic (Column E index 4)
+filtered_stops = []
+for _, row in filtered_stops_df.iterrows():
+    name = str(row['Stop Name'])
+    try:
+        # Check if column index 4 exists and is not empty
+        id_val = row.iloc[4]
+        if pd.isna(id_val) or str(id_val).strip() == "":
+            filtered_stops.append(name)
+        else:
+            clean_id = str(id_val).split('.')[0]
+            filtered_stops.append(f"{name} (id:{clean_id})")
+    except:
+        filtered_stops.append(name)
 
 if st.session_state.selected_stop not in filtered_stops:
     st.session_state.selected_stop = filtered_stops[0] if filtered_stops else ""
@@ -250,37 +260,8 @@ activity_category = st.selectbox("5️⃣ Categorizing Activities", activity_opt
 st.session_state.activity_category = activity_category
 
 # --------- Situational Conditions ---------
-onboard_options = [
-    "1. Tiada penumpang menunggu",
-    "2. Tiada isyarat (penumpang tidak menahan bas)",
-    "3. Tidak berhenti/memperlahankan bas",
-    "4. Salah tempat menunggu",
-    "5. Bas penuh",
-    "6. Mengejar masa waybill (punctuality)",
-    "7. Kesesakan lalu lintas",
-    "8. Kekeliruan laluan oleh pemandu baru",
-    "9. Terdapat laluan tutup atas sebab tertentu (baiki jalan, pokok tumbang, lawatan delegasi)",
-    "10. Hentian terlalu hampir simpang masuk",
-    "11. Hentian berdekatan dengan traffic light",
-    "12. Other (Please specify below)",
-    "13. Remarks",
-]
-
-onground_options = [
-    "1. Tiada Masalah",
-    "2. Infrastruktur sudah tiada/musnah",
-    "3. Terlindung oleh pokok",
-    "4. Terhalang oleh kenderaan parkir",
-    "5. Hentian gelap dan tiada lampu jalan",
-    "6. Perubahan Nama,Coordinate, Lokasi hentian",
-    "7. Ada Infra, tiada bus bay ",
-    "8. Ada Tiang, tiada bus bay ",
-    "9. Hentian rosak & vandalism",
-    "10. Keselamatan bas - lokasi hentian tidak sesuai ",
-    "11. Keselamatan pax - Lokasi hentian tidak sesuai",
-    "12. Other (Please specify below)",
-    "13. Remarks",
-]
+onboard_options = ["1. Tiada penumpang menunggu", "2. Tiada isyarat (penumpang tidak menahan bas)", "3. Tidak berhenti/memperlahankan bas", "4. Salah tempat menunggu", "5. Bas penuh", "6. Mengejar masa waybill (punctuality)", "7. Kesesakan lalu lintas", "8. Kekeliruan laluan oleh pemandu baru", "9. Terdapat laluan tutup atas sebab tertentu (baiki jalan, pokok tumbang, lawatan delegasi)", "10. Hentian terlalu hampir simpang masuk", "11. Hentian berdekatan dengan traffic light", "12. Other (Please specify below)", "13. Remarks"]
+onground_options = ["1. Tiada Masalah", "2. Infrastruktur sudah tiada/musnah", "3. Terlindung oleh pokok", "4. Terhalang oleh kenderaan parkir", "5. Hentian gelap dan tiada lampu jalan", "6. Perubahan Nama,Coordinate, Lokasi hentian", "7. Ada Infra, tiada bus bay ", "8. Ada Tiang, tiada bus bay ", "9. Hentian rosak & vandalism", "10. Keselamatan bas - lokasi hentian tidak sesuai ", "11. Keselamatan pax - Lokasi hentian tidak sesuai", "12. Other (Please specify below)", "13. Remarks"]
 
 options = onboard_options if activity_category == "1. On Board in the Bus" else (onground_options if activity_category == "2. On Ground Location" else [])
 
@@ -294,26 +275,23 @@ if options:
         else:
             st.session_state.specific_conditions.discard(opt)
 else:
-    st.info("Please select an Activity Category above to see situational conditions.")
+    st.info("Please select an Activity Category.")
 
 # --------- Descriptions ---------
 other_label = next((opt for opt in options if "Other" in opt), None)
 if other_label and other_label in st.session_state.specific_conditions:
-    other_text = st.text_area("📝 Please describe the 'Other' condition (at least 2 words)", height=150, value=st.session_state.other_text)
+    other_text = st.text_area("📝 Please describe 'Other' (min 2 words)", height=150, value=st.session_state.other_text)
     st.session_state.other_text = other_text
-    if len(other_text.split()) < 2: st.warning("🚨 'Other' description must be at least 2 words.")
 else:
     st.session_state.other_text = ""
 
 remarks_label = next((opt for opt in options if "Remarks" in opt), None)
-if remarks_label and remarks_label in st.session_state.specific_conditions:
-    remarks_text = st.text_area("💬 Remarks (optional)", height=100, value=st.session_state.get("remarks_text", ""))
+if remarks_label in st.session_state.specific_conditions:
+    remarks_text = st.text_area("💬 Remarks", height=100, value=st.session_state.get("remarks_text", ""))
     st.session_state["remarks_text"] = remarks_text
-else:
-    st.session_state["remarks_text"] = ""
 
 # --------- Photo Upload ---------
-st.markdown("7️⃣ Add up to 5 Photos")
+st.markdown("7️⃣ Add Photos")
 if len(st.session_state.photos) < 5:
     photo = st.camera_input(f"📷 Take Photo #{len(st.session_state.photos) + 1}")
     if photo: st.session_state.photos.append(photo)
@@ -323,77 +301,64 @@ if len(st.session_state.photos) < 5:
     if upload_photo: st.session_state.photos.append(upload_photo)
 
 if st.session_state.photos:
-    st.subheader("📸 Saved Photos")
     to_delete = None
     for i, p in enumerate(st.session_state.photos):
         cols = st.columns([4, 1])
         cols[0].image(p, caption=f"Photo #{i + 1}", use_container_width=True)
-        if cols[1].button(f"❌ Delete #{i + 1}", key=f"del_{i}"): to_delete = i
+        if cols[1].button(f"❌ Delete #{i+1}", key=f"del_{i}"): to_delete = i
     if to_delete is not None: st.session_state.photos.pop(to_delete)
 
 # --------- Submit ---------
 with st.form(key="survey_form"):
-    # Time of Day selection before Submit button
+    # Daytime/Nighttime radio button before submit
     st.session_state.time_of_day = st.radio("⏰ Select Time of Day", ["Daytime", "Nighttime"], horizontal=True)
     
     submit = st.form_submit_button("✅ Submit Survey")
     if submit:
-        if not staff_id.strip() or len(staff_id) != 8 or not staff_id.isdigit():
-            st.warning("❗ Please enter a valid 8-digit numeric Staff ID.")
+        if not staff_id.strip() or len(staff_id) != 8:
+            st.warning("❗ Invalid Staff ID.")
         elif not st.session_state.photos:
-            st.warning("❗ Please add at least one photo.")
-        elif activity_category not in ["1. On Board in the Bus", "2. On Ground Location"]:
-            st.warning("❗ Please select an Activity Category.")
-        elif len(st.session_state.specific_conditions) == 0:
-            st.warning("❗ Please select at least one Situational Condition.")
-        elif other_label in st.session_state.specific_conditions and len(st.session_state.other_text.split()) < 2:
-            st.warning("❗ 'Other' description must be at least 2 words.")
+            st.warning("❗ No photos added.")
         else:
             try:
-                timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 photo_links = []
                 for idx, img in enumerate(st.session_state.photos):
                     content = img.getvalue() if hasattr(img, "getvalue") else img.read()
-                    filename = f"{timestamp}_photo{idx+1}.jpg"
-                    mimetype = mimetypes.guess_type(filename)[0] or "image/jpeg"
-                    link, _ = gdrive_upload_file(content, filename, mimetype, FOLDER_ID)
+                    filename = f"{timestamp}_{idx}.jpg"
+                    link, _ = gdrive_upload_file(content, filename, "image/jpeg", FOLDER_ID)
                     photo_links.append(link)
 
-                cond_list = list(st.session_state.specific_conditions)
-                if other_label in cond_list:
-                    cond_list.remove(other_label)
-                    cond_list.append(f"Other: {st.session_state.other_text.replace(';', ',')}")
-                if remarks_label in cond_list:
-                    cond_list.remove(remarks_label)
-                    cond_list.append(f"Remarks: {st.session_state.get('remarks_text', '').replace(';', ',')}")
+                # Process situational conditions
+                processed_conds = list(st.session_state.specific_conditions)
+                if other_label in processed_conds:
+                    processed_conds.remove(other_label)
+                    processed_conds.append(f"Other: {st.session_state.other_text}")
 
-                # Building the row with placeholders to reach Column N (14th column)
-                # Cols 1-9: Data
-                # Cols 10-13: Empty placeholders
-                # Col 14: Time of Day
+                # Build row to reach Column AB (index 27)
+                # Cols 1-9: Main data
+                # Cols 10-27: Empty spacers
+                # Col 28: Time of Day (AB)
+                spacers = [""] * 18
                 row = [
                     timestamp, staff_id, selected_depot, selected_route, 
                     selected_stop, condition, activity_category, 
-                    "; ".join(cond_list), "; ".join(photo_links),
-                    "", "", "", "", st.session_state.time_of_day
-                ]
-                
-                header = [
-                    "Timestamp", "Staff ID", "Depot", "Route", "Bus Stop", 
-                    "Condition", "Activity", "Situational Conditions", "Photos",
-                    "", "", "", "", "Time of Day"
-                ]
+                    "; ".join(processed_conds), "; ".join(photo_links)
+                ] + spacers + [st.session_state.time_of_day]
+
+                # Update header to match column AB
+                header = ["Timestamp", "Staff ID", "Depot", "Route", "Bus Stop", "Condition", "Activity", "Situational Conditions", "Photos"] + spacers + ["Time of Day"]
 
                 gsheet_id = find_or_create_gsheet("survey_responses", FOLDER_ID)
                 append_row_to_gsheet(gsheet_id, row, header)
 
-                st.session_state.update({"condition": "1. Covered Bus Stop", "activity_category": "", "specific_conditions": set(), "other_text": "", "remarks_text": "", "photos": [], "show_success": True})
+                st.session_state.update({"activity_category": "", "specific_conditions": set(), "other_text": "", "photos": [], "show_success": True})
                 st.rerun()
             except Exception as e:
-                st.error(f"❌ Failed to submit: {e}")
+                st.error(f"❌ Submission failed: {e}")
 
 if st.session_state.get("show_success", False):
-    st.success("✅ Submission complete! Thank you.")
+    st.success("✅ Submission complete!")
     time.sleep(2)
     st.session_state["show_success"] = False
 
