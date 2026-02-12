@@ -224,24 +224,7 @@ filtered_stops_df = stops_df[
     stops_df["dr"].notna()
 ].sort_values(by=["dr", "Order"])
 
-# Safe lookup for Column E (stopID)
-filtered_stops = []
-for _, row in filtered_stops_df.iterrows():
-    stop_name = row['Stop Name']
-    
-    # Try using Column Name first (safest), then fallback to index 4 if column name not found
-    try:
-        stop_id_val = row['stopID']
-    except KeyError:
-        # Fallback to index 4 only if there are enough columns
-        stop_id_val = row.iloc[4] if len(row) > 4 else None
-    
-    if pd.isna(stop_id_val) or str(stop_id_val).strip() == "":
-        filtered_stops.append(stop_name)
-    else:
-        clean_id = str(stop_id_val).split('.')[0]
-        filtered_stops.append(f"{stop_name} (id:{clean_id})")
-
+filtered_stops = filtered_stops_df["Stop Name"].tolist()
 if st.session_state.selected_stop not in filtered_stops:
     st.session_state.selected_stop = filtered_stops[0] if filtered_stops else ""
 
@@ -278,6 +261,7 @@ onboard_options = [
     "13. Remarks",
 ]
 
+# UPDATED ON GROUND OPTIONS
 onground_options = [
     "1. Tiada Masalah",
     "2. Infrastruktur sudah tiada/musnah",
@@ -393,3 +377,4 @@ if st.session_state.get("show_success", False):
     st.session_state["show_success"] = False
 
 st.components.v1.html("""<script>setInterval(() => {fetch('/_stcore/health');}, 300000);</script>""", height=0)
+
