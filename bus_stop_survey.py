@@ -272,18 +272,29 @@ if other_label and other_label in st.session_state.specific_conditions:
     other_text = st.text_area("📝 Please describe 'Other' (min 2 words)", height=150, value=st.session_state.other_text)
     st.session_state.other_text = other_text
 
-st.markdown("7️⃣ Add up to 5 Photos")
+# --------- Photo Section (Updated) ---------
+st.markdown("7️⃣ Add up to 5 Photos (Camera or Upload from device)")
 if len(st.session_state.photos) < 5:
     photo = st.camera_input(f"📷 Take Photo #{len(st.session_state.photos) + 1}")
-    if photo: st.session_state.photos.append(photo)
+    if photo:
+        st.session_state.photos.append(photo)
+
+if len(st.session_state.photos) < 5:
+    upload_photo = st.file_uploader(f"📁 Upload Photo #{len(st.session_state.photos) + 1}", type=["png", "jpg", "jpeg"], key=f"uploader_{len(st.session_state.photos)}")
+    if upload_photo:
+        st.session_state.photos.append(upload_photo)
 
 if st.session_state.photos:
+    st.subheader("📸 Saved Photos")
     to_delete = None
     for i, p in enumerate(st.session_state.photos):
         cols = st.columns([4, 1])
         cols[0].image(p, caption=f"Photo #{i + 1}", use_container_width=True)
-        if cols[1].button(f"❌ Delete #{i+1}", key=f"del_{i}"): to_delete = i
-    if to_delete is not None: st.session_state.photos.pop(to_delete)
+        if cols[1].button(f"❌ Delete #{i + 1}", key=f"del_{i}"):
+            to_delete = i
+    if to_delete is not None:
+        st.session_state.photos.pop(to_delete)
+        st.rerun()
 
 # 8. Daytime/Nighttime Dropdown
 time_options = ["Daytime", "Nighttime"]
@@ -303,6 +314,7 @@ with st.form(key="submit_form"):
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 photo_links = []
                 for idx, img in enumerate(st.session_state.photos):
+                    # Fixed bytes handling for both camera and file uploader
                     content = img.getvalue() if hasattr(img, "getvalue") else img.read()
                     filename = f"{timestamp}_photo{idx+1}.jpg"
                     link, _ = gdrive_upload_file(content, filename, "image/jpeg", FOLDER_ID)
@@ -311,9 +323,6 @@ with st.form(key="submit_form"):
                 cond_list = list(st.session_state.specific_conditions)
                 
                 # --- MAPPING TO COLUMN N (Index 13) ---
-                # A:0, B:1, C:2, D:3, E:4, F:5, G:6, H:7, I:8
-                # J:9, K:10, L:11, M:12, N:13
-                # We need 4 empty slots (9+4=13)
                 row = [
                     timestamp, staff_id, selected_depot, selected_route, 
                     selected_stop, condition, activity_category, 
