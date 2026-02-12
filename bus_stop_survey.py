@@ -282,8 +282,16 @@ elif activity_category == "2. On Ground Location":
     elif ground_status == "Isu":
         onground_issues = ["2. Infrastruktur sudah tiada/musnah", "3. Terlindung oleh pokok", "4. Terhalang oleh kenderaan parkir", "5. Hentian gelap dan tiada lampu jalan", "6. Perubahan Nama,Coordinate, Lokasi hentian", "7. Ada Infra, tiada bus bay ", "8. Ada Tiang, tiada bus bay ", "9. Hentian rosak & vandalism", "10. Keselamatan bas - lokasi hentian tidak sesuai ", "11. Keselamatan pax - Lokasi hentian tidak sesuai", "12. Other (Please specify below)", "13. Remarks"]
         
-        selected_issues = st.multiselect("Select the specific issues:", onground_issues, default=[s for s in st.session_state.specific_conditions if s != "1. Tiada Isu"])
-        st.session_state.specific_conditions = set(selected_issues)
+        # Filter existing set to only include actual ground issues (removing Tiada Isu if it was there)
+        st.session_state.specific_conditions.discard("1. Tiada Isu")
+        
+        st.markdown("Select all that apply:")
+        for opt in onground_issues:
+            checked = opt in st.session_state.specific_conditions
+            if st.checkbox(opt, value=checked, key=f"ground_{opt}"):
+                st.session_state.specific_conditions.add(opt)
+            else:
+                st.session_state.specific_conditions.discard(opt)
     else:
         st.session_state.specific_conditions = set()
 
