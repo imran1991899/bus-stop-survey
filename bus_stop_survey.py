@@ -224,16 +224,21 @@ filtered_stops_df = stops_df[
     stops_df["dr"].notna()
 ].sort_values(by=["dr", "Order"])
 
-# Logic to handle missing IDs in Column E (index 4)
+# Safe lookup for Column E (stopID)
 filtered_stops = []
 for _, row in filtered_stops_df.iterrows():
     stop_name = row['Stop Name']
-    stop_id_val = row.iloc[4]
+    
+    # Try using Column Name first (safest), then fallback to index 4 if column name not found
+    try:
+        stop_id_val = row['stopID']
+    except KeyError:
+        # Fallback to index 4 only if there are enough columns
+        stop_id_val = row.iloc[4] if len(row) > 4 else None
     
     if pd.isna(stop_id_val) or str(stop_id_val).strip() == "":
         filtered_stops.append(stop_name)
     else:
-        # Format ID: remove decimals if it's a number, then stringify
         clean_id = str(stop_id_val).split('.')[0]
         filtered_stops.append(f"{stop_name} (id:{clean_id})")
 
