@@ -194,7 +194,7 @@ for key, default in {
     "other_text": "",
     "photos": [],
     "show_success": False,
-    "time_of_day": "Daytime",
+    "time_of_day": None,
 }.items():
     if key not in st.session_state:
         st.session_state[key] = default
@@ -260,9 +260,28 @@ options = onboard_options if activity_category == "1. On Board in the Bus" else 
 
 if options:
     st.markdown("6️⃣ Specific Situational Conditions (Select all that apply)")
+    
+    # Mutually Exclusive Logic for "Tiada Masalah" or "Tiada penumpang menunggu"
+    exclusive_labels = ["1. Tiada Masalah", "1. Tiada penumpang menunggu"]
+    
     for opt in options:
+        # Check if the current option is the "Tiada Masalah" equivalent for this list
+        is_exclusive = any(ex in opt for ex in exclusive_labels)
+        
         checked = opt in st.session_state.specific_conditions
-        if st.checkbox(opt, value=checked, key=opt):
+        
+        # If exclusive is checked, disable others. If others are checked, disable exclusive.
+        disabled = False
+        if not checked:
+            has_exclusive = any(any(ex in s for ex in exclusive_labels) for s in st.session_state.specific_conditions)
+            has_others = any(not any(ex in s for ex in exclusive_labels) for s in st.session_state.specific_conditions)
+            
+            if is_exclusive and has_others:
+                disabled = True
+            elif not is_exclusive and has_exclusive:
+                disabled = True
+
+        if st.checkbox(opt, value=checked, key=opt, disabled=disabled):
             st.session_state.specific_conditions.add(opt)
         else:
             st.session_state.specific_conditions.discard(opt)
@@ -272,7 +291,7 @@ if other_label and other_label in st.session_state.specific_conditions:
     other_text = st.text_area("📝 Please describe 'Other' (min 2 words)", height=150, value=st.session_state.other_text)
     st.session_state.other_text = other_text
 
-# --------- Photo Section (Updated) ---------
+# --------- Photo Section ---------
 st.markdown("7️⃣ Add up to 5 Photos (Camera or Upload from device)")
 if len(st.session_state.photos) < 5:
     photo = st.camera_input(f"📷 Take Photo #{len(st.session_state.photos) + 1}")
@@ -296,10 +315,12 @@ if st.session_state.photos:
         st.session_state.photos.pop(to_delete)
         st.rerun()
 
-# 8. Daytime/Nighttime Dropdown
-time_options = ["Daytime", "Nighttime"]
-st.session_state.time_of_day = st.selectbox("8️⃣ Daytime / Nighttime", time_options, 
-    index=time_options.index(st.session_state.time_of_day))
+# 8. Daytime/Nighttime Dropdown with Empty Default
+time_options = ["", "Daytime", "Nighttime"]
+current_time_val = st.session_state.time_of_day if st.session_state.time_of_day in time_options else ""
+selected_time = st.selectbox("8️⃣ Daytime / Nighttime", time_options, 
+    index=time_options.index(current_time_val))
+st.session_state.time_of_day = selected_time
 
 # --------- Submit ---------
 with st.form(key="submit_form"):
@@ -309,12 +330,13 @@ with st.form(key="submit_form"):
             st.warning("❗ Staff ID must be 8 digits.")
         elif not st.session_state.photos:
             st.warning("❗ Please add at least one photo.")
+        elif not st.session_state.time_of_day or st.session_state.time_of_day == "":
+            st.warning("❗ Please select Daytime or Nighttime.")
         else:
             try:
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 photo_links = []
                 for idx, img in enumerate(st.session_state.photos):
-                    # Fixed bytes handling for both camera and file uploader
                     content = img.getvalue() if hasattr(img, "getvalue") else img.read()
                     filename = f"{timestamp}_photo{idx+1}.jpg"
                     link, _ = gdrive_upload_file(content, filename, "image/jpeg", FOLDER_ID)
@@ -339,7 +361,7 @@ with st.form(key="submit_form"):
                 gsheet_id = find_or_create_gsheet("survey_responses", FOLDER_ID)
                 append_row_to_gsheet(gsheet_id, row, header)
 
-                st.session_state.update({"activity_category": "", "specific_conditions": set(), "other_text": "", "photos": [], "show_success": True})
+                st.session_state.update({"activity_category": "", "specific_conditions": set(), "other_text": "", "photos": [], "show_success": True, "time_of_day": None})
                 st.rerun()
             except Exception as e:
                 st.error(f"❌ Failed to submit: {e}")
