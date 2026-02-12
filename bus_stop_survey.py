@@ -190,7 +190,7 @@ for key, default in {
     "selected_stop": "",
     "condition": "1. Covered Bus Stop",
     "activity_category": "",
-    "time_of_day": "Daylight/Day",  # New Field
+    "time_of_day": "Daylight/Day",
     "specific_conditions": set(),
     "other_text": "",
     "photos": [],
@@ -244,13 +244,6 @@ activity_options = ["", "1. On Board in the Bus", "2. On Ground Location"]
 activity_category = st.selectbox("5️⃣ Categorizing Activities", activity_options, 
     index=activity_options.index(st.session_state.activity_category) if st.session_state.activity_category in activity_options else 0)
 st.session_state.activity_category = activity_category
-
-# --------- Time of Day Selection ---------
-time_of_day_options = ["Daylight/Day", "Night/Dark"]
-time_of_day = st.radio("⏰ Capture Data Time", time_of_day_options, 
-    index=time_of_day_options.index(st.session_state.time_of_day) if st.session_state.time_of_day in time_of_day_options else 0,
-    horizontal=True)
-st.session_state.time_of_day = time_of_day
 
 # --------- Situational Conditions ---------
 onboard_options = [
@@ -336,6 +329,13 @@ if st.session_state.photos:
 
 # --------- Submit ---------
 with st.form(key="survey_form"):
+    # Time of Day selection placed inside the form right before the submit button
+    st.markdown("8️⃣ Capture Data Time")
+    time_of_day = st.radio("Select Lighting Condition", ["Daylight/Day", "Night/Dark"], 
+                            index=["Daylight/Day", "Night/Dark"].index(st.session_state.time_of_day),
+                            horizontal=True)
+    st.session_state.time_of_day = time_of_day
+
     submit = st.form_submit_button("✅ Submit Survey")
     if submit:
         if not staff_id.strip() or len(staff_id) != 8 or not staff_id.isdigit():
@@ -367,24 +367,23 @@ with st.form(key="survey_form"):
                     cond_list.remove(remarks_label)
                     cond_list.append(f"Remarks: {st.session_state.get('remarks_text', '').replace(';', ',')}")
 
-                # Building the row with 14 columns to ensure Time of Day is in Column N
+                # Row configuration to ensure Time of Day is in Column N (14th column)
                 row = [
-                    timestamp,                 # A
-                    staff_id,                  # B
-                    selected_depot,            # C
-                    selected_route,            # D
-                    selected_stop,             # E
-                    condition,                 # F
-                    activity_category,         # G
-                    "; ".join(cond_list),      # H
-                    "; ".join(photo_links),    # I
-                    "",                        # J
-                    "",                        # K
-                    "",                        # L
-                    "",                        # M
+                    timestamp,             # A
+                    staff_id,              # B
+                    selected_depot,        # C
+                    selected_route,        # D
+                    selected_stop,         # E
+                    condition,             # F
+                    activity_category,     # G
+                    "; ".join(cond_list),  # H
+                    "; ".join(photo_links),# I
+                    "",                    # J (empty)
+                    "",                    # K (empty)
+                    "",                    # L (empty)
+                    "",                    # M (empty)
                     st.session_state.time_of_day # N (Column 14)
                 ]
-                
                 header = ["Timestamp", "Staff ID", "Depot", "Route", "Bus Stop", "Condition", "Activity", "Situational Conditions", "Photos", "", "", "", "", "Time of Day"]
 
                 gsheet_id = find_or_create_gsheet("survey_responses", FOLDER_ID)
