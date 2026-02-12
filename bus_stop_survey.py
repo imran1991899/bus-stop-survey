@@ -28,7 +28,6 @@ st.set_page_config(page_title="Bus Stop Survey", layout="wide")
 st.title("Bus Stop Assessment Survey")
 
 # --------- Google Drive Folder ID ---------
-# Replace this with your actual Google Drive folder ID
 FOLDER_ID = "1U1E45NroftvHINPziURbJDaojsX6P-AP"
 
 # --------- OAuth Setup ---------
@@ -68,7 +67,7 @@ def get_authenticated_service():
         flow = Flow.from_client_secrets_file(
             CLIENT_SECRETS_FILE,
             scopes=SCOPES,
-            redirect_uri='https://bus-stop-survey-dpl6qeby3stuvpiexjhovk.streamlit.app/'  # Your actual redirect URI here
+            redirect_uri='https://bus-stop-survey-dpl6qeby3stuvpiexjhovk.streamlit.app/'
         )
         st.session_state.oauth_flow = flow
     else:
@@ -77,14 +76,11 @@ def get_authenticated_service():
     query_params = st.query_params
 
     if "code" in query_params:
-        # Get base URL of app
         try:
             base_url = st.runtime.scriptrunner.get_script_run_ctx().session_info.app_url
         except Exception:
-            # fallback if runtime API unavailable (e.g., local)
             base_url = 'https://bus-stop-survey-dpl6qeby3stuvpiexjhovk.streamlit.app/'
 
-        # Flatten query params (dict of lists) for urlencode
         flat_params = {k: v[0] if isinstance(v, list) else v for k, v in query_params.items()}
         full_url = base_url
         if flat_params:
@@ -110,7 +106,6 @@ def get_authenticated_service():
 # --------- Google API Setup ---------
 drive_service, sheets_service = get_authenticated_service()
 
-# --------- Upload file to Drive (uses OAuth creds) ---------
 def gdrive_upload_file(file_bytes, filename, mimetype, folder_id=None):
     media = MediaIoBaseUpload(BytesIO(file_bytes), mimetype)
     file_metadata = {"name": filename}
@@ -124,18 +119,13 @@ def gdrive_upload_file(file_bytes, filename, mimetype, folder_id=None):
     ).execute()
     return uploaded.get("webViewLink"), uploaded.get("id")
 
-# --------- Find or Create GSheet (uses OAuth creds) ---------
 def find_or_create_gsheet(sheet_name, folder_id=None):
     if folder_id:
-        query = (
-            f"'{folder_id}' in parents and name = '{sheet_name}' and "
-            "mimeType = 'application/vnd.google-apps.spreadsheet'"
-        )
+        query = (f"'{folder_id}' in parents and name = '{sheet_name}' and "
+                 "mimeType = 'application/vnd.google-apps.spreadsheet'")
     else:
-        query = (
-            f"name = '{sheet_name}' and "
-            "mimeType = 'application/vnd.google-apps.spreadsheet'"
-        )
+        query = (f"name = '{sheet_name}' and "
+                 "mimeType = 'application/vnd.google-apps.spreadsheet'")
     response = drive_service.files().list(
         q=query,
         fields="files(id, name)",
@@ -161,7 +151,6 @@ def find_or_create_gsheet(sheet_name, folder_id=None):
     ).execute()
     return file["id"]
 
-# --------- Append row to GSheet (uses OAuth creds) ---------
 def append_row_to_gsheet(sheet_id, values, header):
     sheet = sheets_service.spreadsheets()
     result = sheet.values().get(spreadsheetId=sheet_id, range="A1:A1").execute()
@@ -174,9 +163,7 @@ def append_row_to_gsheet(sheet_id, values, header):
         ).execute()
         row_num = 2
     else:
-        row_values = (
-            sheet.values().get(spreadsheetId=sheet_id, range="A:A").execute().get("values", [])
-        )
+        row_values = sheet.values().get(spreadsheetId=sheet_id, range="A:A").execute().get("values", [])
         row_num = len(row_values) + 1
 
     sheet.values().append(
@@ -219,76 +206,42 @@ st.session_state.staff_id = staff_id
 
 # --------- Depot ---------
 depots = routes_df["Depot"].dropna().unique()
-selected_depot = st.selectbox(
-    "1️⃣ Select Depot",
-    depots,
-    index=list(depots).index(st.session_state.selected_depot)
-    if st.session_state.selected_depot in depots
-    else 0,
-)
+selected_depot = st.selectbox("1️⃣ Select Depot", depots, 
+    index=list(depots).index(st.session_state.selected_depot) if st.session_state.selected_depot in depots else 0)
 st.session_state.selected_depot = selected_depot
 
 # --------- Route ---------
-filtered_routes = (
-    routes_df[routes_df["Depot"] == selected_depot]["Route Number"]
-    .dropna()
-    .unique()
-)
-selected_route = st.selectbox(
-    "2️⃣ Select Route Number",
-    filtered_routes,
-    index=list(filtered_routes).index(st.session_state.selected_route)
-    if st.session_state.selected_route in filtered_routes
-    else 0,
-)
+filtered_routes = routes_df[routes_df["Depot"] == selected_depot]["Route Number"].dropna().unique()
+selected_route = st.selectbox("2️⃣ Select Route Number", filtered_routes, 
+    index=list(filtered_routes).index(st.session_state.selected_route) if st.session_state.selected_route in filtered_routes else 0)
 st.session_state.selected_route = selected_route
 
 # --------- Bus Stop ---------
 filtered_stops_df = stops_df[
-    (stops_df["Route Number"] == selected_route)
-    & stops_df["Stop Name"].notna()
-    & stops_df["Order"].notna()
-    & stops_df["dr"].notna()
+    (stops_df["Route Number"] == selected_route) & 
+    stops_df["Stop Name"].notna() & 
+    stops_df["Order"].notna() & 
+    stops_df["dr"].notna()
 ].sort_values(by=["dr", "Order"])
 
 filtered_stops = filtered_stops_df["Stop Name"].tolist()
 if st.session_state.selected_stop not in filtered_stops:
     st.session_state.selected_stop = filtered_stops[0] if filtered_stops else ""
 
-selected_stop = st.selectbox(
-    "3️⃣ Select Bus Stop",
-    filtered_stops,
-    index=filtered_stops.index(st.session_state.selected_stop)
-    if st.session_state.selected_stop in filtered_stops
-    else 0,
-)
+selected_stop = st.selectbox("3️⃣ Select Bus Stop", filtered_stops, 
+    index=filtered_stops.index(st.session_state.selected_stop) if st.session_state.selected_stop in filtered_stops else 0)
 st.session_state.selected_stop = selected_stop
 
 # --------- Condition ---------
-conditions = [
-    "1. Covered Bus Stop",
-    "2. Pole Only",
-    "3. Layby",
-    "4. Non-Infrastructure",
-]
-condition = st.selectbox(
-    "4️⃣ Bus Stop Condition",
-    conditions,
-    index=conditions.index(st.session_state.condition)
-    if st.session_state.condition in conditions
-    else 0,
-)
+conditions = ["1. Covered Bus Stop", "2. Pole Only", "3. Layby", "4. Non-Infrastructure"]
+condition = st.selectbox("4️⃣ Bus Stop Condition", conditions, 
+    index=conditions.index(st.session_state.condition) if st.session_state.condition in conditions else 0)
 st.session_state.condition = condition
 
 # --------- Activity Category ---------
 activity_options = ["", "1. On Board in the Bus", "2. On Ground Location"]
-activity_category = st.selectbox(
-    "5️⃣ Categorizing Activities",
-    activity_options,
-    index=activity_options.index(st.session_state.activity_category)
-    if st.session_state.activity_category in activity_options
-    else 0,
-)
+activity_category = st.selectbox("5️⃣ Categorizing Activities", activity_options, 
+    index=activity_options.index(st.session_state.activity_category) if st.session_state.activity_category in activity_options else 0)
 st.session_state.activity_category = activity_category
 
 # --------- Situational Conditions ---------
@@ -307,88 +260,63 @@ onboard_options = [
     "12. Other (Please specify below)",
     "13. Remarks",
 ]
+
+# UPDATED ON GROUND OPTIONS
 onground_options = [
-    "1. Infrastruktur sudah tiada/musnah",
-    "2. Terlindung oleh pokok",
-    "3. Terhalang oleh kenderaan parkir",
-    "4. Hentian gelap dan tiada lampu jalan",
-    "5. Perubahan Nama,Coordinate, Lokasi hentian",
-    "6. Ada Infra, tiada bus bay ",
-    "7. Ada Tiang, tiada bus bay ",
-    "8. Hentian rosak & vandalism",
-    "9. Keselamatan bas - lokasi hentian tidak sesuai ",
-    "10. Keselamatan pax - Lokasi hentian tidak sesuai",
-    "11. Other (Please specify below)",
-    "12. Remarks",
+    "1. Tiada Masalah",
+    "2. Infrastruktur sudah tiada/musnah",
+    "3. Terlindung oleh pokok",
+    "4. Terhalang oleh kenderaan parkir",
+    "5. Hentian gelap dan tiada lampu jalan",
+    "6. Perubahan Nama,Coordinate, Lokasi hentian",
+    "7. Ada Infra, tiada bus bay ",
+    "8. Ada Tiang, tiada bus bay ",
+    "9. Hentian rosak & vandalism",
+    "10. Keselamatan bas - lokasi hentian tidak sesuai ",
+    "11. Keselamatan pax - Lokasi hentian tidak sesuai",
+    "12. Other (Please specify below)",
+    "13. Remarks",
 ]
 
-options = (
-    onboard_options
-    if activity_category == "1. On Board in the Bus"
-    else (
-        onground_options
-        if activity_category == "2. On Ground Location"
-        else []
-    )
-)
+options = onboard_options if activity_category == "1. On Board in the Bus" else (onground_options if activity_category == "2. On Ground Location" else [])
 
 if options:
     st.markdown("6️⃣ Specific Situational Conditions (Select all that apply)")
-    st.session_state.specific_conditions = {
-        c for c in st.session_state.specific_conditions if c in options
-    }
+    st.session_state.specific_conditions = {c for c in st.session_state.specific_conditions if c in options}
     for opt in options:
         checked = opt in st.session_state.specific_conditions
-        new_checked = st.checkbox(opt, value=checked, key=opt)
-        if new_checked:
+        if st.checkbox(opt, value=checked, key=opt):
             st.session_state.specific_conditions.add(opt)
         else:
             st.session_state.specific_conditions.discard(opt)
 else:
     st.info("Please select an Activity Category above to see situational conditions.")
 
-# --------- 'Other' Description ---------
+# --------- Descriptions ---------
 other_label = next((opt for opt in options if "Other" in opt), None)
 if other_label and other_label in st.session_state.specific_conditions:
-    other_text = st.text_area(
-        "📝 Please describe the 'Other' condition (at least 2 words)",
-        height=150,
-        value=st.session_state.other_text,
-    )
+    other_text = st.text_area("📝 Please describe the 'Other' condition (at least 2 words)", height=150, value=st.session_state.other_text)
     st.session_state.other_text = other_text
-    if len(other_text.split()) < 2:
-        st.warning("🚨 'Other' description must be at least 2 words.")
+    if len(other_text.split()) < 2: st.warning("🚨 'Other' description must be at least 2 words.")
 else:
     st.session_state.other_text = ""
 
-# --------- 'Remarks' Description (OPTIONAL) ---------
 remarks_label = next((opt for opt in options if "Remarks" in opt), None)
 if remarks_label and remarks_label in st.session_state.specific_conditions:
-    remarks_text = st.text_area(
-        "💬 Remarks (optional)",
-        height=100,
-        value=st.session_state.get("remarks_text", ""),
-    )
+    remarks_text = st.text_area("💬 Remarks (optional)", height=100, value=st.session_state.get("remarks_text", ""))
     st.session_state["remarks_text"] = remarks_text
 else:
     st.session_state["remarks_text"] = ""
 
 # --------- Photo Upload ---------
-st.markdown("7️⃣ Add up to 5 Photos (Camera or Upload from device)")
+st.markdown("7️⃣ Add up to 5 Photos")
 if len(st.session_state.photos) < 5:
-    photo = st.camera_input(
-        f"📷 Take Photo #{len(st.session_state.photos) + 1}"
-    )
-    if photo:
-        st.session_state.photos.append(photo)
+    photo = st.camera_input(f"📷 Take Photo #{len(st.session_state.photos) + 1}")
+    if photo: st.session_state.photos.append(photo)
 
 if len(st.session_state.photos) < 5:
-    upload_photo = st.file_uploader(
-        f"📁 Upload Photo #{len(st.session_state.photos) + 1}",
-        type=["png", "jpg", "jpeg"],
-    )
-    if upload_photo:
-        st.session_state.photos.append(upload_photo)
+    upload_photo = st.file_uploader(f"📁 Upload Photo #{len(st.session_state.photos) + 1}", type=["png", "jpg", "jpeg"])
+    if upload_photo: st.session_state.photos.append(upload_photo)
 
 if st.session_state.photos:
     st.subheader("📸 Saved Photos")
@@ -396,49 +324,30 @@ if st.session_state.photos:
     for i, p in enumerate(st.session_state.photos):
         cols = st.columns([4, 1])
         cols[0].image(p, caption=f"Photo #{i + 1}", use_container_width=True)
-        if cols[1].button(f"❌ Delete #{i + 1}", key=f"del_{i}"):
-            to_delete = i
-    if to_delete is not None:
-        st.session_state.photos.pop(to_delete)
+        if cols[1].button(f"❌ Delete #{i + 1}", key=f"del_{i}"): to_delete = i
+    if to_delete is not None: st.session_state.photos.pop(to_delete)
 
-# --------- Submit Button (with form and success message) ---------
+# --------- Submit ---------
 with st.form(key="survey_form"):
     submit = st.form_submit_button("✅ Submit Survey")
     if submit:
-        # Situational Conditions must not be empty
-        if not staff_id.strip():
-            st.warning("❗ Please enter your Staff ID.")
-        elif not (staff_id.isdigit() and len(staff_id) == 8):
-            st.warning("❗ Staff ID must be exactly 8 numeric digits.")
+        if not staff_id.strip() or len(staff_id) != 8 or not staff_id.isdigit():
+            st.warning("❗ Please enter a valid 8-digit numeric Staff ID.")
         elif not st.session_state.photos:
             st.warning("❗ Please add at least one photo.")
-        elif activity_category not in [
-            "1. On Board in the Bus",
-            "2. On Ground Location",
-        ]:
+        elif activity_category not in ["1. On Board in the Bus", "2. On Ground Location"]:
             st.warning("❗ Please select an Activity Category.")
         elif len(st.session_state.specific_conditions) == 0:
             st.warning("❗ Please select at least one Situational Condition.")
-        elif (
-            other_label in st.session_state.specific_conditions
-            and len(st.session_state.other_text.split()) < 2
-        ):
+        elif other_label in st.session_state.specific_conditions and len(st.session_state.other_text.split()) < 2:
             st.warning("❗ 'Other' description must be at least 2 words.")
         else:
             try:
                 timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-
                 photo_links = []
                 for idx, img in enumerate(st.session_state.photos):
+                    content = img.getvalue() if hasattr(img, "getvalue") else img.read()
                     filename = f"{timestamp}_photo{idx+1}.jpg"
-                    # Get image bytes and mimetype
-                    if hasattr(img, "getvalue"):
-                        content = img.getvalue()
-                    elif hasattr(img, "read"):
-                        content = img.read()
-                    else:
-                        st.error("❌ Unknown photo format.")
-                        raise ValueError("Unknown photo format")
                     mimetype = mimetypes.guess_type(filename)[0] or "image/jpeg"
                     link, _ = gdrive_upload_file(content, filename, mimetype, FOLDER_ID)
                     photo_links.append(link)
@@ -446,67 +355,25 @@ with st.form(key="survey_form"):
                 cond_list = list(st.session_state.specific_conditions)
                 if other_label in cond_list:
                     cond_list.remove(other_label)
-                    cond_list.append(
-                        f"Other: {st.session_state.other_text.replace(';', ',')}"
-                    )
+                    cond_list.append(f"Other: {st.session_state.other_text.replace(';', ',')}")
                 if remarks_label in cond_list:
                     cond_list.remove(remarks_label)
                     cond_list.append(f"Remarks: {st.session_state.get('remarks_text', '').replace(';', ',')}")
 
-                row = [
-                    timestamp,
-                    staff_id,
-                    selected_depot,
-                    selected_route,
-                    selected_stop,
-                    condition,
-                    activity_category,
-                    "; ".join(cond_list),
-                    "; ".join(photo_links),
-                ]
-                header = [
-                    "Timestamp",
-                    "Staff ID",
-                    "Depot",
-                    "Route",
-                    "Bus Stop",
-                    "Condition",
-                    "Activity",
-                    "Situational Conditions",
-                    "Photos",
-                ]
+                row = [timestamp, staff_id, selected_depot, selected_route, selected_stop, condition, activity_category, "; ".join(cond_list), "; ".join(photo_links)]
+                header = ["Timestamp", "Staff ID", "Depot", "Route", "Bus Stop", "Condition", "Activity", "Situational Conditions", "Photos"]
 
-                # Find or create the GSheet in Drive folder
-                SHEET_NAME = "survey_responses"
-                gsheet_id = find_or_create_gsheet(SHEET_NAME, FOLDER_ID)
+                gsheet_id = find_or_create_gsheet("survey_responses", FOLDER_ID)
                 append_row_to_gsheet(gsheet_id, row, header)
 
-                # Only clear these fields, keep staff_id, depot, route, stop
-                st.session_state["condition"] = "1. Covered Bus Stop"
-                st.session_state["activity_category"] = ""
-                st.session_state["specific_conditions"] = set()
-                st.session_state["other_text"] = ""
-                st.session_state["remarks_text"] = ""
-                st.session_state["photos"] = []
-                st.session_state["show_success"] = True
-
+                st.session_state.update({"condition": "1. Covered Bus Stop", "activity_category": "", "specific_conditions": set(), "other_text": "", "remarks_text": "", "photos": [], "show_success": True})
+                st.rerun()
             except Exception as e:
                 st.error(f"❌ Failed to submit: {e}")
 
-# Show success message if flagged, and clear it after a short delay
 if st.session_state.get("show_success", False):
-    msg_placeholder = st.empty()
-    msg_placeholder.success("✅ Submission complete! Thank you.")
+    st.success("✅ Submission complete! Thank you.")
     time.sleep(2)
-    msg_placeholder.empty()
     st.session_state["show_success"] = False
 
-# --------- Keep Session Alive ---------
-keepalive_js = """
-<script>
-    setInterval(() => {
-        fetch('/_stcore/health');
-    }, 300000);
-</script>
-"""
-st.components.v1.html(keepalive_js, height=0)
+st.components.v1.html("""<script>setInterval(() => {fetch('/_stcore/health');}, 300000);</script>""", height=0)
