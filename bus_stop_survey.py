@@ -190,7 +190,6 @@ for key, default in {
     "selected_stop": "",
     "condition": "1. Covered Bus Stop",
     "activity_category": "",
-    "time_of_day": "Daylight/Day",
     "specific_conditions": set(),
     "other_text": "",
     "photos": [],
@@ -262,6 +261,7 @@ onboard_options = [
     "13. Remarks",
 ]
 
+# UPDATED ON GROUND OPTIONS
 onground_options = [
     "1. Tiada Masalah",
     "2. Infrastruktur sudah tiada/musnah",
@@ -329,13 +329,6 @@ if st.session_state.photos:
 
 # --------- Submit ---------
 with st.form(key="survey_form"):
-    # Time of Day selection placed inside the form right before the submit button
-    st.markdown("8️⃣ Capture Data Time")
-    time_of_day = st.radio("Select Lighting Condition", ["Daylight/Day", "Night/Dark"], 
-                            index=["Daylight/Day", "Night/Dark"].index(st.session_state.time_of_day),
-                            horizontal=True)
-    st.session_state.time_of_day = time_of_day
-
     submit = st.form_submit_button("✅ Submit Survey")
     if submit:
         if not staff_id.strip() or len(staff_id) != 8 or not staff_id.isdigit():
@@ -367,38 +360,13 @@ with st.form(key="survey_form"):
                     cond_list.remove(remarks_label)
                     cond_list.append(f"Remarks: {st.session_state.get('remarks_text', '').replace(';', ',')}")
 
-                # Row configuration to ensure Time of Day is in Column N (14th column)
-                row = [
-                    timestamp,             # A
-                    staff_id,              # B
-                    selected_depot,        # C
-                    selected_route,        # D
-                    selected_stop,         # E
-                    condition,             # F
-                    activity_category,     # G
-                    "; ".join(cond_list),  # H
-                    "; ".join(photo_links),# I
-                    "",                    # J (empty)
-                    "",                    # K (empty)
-                    "",                    # L (empty)
-                    "",                    # M (empty)
-                    st.session_state.time_of_day # N (Column 14)
-                ]
-                header = ["Timestamp", "Staff ID", "Depot", "Route", "Bus Stop", "Condition", "Activity", "Situational Conditions", "Photos", "", "", "", "", "Time of Day"]
+                row = [timestamp, staff_id, selected_depot, selected_route, selected_stop, condition, activity_category, "; ".join(cond_list), "; ".join(photo_links)]
+                header = ["Timestamp", "Staff ID", "Depot", "Route", "Bus Stop", "Condition", "Activity", "Situational Conditions", "Photos"]
 
                 gsheet_id = find_or_create_gsheet("survey_responses", FOLDER_ID)
                 append_row_to_gsheet(gsheet_id, row, header)
 
-                st.session_state.update({
-                    "condition": "1. Covered Bus Stop", 
-                    "activity_category": "", 
-                    "time_of_day": "Daylight/Day",
-                    "specific_conditions": set(), 
-                    "other_text": "", 
-                    "remarks_text": "", 
-                    "photos": [], 
-                    "show_success": True
-                })
+                st.session_state.update({"condition": "1. Covered Bus Stop", "activity_category": "", "specific_conditions": set(), "other_text": "", "remarks_text": "", "photos": [], "show_success": True})
                 st.rerun()
             except Exception as e:
                 st.error(f"❌ Failed to submit: {e}")
