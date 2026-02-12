@@ -253,7 +253,6 @@ activity_category = st.selectbox("5️⃣ Categorizing Activities", activity_opt
     index=activity_options.index(st.session_state.activity_category) if st.session_state.activity_category in activity_options else 0)
 st.session_state.activity_category = activity_category
 
-# Situational Conditions
 onboard_options = ["1. Tiada penumpang menunggu", "2. Tiada isyarat (penumpang tidak menahan bas)", "3. Tidak berhenti/memperlahankan bas", "4. Salah tempat menunggu", "5. Bas penuh", "6. Mengejar masa waybill (punctuality)", "7. Kesesakan lalu lintas", "8. Kekeliruan laluan oleh pemandu baru", "9. Terdapat laluan tutup atas sebab tertentu (baiki jalan, pokok tumbang, lawatan delegasi)", "10. Hentian terlalu hampir simpang masuk", "11. Hentian berdekatan dengan traffic light", "12. Other (Please specify below)", "13. Remarks"]
 onground_options = ["1. Tiada Masalah", "2. Infrastruktur sudah tiada/musnah", "3. Terlindung oleh pokok", "4. Terhalang oleh kenderaan parkir", "5. Hentian gelap dan tiada lampu jalan", "6. Perubahan Nama,Coordinate, Lokasi hentian", "7. Ada Infra, tiada bus bay ", "8. Ada Tiang, tiada bus bay ", "9. Hentian rosak & vandalism", "10. Keselamatan bas - lokasi hentian tidak sesuai ", "11. Keselamatan pax - Lokasi hentian tidak sesuai", "12. Other (Please specify below)", "13. Remarks"]
 
@@ -267,8 +266,6 @@ if options:
             st.session_state.specific_conditions.add(opt)
         else:
             st.session_state.specific_conditions.discard(opt)
-else:
-    st.info("Please select an Activity Category.")
 
 other_label = next((opt for opt in options if "Other" in opt), None)
 if other_label and other_label in st.session_state.specific_conditions:
@@ -288,13 +285,13 @@ if st.session_state.photos:
         if cols[1].button(f"❌ Delete #{i+1}", key=f"del_{i}"): to_delete = i
     if to_delete is not None: st.session_state.photos.pop(to_delete)
 
-# New Question 8 (Separate from Submit logic but before button)
+# 8. Daytime/Nighttime Dropdown
 time_options = ["Daytime", "Nighttime"]
 st.session_state.time_of_day = st.selectbox("8️⃣ Daytime / Nighttime", time_options, 
     index=time_options.index(st.session_state.time_of_day))
 
 # --------- Submit ---------
-with st.form(key="survey_form"):
+with st.form(key="submit_form"):
     submit = st.form_submit_button("✅ Submit Survey")
     if submit:
         if not staff_id.strip() or len(staff_id) != 8:
@@ -313,10 +310,10 @@ with st.form(key="survey_form"):
 
                 cond_list = list(st.session_state.specific_conditions)
                 
-                # Build Row to map to Column N
-                # Cols 1-9: Survey Data
-                # Cols 10, 11, 12, 13: Empty placeholders
-                # Col 14 (Column N): Daytime/Nighttime
+                # --- MAPPING TO COLUMN N (Index 13) ---
+                # A:0, B:1, C:2, D:3, E:4, F:5, G:6, H:7, I:8
+                # J:9, K:10, L:11, M:12, N:13
+                # We need 4 empty slots (9+4=13)
                 row = [
                     timestamp, staff_id, selected_depot, selected_route, 
                     selected_stop, condition, activity_category, 
@@ -327,7 +324,7 @@ with st.form(key="survey_form"):
                 header = [
                     "Timestamp", "Staff ID", "Depot", "Route", "Bus Stop", 
                     "Condition", "Activity", "Situational Conditions", "Photos",
-                    "", "", "", "", "Day/Night"
+                    "Empty1", "Empty2", "Empty3", "Empty4", "Day/Night"
                 ]
 
                 gsheet_id = find_or_create_gsheet("survey_responses", FOLDER_ID)
