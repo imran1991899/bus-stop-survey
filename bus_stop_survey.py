@@ -217,6 +217,7 @@ selected_route = st.selectbox("2️⃣ Select Route Number", filtered_routes,
 st.session_state.selected_route = selected_route
 
 # --------- Bus Stop ---------
+# Filter stops and prepare display string with Stop ID (Column E)
 filtered_stops_df = stops_df[
     (stops_df["Route Number"] == selected_route) & 
     stops_df["Stop Name"].notna() & 
@@ -224,7 +225,12 @@ filtered_stops_df = stops_df[
     stops_df["dr"].notna()
 ].sort_values(by=["dr", "Order"])
 
-filtered_stops = filtered_stops_df["Stop Name"].tolist()
+# Create list of strings: "Stop Name (id:StopID)"
+filtered_stops = [
+    f"{row['Stop Name']} (id:{str(row.iloc[4]).split('.')[0]})" 
+    for _, row in filtered_stops_df.iterrows()
+]
+
 if st.session_state.selected_stop not in filtered_stops:
     st.session_state.selected_stop = filtered_stops[0] if filtered_stops else ""
 
@@ -261,7 +267,6 @@ onboard_options = [
     "13. Remarks",
 ]
 
-# UPDATED ON GROUND OPTIONS
 onground_options = [
     "1. Tiada Masalah",
     "2. Infrastruktur sudah tiada/musnah",
