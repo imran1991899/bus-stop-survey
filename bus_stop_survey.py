@@ -311,11 +311,15 @@ onground_options = [
     "1. Infrastruktur sudah tiada/musnah",
     "2. Terlindung oleh pokok",
     "3. Terhalang oleh kenderaan parkir",
-    "4. Keadaan sekeliling tidak selamat tiada lampu",
-    "5. Kedudukan bus stop kurang sesuai",
-    "6. Perubahan nama hentian",
-    "7. Other (Please specify below)",
-    "8. Remarks",
+    "4. Hentian gelap dan tiada lampu jalan",
+    "5. Perubahan Nama,Coordinate, Lokasi hentian",
+    "6. Ada Infra, tiada bus bay ",
+    "7. Ada Tiang, tiada bus bay ",
+    "8. Hentian rosak & vandalism",
+    "9. Keselamatan bas - lokasi hentian tidak sesuai ",
+    "10. Keselamatan pax - Lokasi hentian tidak sesuai",
+    "11. Other (Please specify below)",
+    "12. Remarks",
 ]
 
 options = (
@@ -436,7 +440,7 @@ with st.form(key="survey_form"):
                         st.error("❌ Unknown photo format.")
                         raise ValueError("Unknown photo format")
                     mimetype = mimetypes.guess_type(filename)[0] or "image/jpeg"
-                    link, _ = gdrive_upload_file(content, filename, mimetype)
+                    link, _ = gdrive_upload_file(content, filename, mimetype, FOLDER_ID)
                     photo_links.append(link)
 
                 cond_list = list(st.session_state.specific_conditions)
@@ -447,8 +451,7 @@ with st.form(key="survey_form"):
                     )
                 if remarks_label in cond_list:
                     cond_list.remove(remarks_label)
-                    remarks_value = st.session_state.get("remarks_text", "")
-                    cond_list.append(f"Remarks: {remarks_value.replace(';', ',')}")
+                    cond_list.append(f"Remarks: {st.session_state.get('remarks_text', '').replace(';', ',')}")
 
                 row = [
                     timestamp,
@@ -507,6 +510,3 @@ keepalive_js = """
 </script>
 """
 st.components.v1.html(keepalive_js, height=0)
-
-
-
