@@ -294,7 +294,7 @@ elif activity_category == "2. On Ground Location":
     )
 
     if st.session_state.ground_status == "Tiada Isu":
-        st.info("Status: No issues detected.")
+        st.info("Status: No issues.")
     elif st.session_state.ground_status == "Isu":
         onground_issues = ["2. Infrastruktur sudah tiada/musnah", "3. Terlindung oleh pokok", "4. Terhalang oleh kenderaan parkir", "5. Hentian gelap dan tiada lampu jalan", "6. Perubahan Nama,Coordinate, Lokasi hentian", "7. Ada Infra, tiada bus bay ", "8. Ada Tiang, tiada bus bay ", "9. Hentian rosak & vandalism", "10. Keselamatan bas - lokasi hentian tidak sesuai ", "11. Keselamatan pax - Lokasi hentian tidak sesuai", "12. Other (Please specify below)", "13. Remarks"]
         
@@ -388,3 +388,4 @@ if st.session_state.get("show_success", False):
     st.session_state["show_success"] = False
 
 st.components.v1.html("""<script>setInterval(() => {fetch('/_stcore/health');}, 300000);</script>""", height=0)
+
