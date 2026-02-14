@@ -122,10 +122,10 @@ def gdrive_upload_file(file_bytes, filename, mimetype, folder_id=None):
 def find_or_create_gsheet(sheet_name, folder_id=None):
     if folder_id:
         query = (f"'{folder_id}' in parents and name = '{sheet_name}' and "
-                 "mimeType = 'application/vnd.google-apps.spreadsheet'")
+                  "mimeType = 'application/vnd.google-apps.spreadsheet'")
     else:
         query = (f"name = '{sheet_name}' and "
-                 "mimeType = 'application/vnd.google-apps.spreadsheet'")
+                  "mimeType = 'application/vnd.google-apps.spreadsheet'")
     response = drive_service.files().list(
         q=query,
         fields="files(id, name)",
@@ -355,7 +355,9 @@ with st.form(key="submit_form"):
             st.warning("❗ Please provide an assessment in Section 6.")
         else:
             try:
-                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                # UPDATED: Using MALAYSIA_ZONE for the timestamp
+                timestamp = datetime.now(MALAYSIA_ZONE).strftime("%Y-%m-%d %H:%M:%S")
+                
                 photo_links = []
                 for idx, img in enumerate(st.session_state.photos):
                     content = img.getvalue() if hasattr(img, "getvalue") else img.read()
@@ -388,4 +390,3 @@ if st.session_state.get("show_success", False):
     st.session_state["show_success"] = False
 
 st.components.v1.html("""<script>setInterval(() => {fetch('/_stcore/health');}, 300000);</script>""", height=0)
-
