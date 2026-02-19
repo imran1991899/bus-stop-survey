@@ -291,14 +291,17 @@ def render_grid_questions(q_list):
 
 st.subheader("A. KELAKUAN KAPTEN BAS")
 
-# --- New Fields Arrangement ---
+# --- Arrangement Update ---
 col_bc1, col_bc2, col_bc3 = st.columns(3)
 with col_bc1:
-    bc_id_input = st.text_input("BC id:", placeholder="Masukkan ID BC...", key="bc_id_input")
+    # Number input for BC ID (optional)
+    bc_id_input = st.number_input("BC id:", value=None, placeholder="Number only (optional)", key="bc_id_input", format="%d")
 with col_bc2:
-    selected_bus = st.selectbox("🚌 Pilih No. Bas:", options=bus_list, index=None, placeholder="Pilih no pendaftaran bas...", key="bus_select")
+    # Selectbox for Bus No (Required)
+    selected_bus = st.selectbox("🚌 Pilih No. Bas:", options=bus_list, index=None, placeholder="Is a must...", key="bus_select")
 with col_bc3:
-    bus_speed = st.number_input("Kelajuan Bas (km/h):", min_value=0, max_value=120, value=None, placeholder="Rujuk kiosk...", key="bus_speed_input")
+    # Number input for Speed (optional)
+    bus_speed = st.number_input("Kelajuan Bas (km/h):", min_value=0, max_value=120, value=None, placeholder="Number only (optional)", key="bus_speed_input")
 
 render_grid_questions(questions_a)
 st.divider()
@@ -365,8 +368,9 @@ if st.button("Submit Survey"):
     total_media = len(st.session_state.photos) + len(st.session_state.videos)
     check_responses = [st.session_state.responses[q] for q in questions_a + ["Ada Penumpang?"] + questions_b]
             
-    if not staff_id or not stop or not selected_bus or not bc_id_input or bus_speed is None or total_media != 3 or None in check_responses:
-        st.error("Sila pastikan semua soalan dijawab, No. Bas dipilih, BC ID diisi, Kelajuan diisi, dan 3 keping media disediakan.")
+    # BC ID and Speed removed from the 'not' check to make them optional
+    if not staff_id or not stop or not selected_bus or total_media != 3 or None in check_responses:
+        st.error("Sila pastikan semua soalan dijawab, No. Bas dipilih, dan 3 keping media disediakan.")
     else:
         saving_placeholder = st.empty()
         saving_placeholder.markdown('<div class="custom-spinner">⏳ Saving & Applying Timemarks... Please wait.</div>', unsafe_allow_html=True)
@@ -391,18 +395,17 @@ if st.button("Submit Survey"):
             final_ts = now_kl.strftime("%Y-%m-%d %H:%M:%S")
             
             # --- ROW DATA ASSEMBLY ---
-            # Existing columns first
             row_data = [final_ts, staff_id, staff_dict[staff_id], current_depot, current_route, stop, selected_bus]
             row_data += [st.session_state.responses[q] for q in all_questions]
             row_data += ["; ".join(media_urls)]
             
-            # Pad with empty strings until index 30 (Column AE)
+            # Pad until index 30 (Column AE)
             while len(row_data) < 30:
                 row_data.append("")
             
             # AE = Kelajuan Bas, AF = BC ID
-            row_data.insert(30, bus_speed)
-            row_data.insert(31, bc_id_input)
+            row_data.insert(30, bus_speed if bus_speed is not None else "")
+            row_data.insert(31, bc_id_input if bc_id_input is not None else "")
             
             # --- HEADER ASSEMBLY ---
             header_data = ["Timestamp", "Staff ID", "Staff Name", "Depot", "Route", "Bus Stop", "Bus Register No"] + all_questions + ["Media Links"]
