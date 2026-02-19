@@ -130,14 +130,12 @@ def add_watermark(image_bytes, stop_name):
     draw = ImageDraw.Draw(img)
     w, h = img.size
     
-    # Scale increased to 16% of width (2x bigger than before)
     font_scale = int(w * 0.16) 
     
     now = datetime.now(KL_TZ)
     time_str = now.strftime("%I:%M %p")
     info_str = f"{now.strftime('%d/%m/%y')} | {stop_name.upper()}"
 
-    # Use Arial Bold
     try:
         font_main = ImageFont.truetype("arialbd.ttf", font_scale)
         font_sub = ImageFont.truetype("arialbd.ttf", int(font_scale * 0.4))
@@ -145,21 +143,17 @@ def add_watermark(image_bytes, stop_name):
         font_main = ImageFont.load_default()
         font_sub = ImageFont.load_default()
 
-    # Move text to the absolute edge of bottom-left
     margin_left = int(w * 0.02)
     margin_bottom = int(h * 0.02)
 
-    # Get heights for tight stacking
     sub_bbox = font_sub.getbbox(info_str)
     main_bbox = font_main.getbbox(time_str)
     sub_height = sub_bbox[3] - sub_bbox[1]
     main_height = main_bbox[3] - main_bbox[1]
 
-    # Stacking from bottom up
     y_pos_sub = h - margin_bottom - sub_height
-    y_pos_main = y_pos_sub - main_height - 10 # Tight gap
+    y_pos_main = y_pos_sub - main_height - 10 
 
-    # Draw Time (ORANGE) and Info (WHITE) - NO STROKE
     draw.text((margin_left, y_pos_main), time_str, font=font_main, fill="orange")
     draw.text((margin_left, y_pos_sub), info_str, font=font_sub, fill="white")
     
@@ -296,7 +290,16 @@ def render_grid_questions(q_list):
                 st.session_state.responses[q] = st.radio(label=q, options=opts, index=None, key=f"r_{q}", horizontal=True, label_visibility="collapsed")
 
 st.subheader("A. KELAKUAN KAPTEN BAS")
-selected_bus = st.selectbox("🚌 Pilih No. Bas", options=bus_list, index=None, placeholder="Pilih no pendaftaran bas...", key="bus_select")
+
+# --- New Fields Arrangement ---
+col_bc1, col_bc2, col_bc3 = st.columns(3)
+with col_bc1:
+    bc_id_input = st.text_input("BC id:", placeholder="Masukkan ID BC...", key="bc_id_input")
+with col_bc2:
+    selected_bus = st.selectbox("🚌 Pilih No. Bas:", options=bus_list, index=None, placeholder="Pilih no pendaftaran bas...", key="bus_select")
+with col_bc3:
+    bus_speed = st.number_input("Kelajuan Bas (km/h):", min_value=0, max_value=120, value=None, placeholder="Rujuk kiosk...", key="bus_speed_input")
+
 render_grid_questions(questions_a)
 st.divider()
 
@@ -362,8 +365,8 @@ if st.button("Submit Survey"):
     total_media = len(st.session_state.photos) + len(st.session_state.videos)
     check_responses = [st.session_state.responses[q] for q in questions_a + ["Ada Penumpang?"] + questions_b]
             
-    if not staff_id or not stop or not selected_bus or total_media != 3 or None in check_responses:
-        st.error("Sila pastikan semua soalan dijawab, No. Bas dipilih, dan 3 keping media disediakan.")
+    if not staff_id or not stop or not selected_bus or not bc_id_input or bus_speed is None or total_media != 3 or None in check_responses:
+        st.error("Sila pastikan semua soalan dijawab, No. Bas dipilih, BC ID diisi, Kelajuan diisi, dan 3 keping media disediakan.")
     else:
         saving_placeholder = st.empty()
         saving_placeholder.markdown('<div class="custom-spinner">⏳ Saving & Applying Timemarks... Please wait.</div>', unsafe_allow_html=True)
@@ -386,15 +389,34 @@ if st.button("Submit Survey"):
                 media_urls.append(v_url)
 
             final_ts = now_kl.strftime("%Y-%m-%d %H:%M:%S")
-            row_data = [final_ts, staff_id, staff_dict[staff_id], current_depot, current_route, stop, selected_bus] + \
-                        [st.session_state.responses[q] for q in all_questions] + ["; ".join(media_urls)]
             
+            # --- ROW DATA ASSEMBLY ---
+            # Existing columns first
+            row_data = [final_ts, staff_id, staff_dict[staff_id], current_depot, current_route, stop, selected_bus]
+            row_data += [st.session_state.responses[q] for q in all_questions]
+            row_data += ["; ".join(media_urls)]
+            
+            # Pad with empty strings until index 30 (Column AE)
+            while len(row_data) < 30:
+                row_data.append("")
+            
+            # AE = Kelajuan Bas, AF = BC ID
+            row_data.insert(30, bus_speed)
+            row_data.insert(31, bc_id_input)
+            
+            # --- HEADER ASSEMBLY ---
             header_data = ["Timestamp", "Staff ID", "Staff Name", "Depot", "Route", "Bus Stop", "Bus Register No"] + all_questions + ["Media Links"]
+            while len(header_data) < 30:
+                header_data.append("")
+            header_data.insert(30, "Kelajuan Bas (km/h)")
+            header_data.insert(31, "BC ID")
+
             append_row(find_or_create_gsheet("survey_responses", FOLDER_ID), row_data, header_data)
             
             saving_placeholder.empty() 
             st.success("Submitted Successfully!")
             
+            # Reset state
             st.session_state.photos = []
             st.session_state.videos = []
             st.session_state.responses = {q: None for q in all_questions}
@@ -402,7 +424,7 @@ if st.button("Submit Survey"):
             st.session_state.saved_stop = None
 
             for key in list(st.session_state.keys()):
-                if key.startswith("r_") or key in ["has_pax", "bus_select", "staff_id_select", "stop_select"]:
+                if key.startswith("r_") or key in ["has_pax", "bus_select", "staff_id_select", "stop_select", "bc_id_input", "bus_speed_input"]:
                     del st.session_state[key]
             
             time.sleep(2)
@@ -411,4 +433,3 @@ if st.button("Submit Survey"):
         except Exception as e:
             saving_placeholder.empty()
             st.error(f"Error: {e}")
-
