@@ -11,12 +11,6 @@ from urllib.parse import urlencode
 from PIL import Image, ImageDraw, ImageFont
 import pytz 
 
-# Essential Google API Imports
-from google_auth_oauthlib.flow import Flow
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseUpload
-from google.auth.transport.requests import Request
-
 # --------- Timezone Setup ---------
 KL_TZ = pytz.timezone('Asia/Kuala_Lumpur')
 
@@ -123,6 +117,12 @@ st.markdown("""
     }
     </style>
     """, unsafe_allow_html=True)
+
+# Essential Google API Imports
+from google_auth_oauthlib.flow import Flow
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseUpload
+from google.auth.transport.requests import Request
 
 # --------- Helper: MASSIVE ORANGE WATERMARK ---------
 def add_watermark(image_bytes, stop_name):
@@ -291,17 +291,15 @@ def render_grid_questions(q_list):
 
 st.subheader("A. KELAKUAN KAPTEN BAS")
 
-# --- Arrangement Update ---
 col_bc1, col_bc2, col_bc3 = st.columns(3)
 with col_bc1:
-    # Number input for BC ID (optional)
-    bc_id_input = st.number_input("BC id:", value=None, placeholder="Number only (optional)", key="bc_id_input", format="%d")
+    # Set step=1 to ensure integer behavior and prevent warning
+    bc_id_input = st.number_input("BC id:", value=None, step=1, placeholder="Number only (optional)", key="bc_id_input")
 with col_bc2:
-    # Selectbox for Bus No (Required)
     selected_bus = st.selectbox("🚌 Pilih No. Bas:", options=bus_list, index=None, placeholder="Is a must...", key="bus_select")
 with col_bc3:
-    # Number input for Speed (optional)
-    bus_speed = st.number_input("Kelajuan Bas (km/h):", min_value=0, max_value=120, value=None, placeholder="Number only (optional)", key="bus_speed_input")
+    # Set step=1 to ensure integer behavior and prevent warning
+    bus_speed = st.number_input("Kelajuan Bas (km/h):", min_value=0, max_value=120, value=None, step=1, placeholder="Number only (optional)", key="bus_speed_input")
 
 render_grid_questions(questions_a)
 st.divider()
@@ -368,7 +366,6 @@ if st.button("Submit Survey"):
     total_media = len(st.session_state.photos) + len(st.session_state.videos)
     check_responses = [st.session_state.responses[q] for q in questions_a + ["Ada Penumpang?"] + questions_b]
             
-    # BC ID and Speed removed from the 'not' check to make them optional
     if not staff_id or not stop or not selected_bus or total_media != 3 or None in check_responses:
         st.error("Sila pastikan semua soalan dijawab, No. Bas dipilih, dan 3 keping media disediakan.")
     else:
@@ -393,21 +390,15 @@ if st.button("Submit Survey"):
                 media_urls.append(v_url)
 
             final_ts = now_kl.strftime("%Y-%m-%d %H:%M:%S")
+            row_data = [final_ts, staff_id, staff_dict[staff_id], current_depot, current_route, stop, selected_bus] + \
+                        [st.session_state.responses[q] for q in all_questions] + ["; ".join(media_urls)]
             
-            # --- ROW DATA ASSEMBLY ---
-            row_data = [final_ts, staff_id, staff_dict[staff_id], current_depot, current_route, stop, selected_bus]
-            row_data += [st.session_state.responses[q] for q in all_questions]
-            row_data += ["; ".join(media_urls)]
-            
-            # Pad until index 30 (Column AE)
             while len(row_data) < 30:
                 row_data.append("")
             
-            # AE = Kelajuan Bas, AF = BC ID
             row_data.insert(30, bus_speed if bus_speed is not None else "")
             row_data.insert(31, bc_id_input if bc_id_input is not None else "")
             
-            # --- HEADER ASSEMBLY ---
             header_data = ["Timestamp", "Staff ID", "Staff Name", "Depot", "Route", "Bus Stop", "Bus Register No"] + all_questions + ["Media Links"]
             while len(header_data) < 30:
                 header_data.append("")
@@ -419,7 +410,6 @@ if st.button("Submit Survey"):
             saving_placeholder.empty() 
             st.success("Submitted Successfully!")
             
-            # Reset state
             st.session_state.photos = []
             st.session_state.videos = []
             st.session_state.responses = {q: None for q in all_questions}
