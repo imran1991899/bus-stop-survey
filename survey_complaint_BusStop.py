@@ -226,14 +226,15 @@ def append_row(sheet_id, row, header):
 routes_df = pd.read_excel("bus_data.xlsx", sheet_name="routes")
 stops_df = pd.read_excel("bus_data.xlsx", sheet_name="stops")
 
+# Pull stops dynamically from Excel to fix missing stops like KL2081
+all_available_stops = sorted(stops_df["Stop Name"].dropna().unique().tolist())
+
 try:
     bus_df = pd.read_excel("bus_list.xlsx", sheet_name="bus list", usecols=[1])
     bus_list = sorted(bus_df.iloc[:, 0].dropna().astype(str).unique().tolist())
 except Exception as e:
     st.error(f"Error loading bus_list.xlsx: {e}")
     bus_list = []
-
-allowed_stops = sorted(["AJ106 LRT AMPANG", "DAMANSARA INTAN", "ECOSKY RESIDENCE", "FAKULTI KEJURUTERAAN (UTARA)", "FAKULTI PERNIAGAAN DAN PERAKAUNAN", "FAKULTI UNDANG-UNDANG", "KILANG PLASTIK EKSPEDISI EMAS (OPP)", "KJ477 UTAR", "KJ560 SHELL SG LONG (OPP)", "KL107 LRT MASJID JAMEK", "KL1082 SK Methodist", "KL117 BSN LEBUH AMPANG", "KL1217 ILP KUALA LUMPUR", "KL2247 KOMERSIAL KIP", "KL377 WISMA SISTEM", "KOMERSIAL BURHANUDDIN (2)", "MASJID CYBERJAYA 10", "MRT SRI DELIMA PINTU C", "PERUMAHAN TTDI", "PJ312 Medan Selera Seksyen 19", "PJ476 MASJID SULTAN ABDUL AZIZ", "PJ721 ONE UTAMA NEW WING", "PPJ384 AURA RESIDENCE", "SA12 APARTMENT BAIDURI (OPP)", "SA26 PERUMAHAN SEKSYEN 11", "SCLAND EMPORIS", "SJ602 BANDAR BUKIT PUCHONG BP1", "SMK SERI HARTAMAS", "SMK SULTAN ABD SAMAD (TIMUR)"])
 
 staff_dict = {"10005475": "MOHD RIZAL BIN RAMLI", "10020779": "NUR FAEZAH BINTI HARUN", "10014181": "NORAINSYIRAH BINTI ARIFFIN", "10022768": "NORAZHA RAFFIZZI ZORKORNAINI", "10022769": "NUR HANIM HANIL", "10023845": "MUHAMMAD HAMKA BIN ROSLIM", "10002059": "MUHAMAD NIZAM BIN IBRAHIM", "10005562": "AZFAR NASRI BIN BURHAN", "10010659": "MOHD SHAFIEE BIN ABDULLAH", "10008350": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN", "10003214": "NIK MOHD FADIR BIN NIK MAT RAWI", "10016370": "AHMAD AZIM BIN ISA", "10022910": "NUR SHAHIDA BINTI MOHD TAMIJI ", "10023513": "MUHAMMAD SYAHMI BIN AZMEY", "10023273": "MOHD IDZHAM BIN ABU BAKAR", "10023577": "MOHAMAD NAIM MOHAMAD SAPRI", "10023853": "MUHAMAD IMRAN BIN MOHD NASRUDDIN", "10008842": "MIRAN NURSYAWALNI AMIR", "10015662": "MUHAMMAD HANDIF BIN HASHIM", "10011944": "NUR HAZIRAH BINTI NAWI"}
 
@@ -262,8 +263,9 @@ with col_staff:
         st.session_state.saved_staff_id = staff_id
 
 with col_stop:
-    stop = st.selectbox("📍 Bus Stop", allowed_stops, 
-                        index=allowed_stops.index(st.session_state.saved_stop) if st.session_state.saved_stop in allowed_stops else None, 
+    # Changed from allowed_stops to all_available_stops to show everything from Excel
+    stop = st.selectbox("📍 Bus Stop", all_available_stops, 
+                        index=all_available_stops.index(st.session_state.saved_stop) if st.session_state.saved_stop in all_available_stops else None, 
                         placeholder="Pilih Hentian Bas...", key="stop_select")
     current_route, current_depot = "", ""
     if stop:
@@ -293,12 +295,12 @@ st.subheader("A. KELAKUAN KAPTEN BAS")
 
 col_bc1, col_bc2, col_bc3 = st.columns(3)
 with col_bc1:
-    # Set step=1 to ensure integer behavior and prevent warning
+    # Fixed Warning: removed format="%d" and added step=1
     bc_id_input = st.number_input("BC id:", value=None, step=1, placeholder="Number only (optional)", key="bc_id_input")
 with col_bc2:
     selected_bus = st.selectbox("🚌 Pilih No. Bas:", options=bus_list, index=None, placeholder="Is a must...", key="bus_select")
 with col_bc3:
-    # Set step=1 to ensure integer behavior and prevent warning
+    # Fixed Warning: removed format="%d" and added step=1
     bus_speed = st.number_input("Kelajuan Bas (km/h):", min_value=0, max_value=120, value=None, step=1, placeholder="Number only (optional)", key="bus_speed_input")
 
 render_grid_questions(questions_a)
