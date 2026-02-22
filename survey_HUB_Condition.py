@@ -36,47 +36,101 @@ hub_df = load_hub_data()
 # --------- CSS FOR DARK GRAY TEXT & UNIFORM SHAPE ---------
 st.markdown("""
     <style>
-    .stApp { background-color: #F5F5F7 !important; color: #1D1D1F !important; font-family: -apple-system, sans-serif !important; }
-    
-    /* Label Styling */
-    label[data-testid="stWidgetLabel"] p { font-size: 16px !important; font-weight: 600 !important; color: #1D1D1F !important; margin-bottom: 8px !important; }
-    
-    /* Radio Group Container */
-    div[role="radiogroup"] { 
+    .stApp {
+        background-color: #F5F5F7 !important;
+        color: #1D1D1F !important;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+    }
+
+    label[data-testid="stWidgetLabel"] p {
+        font-size: 18px !important;
+        font-weight: 600 !important;
+        color: #3A3A3C !important;
+    }
+
+    .custom-spinner {
+        padding: 20px;
+        background-color: #FFF9F0;
+        border: 2px solid #FFCC80;
+        border-radius: 14px;
+        color: #E67E22;
+        text-align: center;
+        font-weight: bold;
+        margin-bottom: 20px;
+    }
+
+    div[role="radiogroup"] {
         background-color: #E3E3E8 !important; 
         padding: 6px !important; 
-        border-radius: 12px !important; 
-        display: flex !important; 
-        flex-direction: row !important; 
-        gap: 10px !important;
-        width: fit-content !important;
+        border-radius: 14px !important;
+        gap: 8px !important;
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        margin-top: 2px !important; 
+        margin-bottom: 28px !important; 
+        max-width: 360px; 
+        min-height: 58px !important; 
     }
-    
-    /* Individual Radio Option - Uniform & Standard */
+
+    [data-testid="stWidgetSelectionVisualizer"] {
+        display: none !important;
+    }
+
     div[role="radiogroup"] label {
         background-color: transparent !important;
-        border-radius: 8px !important;
-        padding: 8px 25px !important; 
-        min-width: 120px !important;   
+        border: none !important;
+        padding: 14px 0px !important; 
+        border-radius: 11px !important;
+        transition: all 0.2s ease-in-out !important;
+        flex: 1 !important;
         display: flex !important;
         justify-content: center !important;
         align-items: center !important;
-        border: none !important;
+        margin: 0 !important;
     }
 
-    /* Text inside the options - DARK GRAY */
-    div[role="radiogroup"] label div[data-testid="stMarkdownContainer"] p {
-        color: #333333 !important; 
-        font-weight: 500 !important;
+    div[role="radiogroup"] label p {
+        font-size: 16px !important; 
+        margin: 0 !important;
+        padding: 0 20px !important;
+        white-space: nowrap !important; 
+        color: #444444 !important; 
+        font-weight: 700 !important; 
+    }
+
+    div[role="radiogroup"] label:has(input:checked) {
+        background-color: #FFFFFF !important;
+        box-shadow: 0px 4px 12px rgba(0,0,0,0.15) !important;
+    }
+
+    div.stButton > button {
+        background-color: #007AFF !important;
+        color: white !important;
+        border: none !important;
+        height: 60px !important;
+        font-weight: 600 !important;
+        border-radius: 16px !important;
+        font-size: 18px !important;
+        padding: 0 40px !important;
+        width: 100%;
+    }
+
+    [data-testid="stCameraInput"] {
+        border: 2px dashed #007AFF;
+        border-radius: 20px; 
+        padding: 10px;
     }
     
-    /* Selected State Button Shape */
-    div[role="radiogroup"] label:has(input:checked) { 
-        background-color: #FFFFFF !important; 
-        box-shadow: 0px 2px 5px rgba(0,0,0,0.1) !important; 
+    [data-testid="stCameraInput"] video {
+        border-radius: 12px;
+        object-fit: cover;
     }
 
-    div.stButton > button { background-color: #007AFF !important; color: white !important; height: 55px !important; border-radius: 12px !important; font-weight: 700 !important; }
+    [data-testid="stCameraInput"] label div {
+        color: #007AFF !important;
+        font-weight: bold !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
