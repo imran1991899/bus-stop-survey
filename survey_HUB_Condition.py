@@ -42,14 +42,12 @@ st.markdown("""
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
     }
 
-    /* Target ALL labels, p-tags inside widgets, and markdown headers to ensure dark gray uniformity */
+    /* Target ALL labels to ensure dark gray uniformity */
     label[data-testid="stWidgetLabel"] p, 
-    .st-emotion-cache-16296vi p, 
-    .st-emotion-cache-ue6h4q p,
     div[data-testid="stMarkdownContainer"] p,
     div[data-testid="stWidgetLabel"],
-    .st-emotion-cache-18357p9 p,
-    .st-emotion-cache-1p05t8e p {
+    .st-emotion-cache-16296vi p, 
+    .st-emotion-cache-ue6h4q p {
         font-size: 18px !important;
         font-weight: 600 !important;
         color: #3A3A3C !important;
@@ -57,26 +55,16 @@ st.markdown("""
         -webkit-text-fill-color: #3A3A3C !important;
     }
 
-    /* Specifically target radio button headers which often default to white/light gray */
-    div[role="radiogroup"] > label > div > p {
-        color: #3A3A3C !important;
-    }
-
-    /* Force specific widget label containers to obey the color */
-    .stSelectbox label, .stTextInput label, .stTextArea label, 
-    .stDateInput label, .stTimeInput label, .stMultiSelect label, .stRadio label {
-        color: #3A3A3C !important;
-    }
-
-    .custom-spinner {
-        padding: 20px;
-        background-color: #FFF9F0;
-        border: 2px solid #FFCC80;
-        border-radius: 14px;
-        color: #E67E22;
-        text-align: center;
-        font-weight: bold;
-        margin-bottom: 20px;
+    /* Style for the Name Display Box (Reference Image style) */
+    .name-display-box {
+        background-color: #E1F0FF !important;
+        color: #007AFF !important;
+        padding: 15px !important;
+        border-radius: 10px !important;
+        font-weight: 600 !important;
+        font-size: 18px !important;
+        margin-bottom: 20px !important;
+        border: none !important;
     }
 
     /* Radio Group Styling */
@@ -111,7 +99,6 @@ st.markdown("""
         margin: 0 !important;
     }
 
-    /* Text INSIDE the radio buttons (Options) */
     div[role="radiogroup"] label p {
         font-size: 14px !important; 
         margin: 0 !important;
@@ -145,11 +132,6 @@ st.markdown("""
         border: 2px dashed #007AFF;
         border-radius: 20px; 
         padding: 10px;
-    }
-    
-    [data-testid="stCameraInput"] video {
-        border-radius: 12px;
-        object-fit: cover;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -239,9 +221,17 @@ st.header("📋 Maklumat Asas")
 col1, col2 = st.columns(2)
 
 with col1:
-    staff_id_input = st.text_input("1. Staff ID", placeholder="Masukkan No. ID")
-    nama_penilai = staff_dict.get(staff_id_input, "")
-    st.text_input("Nama Penilai", value=nama_penilai, disabled=True, placeholder="Nama akan dipaparkan secara automatik")
+    # UPDATED: Searchable Staff ID Dropdown
+    staff_id_list = sorted(list(staff_dict.keys()))
+    staff_id_input = st.selectbox("1. Staff ID", options=staff_id_list, index=None, placeholder="Pilih atau Cari No. ID")
+    
+    # UPDATED: Nama Penilai display logic to match reference image
+    if staff_id_input:
+        nama_penilai = staff_dict.get(staff_id_input, "")
+        st.markdown(f'<div class="name-display-box">Nama: {nama_penilai}</div>', unsafe_allow_html=True)
+    else:
+        nama_penilai = ""
+        st.markdown('<div class="name-display-box">Nama: Sila pilih Staff ID</div>', unsafe_allow_html=True)
 
     if not hub_df.empty and hub_df.shape[1] >= 3:
         hub_list = sorted(hub_df.iloc[:, 2].dropna().unique().tolist())
@@ -299,7 +289,7 @@ if up_file:
 
 if st.button("Submit Profiling Report"):
     if not selected_hub or not nama_penilai:
-        st.error("Sila masukkan Staff ID yang sah and pilih Nama Hab.")
+        st.error("Sila masukkan Staff ID yang sah dan pilih Nama Hab.")
     else:
         with st.spinner("Submitting Report..."):
             try:
