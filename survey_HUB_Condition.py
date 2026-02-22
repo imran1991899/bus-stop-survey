@@ -33,7 +33,7 @@ def load_hub_data():
 
 hub_df = load_hub_data()
 
-# --------- CSS UPDATED FOR DARK GRAY TEXT & UNIFORM SHAPE ---------
+# --------- CSS FOR DARK GRAY TEXT & UNIFORM SHAPE ---------
 st.markdown("""
     <style>
     .stApp { background-color: #F5F5F7 !important; color: #1D1D1F !important; font-family: -apple-system, sans-serif !important; }
@@ -52,21 +52,21 @@ st.markdown("""
         width: fit-content !important;
     }
     
-    /* Individual Radio Option - Making it Uniform & Standard */
+    /* Individual Radio Option - Uniform & Standard */
     div[role="radiogroup"] label {
         background-color: transparent !important;
         border-radius: 8px !important;
-        padding: 8px 25px !important; /* Uniform Padding */
-        min-width: 120px !important;   /* Standard Width for uniform shape */
+        padding: 8px 25px !important; 
+        min-width: 120px !important;   
         display: flex !important;
         justify-content: center !important;
         align-items: center !important;
         border: none !important;
     }
 
-    /* Text inside the options - DARK GRAY FIX */
+    /* Text inside the options - DARK GRAY */
     div[role="radiogroup"] label div[data-testid="stMarkdownContainer"] p {
-        color: #333333 !important; /* Dark Gray Color instead of White */
+        color: #333333 !important; 
         font-weight: 500 !important;
     }
     
@@ -165,9 +165,11 @@ st.header("📋 Maklumat Asas")
 col1, col2 = st.columns(2)
 
 with col1:
-    staff_id = st.text_input("1. Nama (Staff ID)", placeholder="Enter Staff ID")
-    nama_penilai = staff_dict.get(staff_id, "Staff Not Found")
-    if staff_id: st.info(f"Nama Penilai: {nama_penilai}")
+    # Function of ID: Search name when number is put in
+    staff_id_input = st.text_input("1. Staff ID", placeholder="Masukkan No. ID")
+    nama_penilai = staff_dict.get(staff_id_input, "")
+    
+    st.text_input("Nama Penilai", value=nama_penilai, disabled=True, placeholder="Nama akan dipaparkan secara automatik")
 
     if not hub_df.empty and hub_df.shape[1] >= 3:
         hub_list = sorted(hub_df.iloc[:, 2].dropna().unique().tolist())
@@ -204,7 +206,7 @@ with col3:
     tandas = st.radio("11. TANDAS - Kemudahan Hab", ["Ada dan milik RapidKL", "Ada tetapi bukan milik RapidKL", "Tiada"], horizontal=True)
     surau = st.radio("12. SURAU - Kemudahan Hab", ["Ada dan milik RapidKL", "Ada tetapi bukan milik RapidKL", "Tiada"], horizontal=True)
     ruang_rehat = st.radio("13. Ruang Rehat Pemandu - Kemudahan Hub", ["Hab", "Ada Kiosk / Bilik Rehat (milik RapidKL)", "Tiada (BC rehat dalam bas / rehat di luar bas)"], horizontal=True)
-    kiosk = st.radio("14. Kiosk - Kemudahan Hab", ["Masih ada dan selesa digunakan", "Ada tetapi kurang selesa digunakan", "Tiada"], horizontal=True)
+    kiosk = st.radio("14. Kiosk - Kemudahan Hub", ["Masih ada dan selesa digunakan", "Ada tetapi kurang selesa digunakan", "Tiada"], horizontal=True)
     bumbung = st.radio("15. Kawasan Berbumbung - Kemudahan Hub", ["Ada", "Tiada", "Khemah"], horizontal=True)
 
 with col4:
@@ -224,7 +226,7 @@ if up_file:
     else: st.session_state.photos.append(up_file)
 
 if st.button("Submit Profiling Report"):
-    if not selected_hub or nama_penilai == "Staff Not Found":
+    if not selected_hub or not nama_penilai:
         st.error("Sila masukkan Staff ID yang sah dan pilih Nama Hab.")
     else:
         with st.spinner("Submitting Report..."):
