@@ -36,7 +36,7 @@ def load_hub_data():
         return df
     except Exception as e:
         st.error(f"Error loading hub name.xlsx: {e}")
-        return pd.DataFrame(columns=["Hub Name", "Depot", "Routes"])
+        return pd.DataFrame(columns=["Depot", "Routes"])
 
 hub_df = load_hub_data()
 
