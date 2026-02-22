@@ -78,7 +78,7 @@ from googleapiclient.http import MediaIoBaseUpload
 from google.auth.transport.requests import Request
 
 # --------- Google API Logic (Keeping existing functions) ---------
-FOLDER_ID = "1DjtLxgyQXwgjq_N6I_-rtYcBcnWhzMGp"
+FOLDER_ID = "1JKwlnKUVO3U74wTRu9U46ARF49dcglp7"
 CLIENT_SECRETS_FILE = "client_secrets2.json"
 SCOPES = ["https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/spreadsheets"]
 
@@ -102,10 +102,10 @@ def get_authenticated_service():
         return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
     
     flow = Flow.from_client_secrets_file(CLIENT_SECRETS_FILE, scopes=SCOPES, 
-                                       redirect_uri="https://bus-stop-survey-99f8wusughejfcfvrvxmyl.streamlit.app/")
+                                       redirect_uri="https://bus-stop-survey-fwaavwf7uxvxrfbjeqv9nq.streamlit.app/")
     query_params = st.query_params
     if "code" in query_params:
-        full_url = "https://bus-stop-survey-99f8wusughejfcfvrvxmyl.streamlit.app/?" + urlencode(query_params)
+        full_url = "https://bus-stop-survey-fwaavwf7uxvxrfbjeqv9nq.streamlit.app/?" + urlencode(query_params)
         flow.fetch_token(authorization_response=full_url)
         creds = flow.credentials
         save_credentials(creds)
