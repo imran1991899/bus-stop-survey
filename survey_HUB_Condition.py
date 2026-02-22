@@ -33,7 +33,7 @@ def load_hub_data():
 
 hub_df = load_hub_data()
 
-# --------- CSS FOR DARK GRAY TEXT & UNIFORM SHAPE ---------
+# --------- CSS FOR STANDARDIZED DARK GRAY TEXT ---------
 st.markdown("""
     <style>
     .stApp {
@@ -42,10 +42,20 @@ st.markdown("""
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
     }
 
-    label[data-testid="stWidgetLabel"] p {
+    /* Standardizing all Labels, P-tags inside labels, and specific widget headers */
+    label[data-testid="stWidgetLabel"] p, 
+    .st-emotion-cache-16296vi p, 
+    .stSelectbox label p, 
+    .stMultiSelect label p,
+    .stTextInput label p,
+    .stTextArea label p,
+    .stDateInput label p,
+    .stTimeInput label p,
+    .stRadio label p {
         font-size: 18px !important;
         font-weight: 600 !important;
         color: #3A3A3C !important;
+        opacity: 1 !important;
     }
 
     .custom-spinner {
@@ -90,10 +100,11 @@ st.markdown("""
         margin: 0 !important;
     }
 
+    /* Specifically styling the text inside radio buttons to stay clear but smaller than labels */
     div[role="radiogroup"] label p {
-        font-size: 16px !important; 
+        font-size: 14px !important; 
         margin: 0 !important;
-        padding: 0 20px !important;
+        padding: 0 10px !important;
         white-space: nowrap !important; 
         color: #444444 !important; 
         font-weight: 700 !important; 
@@ -108,7 +119,7 @@ st.markdown("""
         background-color: #007AFF !important;
         color: white !important;
         border: none !important;
-        height: 100px !important;
+        height: 80px !important;
         font-weight: 600 !important;
         border-radius: 16px !important;
         font-size: 18px !important;
@@ -125,11 +136,6 @@ st.markdown("""
     [data-testid="stCameraInput"] video {
         border-radius: 12px;
         object-fit: cover;
-    }
-
-    [data-testid="stCameraInput"] label div {
-        color: #007AFF !important;
-        font-weight: bold !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -219,10 +225,8 @@ st.header("📋 Maklumat Asas")
 col1, col2 = st.columns(2)
 
 with col1:
-    # Function of ID: Search name when number is put in
     staff_id_input = st.text_input("1. Staff ID", placeholder="Masukkan No. ID")
     nama_penilai = staff_dict.get(staff_id_input, "")
-    
     st.text_input("Nama Penilai", value=nama_penilai, disabled=True, placeholder="Nama akan dipaparkan secara automatik")
 
     if not hub_df.empty and hub_df.shape[1] >= 3:
@@ -230,7 +234,7 @@ with col1:
         selected_hub = st.selectbox("2. Nama Hab", options=hub_list, index=None, placeholder="Pilih Nama Hab")
     else:
         selected_hub = None
-        st.error("Excel format error. Ensure 3 columns (Depot, Routes, Hub Name).")
+        st.error("Excel format error.")
 
     depoh_val = ""
     if selected_hub:
@@ -270,7 +274,7 @@ with col4:
     kesesakan = st.radio("19. Risiko Kesesakan - Kemudahan Hub", ["Rendah", "Sederhana", "Tinggi"], horizontal=True)
     trafik = st.radio("20. Keselamatan Trafik - Kemudahan Hub", ["Selamat", "Kurang Selamat", "Tidak Selamat"], horizontal=True)
     lain_lain = st.text_input("21. Lain - lain - Kemudahan Hub")
-    cadangan = st.radio("22. Cadangan Tindakan dari pihak pemerhati", ["Masukkan dalam APO dan dibenarkan enjin hidup", "Tidak masukkan dalam APO dan tidak dibenarkan enjin hidup"], horizontal=True)
+    cadangan = st.radio("22. Cadangan Tindakan dari pihak pemerhati", ["Masukkan dalam APO and dibenarkan enjin hidup", "Tidak masukkan dalam APO and tidak dibenarkan enjin hidup"], horizontal=True)
 
 st.subheader("📸 Media Upload")
 up_file = st.file_uploader("Capture or Upload Hub Media", type=["jpg", "png", "jpeg", "mp4"])
