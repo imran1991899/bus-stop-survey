@@ -42,24 +42,32 @@ st.markdown("""
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
     }
 
-    /* Target every possible label container used by Streamlit */
+    /* Target ALL labels and p-tags inside labels to ensure dark gray uniformity */
     label[data-testid="stWidgetLabel"] p, 
     .st-emotion-cache-16296vi p, 
     .st-emotion-cache-ue6h4q p,
-    .st-emotion-cache-18357p9 p,
-    .st-emotion-cache-1p05t8e p,
-    div[data-testid="stMarkdownContainer"] p,
-    div[data-testid="stWidgetLabel"] {
+    div[data-testid="stMarkdownContainer"] p {
         font-size: 18px !important;
         font-weight: 600 !important;
         color: #3A3A3C !important;
-        opacity: 1 !important;
-        -webkit-text-fill-color: #3A3A3C !important;
+        opacity: 1 !important; /* Forces visibility if it was faded */
     }
 
-    /* Extra safety for radio button and checkbox headers */
-    [data-testid="stHeader"] {
+    /* Force specific widget label containers to obey the color */
+    .stSelectbox label, .stTextInput label, .stTextArea label, 
+    .stDateInput label, .stTimeInput label, .stMultiSelect label {
         color: #3A3A3C !important;
+    }
+
+    .custom-spinner {
+        padding: 20px;
+        background-color: #FFF9F0;
+        border: 2px solid #FFCC80;
+        border-radius: 14px;
+        color: #E67E22;
+        text-align: center;
+        font-weight: bold;
+        margin-bottom: 20px;
     }
 
     /* Radio Group Styling */
@@ -73,7 +81,7 @@ st.markdown("""
         align-items: center !important;
         margin-top: 2px !important; 
         margin-bottom: 28px !important; 
-        max-width: 450px; 
+        max-width: 360px; 
         min-height: 58px !important; 
     }
 
@@ -84,7 +92,7 @@ st.markdown("""
     div[role="radiogroup"] label {
         background-color: transparent !important;
         border: none !important;
-        padding: 10px 0px !important; 
+        padding: 14px 0px !important; 
         border-radius: 11px !important;
         transition: all 0.2s ease-in-out !important;
         flex: 1 !important;
@@ -94,15 +102,14 @@ st.markdown("""
         margin: 0 !important;
     }
 
-    /* Text INSIDE the radio buttons (The options themselves) */
+    /* Text INSIDE the radio buttons (Options) */
     div[role="radiogroup"] label p {
         font-size: 14px !important; 
         margin: 0 !important;
         padding: 0 10px !important;
-        white-space: normal !important; 
+        white-space: nowrap !important; 
         color: #444444 !important; 
         font-weight: 700 !important; 
-        text-align: center;
     }
 
     div[role="radiogroup"] label:has(input:checked) {
@@ -271,7 +278,7 @@ with col4:
     kesesakan = st.radio("19. Risiko Kesesakan - Kemudahan Hub", ["Rendah", "Sederhana", "Tinggi"], horizontal=True)
     trafik = st.radio("20. Keselamatan Trafik - Kemudahan Hub", ["Selamat", "Kurang Selamat", "Tidak Selamat"], horizontal=True)
     lain_lain = st.text_input("21. Lain - lain - Kemudahan Hub")
-    cadangan = st.radio("22. Cadangan Tindakan dari pihak pemerhati", ["Masukkan dalam APO dan dibenarkan enjin hidup", "Tidak masukkan dalam APO and tidak dibenarkan enjin hidup"], horizontal=True)
+    cadangan = st.radio("22. Cadangan Tindakan dari pihak pemerhati", ["Masukkan dalam APO dan dibenarkan enjin hidup", "Tidak masukkan dalam APO dan tidak dibenarkan enjin hidup"], horizontal=True)
 
 st.subheader("📸 Media Upload")
 up_file = st.file_uploader("Capture or Upload Hub Media", type=["jpg", "png", "jpeg", "mp4"])
