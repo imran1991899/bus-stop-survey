@@ -61,21 +61,21 @@ st.markdown("""
     div[role="radiogroup"] label {
         background-color: transparent !important;
         border-radius: 8px !important;
-        padding: 8px 20px !important; /* Uniform Padding */
-        min-width: 100px !important;   /* Standard Width like 2nd picture */
+        padding: 8px 25px !important; /* Uniform Padding */
+        min-width: 120px !important;   /* Standard Width for uniform shape */
         display: flex !important;
         justify-content: center !important;
         align-items: center !important;
         border: none !important;
     }
 
-    /* Text inside the options - DARK GRAY */
+    /* Text inside the options - DARK GRAY FIX */
     div[role="radiogroup"] label div[data-testid="stMarkdownContainer"] p {
-        color: #333333 !important; /* Dark Gray Color */
+        color: #333333 !important; /* Dark Gray Color instead of White */
         font-weight: 500 !important;
     }
     
-    /* Selected State */
+    /* Selected State Button Shape */
     div[role="radiogroup"] label:has(input:checked) { 
         background-color: #FFFFFF !important; 
         box-shadow: 0px 2px 5px rgba(0,0,0,0.1) !important; 
@@ -165,6 +165,7 @@ if "videos" not in st.session_state: st.session_state.videos = []
 # --------- Main App UI ---------
 st.title("Hub Profiling & Facility Survey")
 
+# 1. Maklumat Asas
 st.header("📋 Maklumat Asas")
 col1, col2 = st.columns(2)
 
