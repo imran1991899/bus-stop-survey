@@ -108,7 +108,7 @@ st.markdown("""
         background-color: #007AFF !important;
         color: white !important;
         border: none !important;
-        height: 60px !important;
+        height: 100px !important;
         font-weight: 600 !important;
         border-radius: 16px !important;
         font-size: 18px !important;
