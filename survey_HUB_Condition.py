@@ -21,7 +21,8 @@ st.set_page_config(page_title="Hub Profiling Survey", layout="wide")
 staff_dict = {
     "12345": "Ahmad Bin Ali",
     "67890": "Siti Nurhaliza",
-    "54321": "John Doe",
+    "11223": "Mohd Razak",
+    "44556": "Nurul Izzah",
     # Add more staff ID: Name pairs here
 }
 
@@ -29,8 +30,9 @@ staff_dict = {
 @st.cache_data
 def load_hub_data():
     try:
-        # Expected columns: 'Hub Name', 'Depot', 'Routes'
+        # Load the file and strip any accidental spaces from column headers
         df = pd.read_excel("hub name.xlsx")
+        df.columns = df.columns.astype(str).str.strip()
         return df
     except Exception as e:
         st.error(f"Error loading hub name.xlsx: {e}")
@@ -41,12 +43,44 @@ hub_df = load_hub_data()
 # --------- APPLE UI GRID THEME CSS ---------
 st.markdown("""
     <style>
-    .stApp { background-color: #F5F5F7 !important; color: #1D1D1F !important; font-family: -apple-system, sans-serif !important; }
-    label[data-testid="stWidgetLabel"] p { font-size: 16px !important; font-weight: 600 !important; color: #1D1D1F !important; margin-bottom: 8px !important; }
-    div[role="radiogroup"] { background-color: #E3E3E8 !important; padding: 4px !important; border-radius: 10px !important; display: flex !important; flex-direction: row !important; margin-bottom: 20px !important; }
-    div[role="radiogroup"] label { flex: 1 !important; background-color: transparent !important; justify-content: center !important; padding: 8px !important; }
-    div[role="radiogroup"] label:has(input:checked) { background-color: #FFFFFF !important; border-radius: 8px !important; box-shadow: 0px 2px 5px rgba(0,0,0,0.1) !important; }
-    div.stButton > button { background-color: #007AFF !important; color: white !important; height: 55px !important; border-radius: 12px !important; width: 100%; font-weight: 700 !important; }
+    .stApp {
+        background-color: #F5F5F7 !important;
+        color: #1D1D1F !important;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+    }
+    label[data-testid="stWidgetLabel"] p {
+        font-size: 16px !important;
+        font-weight: 600 !important;
+        color: #1D1D1F !important;
+        margin-bottom: 8px !important;
+    }
+    div[role="radiogroup"] {
+        background-color: #E3E3E8 !important; 
+        padding: 4px !important; 
+        border-radius: 10px !important;
+        display: flex !important;
+        flex-direction: row !important;
+        margin-bottom: 20px !important;
+    }
+    div[role="radiogroup"] label {
+        flex: 1 !important;
+        background-color: transparent !important;
+        justify-content: center !important;
+        padding: 8px !important;
+    }
+    div[role="radiogroup"] label:has(input:checked) {
+        background-color: #FFFFFF !important;
+        border-radius: 8px !important;
+        box-shadow: 0px 2px 5px rgba(0,0,0,0.1) !important;
+    }
+    div.stButton > button {
+        background-color: #007AFF !important;
+        color: white !important;
+        height: 55px !important;
+        border-radius: 12px !important;
+        width: 100%;
+        font-weight: 700 !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -117,17 +151,18 @@ def append_row(sheet_id, row, header):
         sheet.values().update(spreadsheetId=sheet_id, range="A1", valueInputOption="RAW", body={"values": [header]}).execute()
     sheet.values().append(spreadsheetId=sheet_id, range="A1", valueInputOption="RAW", insertDataOption="INSERT_ROWS", body={"values": [row]}).execute()
 
+# --------- Helper: Watermark ---------
 def add_watermark(image_bytes, stop_name):
     img = Image.open(BytesIO(image_bytes)).convert("RGB")
     draw = ImageDraw.Draw(img)
     w, h = img.size
-    font_scale = int(w * 0.08) 
+    font_scale = int(w * 0.10) 
     now = datetime.now(KL_TZ)
     time_str = now.strftime("%I:%M %p")
     info_str = f"{now.strftime('%d/%m/%y')} | {stop_name.upper()}"
     try:
-        font_main = ImageFont.truetype("arial.ttf", font_scale)
-        font_sub = ImageFont.truetype("arial.ttf", int(font_scale * 0.4))
+        font_main = ImageFont.truetype("arialbd.ttf", font_scale)
+        font_sub = ImageFont.truetype("arialbd.ttf", int(font_scale * 0.4))
     except:
         font_main = ImageFont.load_default()
         font_sub = ImageFont.load_default()
@@ -144,46 +179,49 @@ if "videos" not in st.session_state: st.session_state.videos = []
 # --------- Main App UI ---------
 st.title("Hub Profiling & Facility Survey")
 
-# 1. Section: Basic Information
+# 1. Maklumat Asas
 st.header("📋 Maklumat Asas")
 col1, col2 = st.columns(2)
 
 with col1:
-    staff_id = st.text_input("1. Nama (Masukkan Staff ID)", placeholder="Enter Staff ID")
-    nama_penilai = staff_dict.get(staff_id, "Staff Not Found")
-    if staff_id:
-        st.info(f"Nama Penilai: {nama_penilai}")
+    staff_id_input = st.text_input("1. Nama (Masukkan Staff ID)", placeholder="Enter your staff ID")
+    nama_penilai = staff_dict.get(staff_id_input, "Staff Not Found")
+    if staff_id_input:
+        st.info(f"Penilai: {nama_penilai}")
 
-    hub_list = hub_df['Hub Name'].unique().tolist() if not hub_df.empty else []
-    nama_hab = st.selectbox("2. Nama Hab", options=hub_list, index=None, placeholder="Pilih Nama Hab")
-    
-    # Auto-fetch Depot and Routes based on Hub Name selection
-    if nama_hab:
-        selected_row = hub_df[hub_df['Hub Name'] == nama_hab].iloc[0]
-        depoh_auto = selected_row['Depot']
-        laluan_auto = selected_row['Routes']
+    # Safety check for Hub Name column
+    if not hub_df.empty and 'Hub Name' in hub_df.columns:
+        hub_options = sorted(hub_df['Hub Name'].dropna().unique().tolist())
+        nama_hab = st.selectbox("2. Nama Hab", options=hub_options, index=None, placeholder="Pilih Nama Hab")
     else:
-        depoh_auto = ""
-        laluan_auto = ""
+        st.error("Missing 'Hub Name' column in Excel.")
+        nama_hab = None
 
-    st.text_input("3. Pilihan Depoh (Auto)", value=depoh_auto, disabled=True)
+    # Logic to auto-show Depot and Routes
+    depoh_val = ""
+    routes_val = ""
+    if nama_hab:
+        hub_data = hub_df[hub_df['Hub Name'] == nama_hab].iloc[0]
+        depoh_val = hub_data.get('Depot', 'N/A')
+        routes_val = hub_data.get('Routes', 'N/A')
+
+    st.text_input("3. Pilihan Depoh (Hub Profiling)", value=str(depoh_val), disabled=True)
 
 with col2:
-    tarikh_penilaian = st.date_input("4. Tarikh Penilaian", value=datetime.now(KL_TZ))
-    masa_penilaian = st.time_input("5. Masa Penilaian", value=datetime.now(KL_TZ).time())
-    st.text_area("6. Laluan Bas (Auto)", value=laluan_auto, disabled=True, height=100)
+    tarikh = st.date_input("4. Tarikh Penilaian", value=datetime.now(KL_TZ))
+    masa = st.time_input("5. Masa Penilaian", value=datetime.now(KL_TZ).time())
+    st.text_area("6. Laluan Bas yang menggunakan hab ini", value=str(routes_val), disabled=True, height=100)
 
 st.divider()
 
-# 2. Section: Hub Status
-st.header("🏗️ Penilaian Hub")
+# 2. Status Section
 maklumat_asas = st.radio("7. Maklumat Asas Hub", ["Hub Utama", "Hub sokongan", "Hentian sahaja"], horizontal=True)
 status_apo = st.radio("8. Status Enjin Hidup (APO SEMASA)", ["Dibenarkan", "Tidak Dibenarkan", "Bersyarat", "Lain - lain"], horizontal=True)
 
 st.divider()
 
-# 3. Section: PENILAIAN KEMUDAHAN HUB
-st.header("🛠️ Penilaian Kemudahan Hub")
+# 3. Hub Assessment
+st.header("🏗️ PENILAIAN KEMUDAHAN HUB")
 col3, col4 = st.columns(2)
 
 with col3:
@@ -211,7 +249,7 @@ cadangan = st.radio("22. Cadangan Tindakan dari pihak pemerhati",
 st.divider()
 
 # 4. Media Section
-st.subheader("📸 Media Upload")
+st.subheader("📸 Media Upload (Min 1 Item Required)")
 col_cam, col_up = st.columns(2)
 with col_cam:
     cam_in = st.camera_input("Capture Hub Photo")
@@ -226,21 +264,24 @@ with col_up:
         else: st.session_state.photos.append(file_in)
         st.rerun()
 
-# Display previews
+# Display uploaded media
 if st.session_state.photos or st.session_state.videos:
     m_cols = st.columns(4)
-    for i, p in enumerate(st.session_state.photos): m_cols[i % 4].image(p, use_container_width=True)
-    for i, v in enumerate(st.session_state.videos): m_cols[(len(st.session_state.photos) + i) % 4].video(v)
+    for i, p in enumerate(st.session_state.photos):
+        m_cols[i % 4].image(p, use_container_width=True)
+    for i, v in enumerate(st.session_state.videos):
+        m_cols[(len(st.session_state.photos) + i) % 4].video(v)
 
 # --------- Submit Logic ---------
 if st.button("Submit Profiling Report"):
-    if not staff_id or nama_penilai == "Staff Not Found" or not nama_hab:
-        st.error("Sila pastikan Staff ID sah dan Nama Hab dipilih.")
+    if nama_penilai == "Staff Not Found" or not nama_hab:
+        st.error("Sila pastikan Staff ID betul dan Nama Hab dipilih.")
     else:
         saving_placeholder = st.empty()
-        saving_placeholder.info("⏳ Uploading to Google Drive & Sheets...")
+        saving_placeholder.info("⏳ Uploading to Google Drive & Sheets... Please wait.")
         
         try:
+            # 1. Media Upload
             media_urls = []
             for idx, p in enumerate(st.session_state.photos):
                 processed = add_watermark(p.getvalue(), nama_hab)
@@ -251,9 +292,10 @@ if st.button("Submit Profiling Report"):
                 v_url = gdrive_upload_file(v.getvalue(), f"HUB_{nama_hab}_{idx}.mp4", "video/mp4", FOLDER_ID)
                 media_urls.append(v_url)
 
+            # 2. Row Data Preparation
             final_ts = datetime.now(KL_TZ).strftime("%Y-%m-%d %H:%M:%S")
             row_data = [
-                final_ts, nama_penilai, depoh_auto, str(tarikh_penilaian), str(masa_penilaian), nama_hab, laluan_auto, 
+                final_ts, nama_penilai, depoh_val, str(tarikh), str(masa), nama_hab, routes_val, 
                 maklumat_asas, status_apo, ", ".join(fungsi_hub), catatan, tandas, 
                 surau, ruang_rehat, kiosk, bumbung, cahaya, parkir, akses, 
                 kesesakan, trafik, lain_lain, cadangan, "; ".join(media_urls)
@@ -275,4 +317,4 @@ if st.button("Submit Profiling Report"):
             st.rerun()
 
         except Exception as e:
-            st.error(f"Error: {e}")
+            st.error(f"Error during submission: {e}")
