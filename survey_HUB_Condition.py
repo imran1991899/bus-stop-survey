@@ -42,20 +42,29 @@ st.markdown("""
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
     }
 
-    /* Target ALL labels and p-tags inside labels to ensure dark gray uniformity */
+    /* Target ALL labels, p-tags inside widgets, and markdown headers to ensure dark gray uniformity */
     label[data-testid="stWidgetLabel"] p, 
     .st-emotion-cache-16296vi p, 
     .st-emotion-cache-ue6h4q p,
-    div[data-testid="stMarkdownContainer"] p {
+    div[data-testid="stMarkdownContainer"] p,
+    div[data-testid="stWidgetLabel"],
+    .st-emotion-cache-18357p9 p,
+    .st-emotion-cache-1p05t8e p {
         font-size: 18px !important;
         font-weight: 600 !important;
         color: #3A3A3C !important;
-        opacity: 1 !important; /* Forces visibility if it was faded */
+        opacity: 1 !important;
+        -webkit-text-fill-color: #3A3A3C !important;
+    }
+
+    /* Specifically target radio button headers which often default to white/light gray */
+    div[role="radiogroup"] > label > div > p {
+        color: #3A3A3C !important;
     }
 
     /* Force specific widget label containers to obey the color */
     .stSelectbox label, .stTextInput label, .stTextArea label, 
-    .stDateInput label, .stTimeInput label, .stMultiSelect label {
+    .stDateInput label, .stTimeInput label, .stMultiSelect label, .stRadio label {
         color: #3A3A3C !important;
     }
 
@@ -81,7 +90,7 @@ st.markdown("""
         align-items: center !important;
         margin-top: 2px !important; 
         margin-bottom: 28px !important; 
-        max-width: 360px; 
+        max-width: 450px; 
         min-height: 58px !important; 
     }
 
@@ -92,7 +101,7 @@ st.markdown("""
     div[role="radiogroup"] label {
         background-color: transparent !important;
         border: none !important;
-        padding: 14px 0px !important; 
+        padding: 10px 0px !important; 
         border-radius: 11px !important;
         transition: all 0.2s ease-in-out !important;
         flex: 1 !important;
@@ -107,9 +116,10 @@ st.markdown("""
         font-size: 14px !important; 
         margin: 0 !important;
         padding: 0 10px !important;
-        white-space: nowrap !important; 
+        white-space: normal !important; 
         color: #444444 !important; 
         font-weight: 700 !important; 
+        text-align: center;
     }
 
     div[role="radiogroup"] label:has(input:checked) {
@@ -289,7 +299,7 @@ if up_file:
 
 if st.button("Submit Profiling Report"):
     if not selected_hub or not nama_penilai:
-        st.error("Sila masukkan Staff ID yang sah dan pilih Nama Hab.")
+        st.error("Sila masukkan Staff ID yang sah and pilih Nama Hab.")
     else:
         with st.spinner("Submitting Report..."):
             try:
