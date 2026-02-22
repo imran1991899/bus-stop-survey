@@ -79,7 +79,7 @@ from google.auth.transport.requests import Request
 
 # --------- Google API Logic (Keeping existing functions) ---------
 FOLDER_ID = "1JKwlnKUVO3U74wTRu9U46ARF49dcglp7"
-CLIENT_SECRETS_FILE = "client_secrets2.json"
+CLIENT_SECRETS_FILE = "client_secrets3.json"
 SCOPES = ["https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/spreadsheets"]
 
 def save_credentials(credentials):
