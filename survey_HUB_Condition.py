@@ -312,7 +312,6 @@ with col4:
     lain_lain = st.text_input("21. Lain - lain - Kemudahan Hub")
     cadangan = st.radio("22. Cadangan Tindakan dari pihak pemerhati", ["Masukkan dalam APO dan dibenarkan enjin hidup", "Tidak masukkan dalam APO dan tidak dibenarkan enjin hidup"], horizontal=True)
 
-st.subheader("📸 Media Upload")
 # Look for the # --------- Media Upload --------- section in your code
 st.subheader("📸 Media Upload")
 
