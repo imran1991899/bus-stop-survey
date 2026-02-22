@@ -68,6 +68,20 @@ st.markdown("""
         color: #3A3A3C !important;
     }
 
+    /* Styled Container for Nama Penilai */
+    .name-container {
+        background-color: #E8F0FE;
+        border-radius: 10px;
+        padding: 12px 20px;
+        margin-top: 5px;
+        margin-bottom: 20px;
+    }
+    .name-text {
+        color: #1A73E8;
+        font-weight: 600;
+        font-size: 18px;
+    }
+
     .custom-spinner {
         padding: 20px;
         background-color: #FFF9F0;
@@ -239,9 +253,17 @@ st.header("📋 Maklumat Asas")
 col1, col2 = st.columns(2)
 
 with col1:
-    staff_id_input = st.text_input("1. Staff ID", placeholder="Masukkan No. ID")
-    nama_penilai = staff_dict.get(staff_id_input, "")
-    st.text_input("Nama Penilai", value=nama_penilai, disabled=True, placeholder="Nama akan dipaparkan secara automatik")
+    # UPDATED: Staff ID is now a searchable selectbox
+    staff_options = sorted(list(staff_dict.keys()))
+    staff_id_input = st.selectbox("1. Staff ID", options=staff_options, index=None, placeholder="Pilih atau Cari No. ID")
+    
+    # UPDATED: Nama Penilai logic to appear as a styled box
+    nama_penilai = staff_dict.get(staff_id_input, "") if staff_id_input else ""
+    st.markdown('<p style="font-size: 18px; font-weight: 600; color: #3A3A3C; margin-bottom: 5px;">Nama Penilai</p>', unsafe_allow_html=True)
+    if nama_penilai:
+        st.markdown(f'<div class="name-container"><span class="name-text">Nama: {nama_penilai}</span></div>', unsafe_allow_html=True)
+    else:
+        st.markdown('<div class="name-container"><span class="name-text" style="color: #999;">Nama akan dipaparkan secara automatik</span></div>', unsafe_allow_html=True)
 
     if not hub_df.empty and hub_df.shape[1] >= 3:
         hub_list = sorted(hub_df.iloc[:, 2].dropna().unique().tolist())
