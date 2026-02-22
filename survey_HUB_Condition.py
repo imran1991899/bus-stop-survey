@@ -31,13 +31,13 @@ def load_hub_data():
     try:
         # Load the file 'hub name.xlsx'
         df = pd.read_excel("hub name.xlsx")
-        # Clean headers: Column A should be 'Depot', Column B should be 'Routes'
-        # We rename them manually here just in case they are different in Excel
+        # Standardize headers: A=Depot, B=Routes, C=Hub Name
+        # We strip spaces just in case
         df.columns = [str(c).strip() for c in df.columns]
         return df
     except Exception as e:
         st.error(f"Error loading 'hub name.xlsx': {e}")
-        return pd.DataFrame(columns=["Depot", "Routes"])
+        return pd.DataFrame()
 
 hub_df = load_hub_data()
 
@@ -52,7 +52,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# Google API logic
+# --- Google API Setup ---
 from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
@@ -117,7 +117,11 @@ def add_watermark(image_bytes, hub_label):
     w, h = img.size
     now = datetime.now(KL_TZ)
     info_str = f"{now.strftime('%d/%m/%y %I:%M %p')} | {hub_label.upper()}"
-    draw.text((20, h - 50), info_str, fill="white")
+    try:
+        font_sub = ImageFont.truetype("arialbd.ttf", int(w * 0.04))
+    except:
+        font_sub = ImageFont.load_default()
+    draw.text((20, h - 50), info_str, font=font_sub, fill="white")
     img_byte_arr = BytesIO()
     img.save(img_byte_arr, format='JPEG', quality=90)
     return img_byte_arr.getvalue()
@@ -128,51 +132,53 @@ if "videos" not in st.session_state: st.session_state.videos = []
 # --------- Main App UI ---------
 st.title("Hub Profiling & Facility Survey")
 
+# 1. Maklumat Asas
 st.header("📋 Maklumat Asas")
 col1, col2 = st.columns(2)
 
 with col1:
-    staff_id = st.text_input("1. Nama (Masukkan Staff ID)", placeholder="Enter Staff ID")
+    staff_id = st.text_input("1. Nama (Staff ID)", placeholder="Enter Staff ID")
     nama_penilai = staff_dict.get(staff_id, "Staff Not Found")
     if staff_id: st.info(f"Nama Penilai: {nama_penilai}")
 
-    # User enters Hub Name manually since it's not in the Excel
-    nama_hab = st.text_input("2. Nama Hab", placeholder="Masukkan nama hab")
-
-    # Dropdown to select Depot from Column A of Excel
-    if not hub_df.empty:
-        depot_list = sorted(hub_df.iloc[:, 0].dropna().unique().tolist())
-        selected_depot = st.selectbox("3. Pilihan Depoh (Dari Excel)", options=depot_list, index=None)
+    # Dropdown for Hub Name (Column C / Index 2)
+    if not hub_df.empty and hub_df.shape[1] >= 3:
+        hub_list = sorted(hub_df.iloc[:, 2].dropna().unique().tolist())
+        selected_hub = st.selectbox("2. Nama Hab", options=hub_list, index=None, placeholder="Pilih Nama Hab")
     else:
-        selected_depot = None
-        st.warning("Excel file 'hub name.xlsx' is empty or missing.")
+        selected_hub = None
+        st.error("Excel format error. Ensure 3 columns (Depot, Routes, Hub Name).")
+
+    # Auto-fetch Depot (Column A / Index 0)
+    depoh_val = ""
+    if selected_hub:
+        depoh_val = hub_df[hub_df.iloc[:, 2] == selected_hub].iloc[0, 0]
+    st.text_input("3. Pilihan Depoh (Auto)", value=str(depoh_val), disabled=True)
 
 with col2:
     tarikh = st.date_input("4. Tarikh Penilaian", value=datetime.now(KL_TZ))
     masa = st.time_input("5. Masa Penilaian", value=datetime.now(KL_TZ).time())
     
-    # Auto-fetch Routes from Column B based on Selected Depot
-    routes_auto = ""
-    if selected_depot:
-        # Get value from second column (index 1) where first column matches
-        routes_auto = hub_df[hub_df.iloc[:, 0] == selected_depot].iloc[0, 1]
-    
-    st.text_area("6. Laluan Bas (Auto dari Excel)", value=str(routes_auto), disabled=True, height=100)
+    # Auto-fetch Routes (Column B / Index 1)
+    routes_val = ""
+    if selected_hub:
+        routes_val = hub_df[hub_df.iloc[:, 2] == selected_hub].iloc[0, 1]
+    st.text_area("6. Laluan Bas (Auto)", value=str(routes_val), disabled=True, height=100)
 
 st.divider()
 
-# --- Question Flow ---
+# --- Survey Logic ---
 maklumat_asas = st.radio("7. Maklumat Asas Hub", ["Hub Utama", "Hub sokongan", "Hentian sahaja"], horizontal=True)
 status_apo = st.radio("8. Status Enjin Hidup (APO SEMASA)", ["Dibenarkan", "Tidak Dibenarkan", "Bersyarat", "Lain - lain"], horizontal=True)
 
 st.header("🏗️ PENILAIAN KEMUDAHAN HUB")
 col3, col4 = st.columns(2)
 with col3:
-    fungsi_hub = st.multiselect("9. Fungsi Hub", ["Pertukaran shif Kapten Bas", "Rehat pemandu", "Menunggu trip seterusnya", "Parkir sementara dan rehat", "Transit penumpang", "Lain - lain"])
+    fungsi_hub = st.multiselect("9. Fungsi Hub", ["Pertukaran shif Kapten Bas", "Rehat pemandu", "Menunggu trip seterusnya", "Parkir sementara dan rehat (bermula di hentian lain)", "Transit penumpang", "Lain - lain"])
     catatan = st.text_area("10. Catatan", placeholder="Enter your answer")
     tandas = st.radio("11. TANDAS - Kemudahan Hab", ["Ada dan milik RapidKL", "Ada tetapi bukan milik RapidKL", "Tiada"], horizontal=True)
     surau = st.radio("12. SURAU - Kemudahan Hab", ["Ada dan milik RapidKL", "Ada tetapi bukan milik RapidKL", "Tiada"], horizontal=True)
-    ruang_rehat = st.radio("13. Ruang Rehat Pemandu - Kemudahan Hub", ["Hab", "Ada Kiosk / Bilik Rehat (milik RapidKL)", "Tiada"], horizontal=True)
+    ruang_rehat = st.radio("13. Ruang Rehat Pemandu - Kemudahan Hub", ["Hab", "Ada Kiosk / Bilik Rehat (milik RapidKL)", "Tiada (BC rehat dalam bas / rehat di luar bas)"], horizontal=True)
     kiosk = st.radio("14. Kiosk - Kemudahan Hub", ["Masih ada dan selesa digunakan", "Ada tetapi kurang selesa digunakan", "Tiada"], horizontal=True)
     bumbung = st.radio("15. Kawasan Berbumbung - Kemudahan Hub", ["Ada", "Tiada", "Khemah"], horizontal=True)
 
@@ -183,30 +189,31 @@ with col4:
     kesesakan = st.radio("19. Risiko Kesesakan - Kemudahan Hub", ["Rendah", "Sederhana", "Tinggi"], horizontal=True)
     trafik = st.radio("20. Keselamatan Trafik - Kemudahan Hub", ["Selamat", "Kurang Selamat", "Tidak Selamat"], horizontal=True)
     lain_lain = st.text_input("21. Lain - lain - Kemudahan Hub")
-    cadangan = st.radio("22. Cadangan Tindakan dari pihak pemerhati", ["Masukkan dalam APO", "Tidak masukkan dalam APO"], horizontal=True)
+    cadangan = st.radio("22. Cadangan Tindakan dari pihak pemerhati", ["Masukkan dalam APO dan dibenarkan enjin hidup", "Tidak masukkan dalam APO dan tidak dibenarkan enjin hidup"], horizontal=True)
 
 st.subheader("📸 Media Upload")
-up_file = st.file_uploader("Upload Media", type=["jpg", "png", "jpeg", "mp4"])
+up_file = st.file_uploader("Capture or Upload Hub Media", type=["jpg", "png", "jpeg", "mp4"])
 if up_file:
-    if "video" in (mimetypes.guess_type(up_file.name)[0] or ""): st.session_state.videos.append(up_file)
+    mime = mimetypes.guess_type(up_file.name)[0] or ""
+    if "video" in mime: st.session_state.videos.append(up_file)
     else: st.session_state.photos.append(up_file)
 
 if st.button("Submit Profiling Report"):
-    if not nama_hab or nama_penilai == "Staff Not Found" or not selected_depot:
-        st.error("Sila lengkapkan ID Staf, Nama Hab, dan Pilihan Depoh.")
+    if not selected_hub or nama_penilai == "Staff Not Found":
+        st.error("Sila masukkan Staff ID yang sah dan pilih Nama Hab.")
     else:
-        with st.spinner("Submitting..."):
+        with st.spinner("Submitting Report..."):
             try:
                 media_urls = []
                 for idx, p in enumerate(st.session_state.photos):
-                    url = gdrive_upload_file(add_watermark(p.getvalue(), nama_hab), f"HUB_{nama_hab}_{idx}.jpg", "image/jpeg", FOLDER_ID)
+                    url = gdrive_upload_file(add_watermark(p.getvalue(), selected_hub), f"HUB_{selected_hub}_{idx}.jpg", "image/jpeg", FOLDER_ID)
                     media_urls.append(url)
                 
-                row = [datetime.now(KL_TZ).strftime("%Y-%m-%d %H:%M:%S"), nama_penilai, selected_depot, str(tarikh), str(masa), nama_hab, routes_auto, maklumat_asas, status_apo, ", ".join(fungsi_hub), catatan, tandas, surau, ruang_rehat, kiosk, bumbung, cahaya, parkir, akses, kesesakan, trafik, lain_lain, cadangan, "; ".join(media_urls)]
-                header = ["Timestamp", "Penilai", "Depot", "Tarikh", "Masa", "Nama Hab", "Laluan", "Asas", "Status APO", "Fungsi", "Catatan", "Tandas", "Surau", "Rehat", "Kiosk", "Bumbung", "Cahaya", "Parkir", "Akses", "Kesesakan", "Trafik", "Lain-lain", "Cadangan", "Media"]
+                row = [datetime.now(KL_TZ).strftime("%Y-%m-%d %H:%M:%S"), nama_penilai, depoh_val, str(tarikh), str(masa), selected_hub, routes_val, maklumat_asas, status_apo, ", ".join(fungsi_hub), catatan, tandas, surau, ruang_rehat, kiosk, bumbung, cahaya, parkir, akses, kesesakan, trafik, lain_lain, cadangan, "; ".join(media_urls)]
+                header = ["Timestamp", "Penilai", "Depot", "Tarikh", "Masa", "Hab", "Laluan", "Asas", "Status APO", "Fungsi", "Catatan", "Tandas", "Surau", "Rehat", "Kiosk", "Bumbung", "Cahaya", "Parkir", "Akses", "Kesesakan", "Trafik", "Lain-lain", "Cadangan", "Links"]
                 
                 append_row(find_or_create_gsheet("hub_profiling_responses", FOLDER_ID), row, header)
-                st.success("Report Submitted!")
+                st.success("Report Submitted Successfully!")
                 st.session_state.photos = []; st.session_state.videos = []
                 time.sleep(2); st.rerun()
             except Exception as e:
