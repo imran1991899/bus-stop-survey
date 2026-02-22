@@ -225,7 +225,7 @@ st.header("📋 Maklumat Asas")
 col1, col2 = st.columns(2)
 
 with col1:
-    staff_id_input = st.text_input("1. Staff ID", placeholder="Masukkan No. ID")
+    staff_id_input = st.text_input("1. Staff ID", value=Staff_ID, disabled=True, placeholder="Masukkan No. ID")
     nama_penilai = staff_dict.get(staff_id_input, "")
     st.text_input("Nama Penilai", value=nama_penilai, disabled=True, placeholder="Nama akan dipaparkan secara automatik")
 
