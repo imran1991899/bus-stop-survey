@@ -42,7 +42,6 @@ st.markdown("""
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
     }
 
-    /* Target ALL labels, p-tags inside widgets, and markdown headers to ensure dark gray uniformity */
     label[data-testid="stWidgetLabel"] p, 
     .st-emotion-cache-16296vi p, 
     .st-emotion-cache-ue6h4q p,
@@ -57,14 +56,7 @@ st.markdown("""
         -webkit-text-fill-color: #3A3A3C !important;
     }
 
-    /* Specifically target radio button headers which often default to white/light gray */
     div[role="radiogroup"] > label > div > p {
-        color: #3A3A3C !important;
-    }
-
-    /* Force specific widget label containers to obey the color */
-    .stSelectbox label, .stTextInput label, .stTextArea label, 
-    .stDateInput label, .stTimeInput label, .stMultiSelect label, .stRadio label {
         color: #3A3A3C !important;
     }
 
@@ -80,17 +72,6 @@ st.markdown("""
         color: #1A73E8;
         font-weight: 600;
         font-size: 18px;
-    }
-
-    .custom-spinner {
-        padding: 20px;
-        background-color: #FFF9F0;
-        border: 2px solid #FFCC80;
-        border-radius: 14px;
-        color: #E67E22;
-        text-align: center;
-        font-weight: bold;
-        margin-bottom: 20px;
     }
 
     /* Radio Group Styling */
@@ -125,7 +106,6 @@ st.markdown("""
         margin: 0 !important;
     }
 
-    /* Text INSIDE the radio buttons (Options) */
     div[role="radiogroup"] label p {
         font-size: 14px !important; 
         margin: 0 !important;
@@ -243,7 +223,6 @@ def add_watermark(image_bytes, hub_label):
     return img_byte_arr.getvalue()
 
 if "photos" not in st.session_state: st.session_state.photos = []
-if "videos" not in st.session_state: st.session_state.videos = []
 
 # --------- Main App UI ---------
 st.title("Hub Profiling & Facility Survey")
@@ -253,11 +232,9 @@ st.header("📋 Maklumat Asas")
 col1, col2 = st.columns(2)
 
 with col1:
-    # UPDATED: Staff ID is now a searchable selectbox
     staff_options = sorted(list(staff_dict.keys()))
     staff_id_input = st.selectbox("1. Staff ID", options=staff_options, index=None, placeholder="Pilih atau Cari No. ID")
     
-    # UPDATED: Nama Penilai logic to appear as a styled box
     nama_penilai = staff_dict.get(staff_id_input, "") if staff_id_input else ""
     st.markdown('<p style="font-size: 18px; font-weight: 600; color: #3A3A3C; margin-bottom: 5px;">Nama Penilai</p>', unsafe_allow_html=True)
     if nama_penilai:
@@ -270,7 +247,6 @@ with col1:
         selected_hub = st.selectbox("2. Nama Hab", options=hub_list, index=None, placeholder="Pilih Nama Hab")
     else:
         selected_hub = None
-        st.error("Excel format error.")
 
     depoh_val = ""
     if selected_hub:
@@ -300,8 +276,6 @@ with col3:
     tandas = st.radio("11. TANDAS - Kemudahan Hab", ["Ada dan milik RapidKL", "Ada tetapi bukan milik RapidKL", "Tiada"], horizontal=True)
     surau = st.radio("12. SURAU - Kemudahan Hab", ["Ada dan milik RapidKL", "Ada tetapi bukan milik RapidKL", "Tiada"], horizontal=True)
     ruang_rehat = st.radio("13. Ruang Rehat Pemandu - Kemudahan Hub", ["Hab", "Ada Kiosk / Bilik Rehat (milik RapidKL)", "Tiada (BC rehat dalam bas / rehat di luar bas)"], horizontal=True)
-    kiosk = st.radio("14. Kiosk - Kemudahan Hub", ["Masih ada dan selesa digunakan", "Ada tetapi kurang selesa digunakan", "Tiada"], horizontal=True)
-    bumbung = st.radio("15. Kawasan Berbumbung - Kemudahan Hub", ["Ada", "Tiada", "Khemah"], horizontal=True)
 
 with col4:
     cahaya = st.radio("16. Cahaya Lampu - Kemudahan Hub", ["Mencukupi", "Kurang mencukupi", "Tidak mencukupi"], horizontal=True)
@@ -309,15 +283,18 @@ with col4:
     akses = st.radio("18. Akses Keluar & Masuk - Kemudahan Hub", ["Baik", "Kurang baik", "Tidak baik"], horizontal=True)
     kesesakan = st.radio("19. Risiko Kesesakan - Kemudahan Hub", ["Rendah", "Sederhana", "Tinggi"], horizontal=True)
     trafik = st.radio("20. Keselamatan Trafik - Kemudahan Hub", ["Selamat", "Kurang Selamat", "Tidak Selamat"], horizontal=True)
-    lain_lain = st.text_input("21. Lain - lain - Kemudahan Hub")
-    cadangan = st.radio("22. Cadangan Tindakan dari pihak pemerhati", ["Masukkan dalam APO dan dibenarkan enjin hidup", "Tidak masukkan dalam APO dan tidak dibenarkan enjin hidup"], horizontal=True)
 
 st.subheader("📸 Media Upload")
-up_file = st.file_uploader("Capture or Upload Hub Media", type=["jpg", "png", "jpeg", "mp4"])
+
+# NEW: Function to take picture directly from phone/computer
+cam_photo = st.camera_input("Take a photo of the Hub")
+if cam_photo:
+    st.session_state.photos.append(cam_photo)
+
+# Keep the file uploader for videos or existing photos
+up_file = st.file_uploader("Or Upload Media", type=["jpg", "png", "jpeg", "mp4"])
 if up_file:
-    mime = mimetypes.guess_type(up_file.name)[0] or ""
-    if "video" in mime: st.session_state.videos.append(up_file)
-    else: st.session_state.photos.append(up_file)
+    st.session_state.photos.append(up_file)
 
 if st.button("Submit Profiling Report"):
     if not selected_hub or not nama_penilai:
@@ -330,12 +307,12 @@ if st.button("Submit Profiling Report"):
                     url = gdrive_upload_file(add_watermark(p.getvalue(), selected_hub), f"HUB_{selected_hub}_{idx}.jpg", "image/jpeg", FOLDER_ID)
                     media_urls.append(url)
                 
-                row = [datetime.now(KL_TZ).strftime("%Y-%m-%d %H:%M:%S"), nama_penilai, depoh_val, str(tarikh), str(masa), selected_hub, routes_val, maklumat_asas, status_apo, ", ".join(fungsi_hub), catatan, tandas, surau, ruang_rehat, kiosk, bumbung, cahaya, parkir, akses, kesesakan, trafik, lain_lain, cadangan, "; ".join(media_urls)]
-                header = ["Timestamp", "Penilai", "Depot", "Tarikh", "Masa", "Hab", "Laluan", "Asas", "Status APO", "Fungsi", "Catatan", "Tandas", "Surau", "Rehat", "Kiosk", "Bumbung", "Cahaya", "Parkir", "Akses", "Kesesakan", "Trafik", "Lain-lain", "Cadangan", "Links"]
+                row = [datetime.now(KL_TZ).strftime("%Y-%m-%d %H:%M:%S"), nama_penilai, depoh_val, str(tarikh), str(masa), selected_hub, routes_val, maklumat_asas, status_apo, ", ".join(fungsi_hub), catatan, tandas, surau, ruang_rehat, cahaya, parkir, akses, kesesakan, trafik, "; ".join(media_urls)]
+                header = ["Timestamp", "Penilai", "Depot", "Tarikh", "Masa", "Hab", "Laluan", "Asas", "Status APO", "Fungsi", "Catatan", "Tandas", "Surau", "Rehat", "Cahaya", "Parkir", "Akses", "Kesesakan", "Trafik", "Links"]
                 
                 append_row(find_or_create_gsheet("hub_profiling_responses", FOLDER_ID), row, header)
                 st.success("Report Submitted Successfully!")
-                st.session_state.photos = []; st.session_state.videos = []
+                st.session_state.photos = []
                 time.sleep(2); st.rerun()
             except Exception as e:
                 st.error(f"Error: {e}")
