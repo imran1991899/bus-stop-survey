@@ -29,10 +29,7 @@ staff_dict = {
 @st.cache_data
 def load_hub_data():
     try:
-        # Load the file 'hub name.xlsx'
         df = pd.read_excel("hub name.xlsx")
-        # Standardize headers: A=Depot, B=Routes, C=Hub Name
-        # We strip spaces just in case
         df.columns = [str(c).strip() for c in df.columns]
         return df
     except Exception as e:
@@ -41,13 +38,49 @@ def load_hub_data():
 
 hub_df = load_hub_data()
 
-# --------- APPLE UI GRID THEME CSS ---------
+# --------- CSS UPDATED FOR DARK GRAY TEXT & UNIFORM SHAPE ---------
 st.markdown("""
     <style>
     .stApp { background-color: #F5F5F7 !important; color: #1D1D1F !important; font-family: -apple-system, sans-serif !important; }
+    
+    /* Label Styling */
     label[data-testid="stWidgetLabel"] p { font-size: 16px !important; font-weight: 600 !important; color: #1D1D1F !important; margin-bottom: 8px !important; }
-    div[role="radiogroup"] { background-color: #E3E3E8 !important; padding: 4px !important; border-radius: 10px !important; display: flex !important; flex-direction: row !important; }
-    div[role="radiogroup"] label:has(input:checked) { background-color: #FFFFFF !important; border-radius: 8px !important; box-shadow: 0px 2px 5px rgba(0,0,0,0.1) !important; }
+    
+    /* Radio Group Container */
+    div[role="radiogroup"] { 
+        background-color: #E3E3E8 !important; 
+        padding: 6px !important; 
+        border-radius: 12px !important; 
+        display: flex !important; 
+        flex-direction: row !important; 
+        gap: 10px !important;
+        width: fit-content !important;
+    }
+    
+    /* Individual Radio Option - Making it Uniform & Standard */
+    div[role="radiogroup"] label {
+        background-color: transparent !important;
+        border-radius: 8px !important;
+        padding: 8px 20px !important; /* Uniform Padding */
+        min-width: 100px !important;   /* Standard Width like 2nd picture */
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        border: none !important;
+    }
+
+    /* Text inside the options - DARK GRAY */
+    div[role="radiogroup"] label div[data-testid="stMarkdownContainer"] p {
+        color: #333333 !important; /* Dark Gray Color */
+        font-weight: 500 !important;
+    }
+    
+    /* Selected State */
+    div[role="radiogroup"] label:has(input:checked) { 
+        background-color: #FFFFFF !important; 
+        box-shadow: 0px 2px 5px rgba(0,0,0,0.1) !important; 
+    }
+
     div.stButton > button { background-color: #007AFF !important; color: white !important; height: 55px !important; border-radius: 12px !important; font-weight: 700 !important; }
     </style>
     """, unsafe_allow_html=True)
@@ -132,7 +165,6 @@ if "videos" not in st.session_state: st.session_state.videos = []
 # --------- Main App UI ---------
 st.title("Hub Profiling & Facility Survey")
 
-# 1. Maklumat Asas
 st.header("📋 Maklumat Asas")
 col1, col2 = st.columns(2)
 
@@ -141,7 +173,6 @@ with col1:
     nama_penilai = staff_dict.get(staff_id, "Staff Not Found")
     if staff_id: st.info(f"Nama Penilai: {nama_penilai}")
 
-    # Dropdown for Hub Name (Column C / Index 2)
     if not hub_df.empty and hub_df.shape[1] >= 3:
         hub_list = sorted(hub_df.iloc[:, 2].dropna().unique().tolist())
         selected_hub = st.selectbox("2. Nama Hab", options=hub_list, index=None, placeholder="Pilih Nama Hab")
@@ -149,7 +180,6 @@ with col1:
         selected_hub = None
         st.error("Excel format error. Ensure 3 columns (Depot, Routes, Hub Name).")
 
-    # Auto-fetch Depot (Column A / Index 0)
     depoh_val = ""
     if selected_hub:
         depoh_val = hub_df[hub_df.iloc[:, 2] == selected_hub].iloc[0, 0]
@@ -159,7 +189,6 @@ with col2:
     tarikh = st.date_input("4. Tarikh Penilaian", value=datetime.now(KL_TZ))
     masa = st.time_input("5. Masa Penilaian", value=datetime.now(KL_TZ).time())
     
-    # Auto-fetch Routes (Column B / Index 1)
     routes_val = ""
     if selected_hub:
         routes_val = hub_df[hub_df.iloc[:, 2] == selected_hub].iloc[0, 1]
@@ -174,12 +203,12 @@ status_apo = st.radio("8. Status Enjin Hidup (APO SEMASA)", ["Dibenarkan", "Tida
 st.header("🏗️ PENILAIAN KEMUDAHAN HUB")
 col3, col4 = st.columns(2)
 with col3:
-    fungsi_hub = st.multiselect("9. Fungsi Hub", ["Pertukaran shif Kapten Bas", "Rehat pemandu", "Menunggu trip seterusnya", "Parkir sementara dan rehat (bermula di hentian lain)", "Transit penumpang", "Lain - lain"])
+    fungsi_hub = st.multiselect("9. Fungsi Hub", ["Pertukaran shif Kapten Bas", "Rehat pemandu", "Menunggu trip seterusnya", "Parkir sementara dan rehat", "Transit penumpang", "Lain - lain"])
     catatan = st.text_area("10. Catatan", placeholder="Enter your answer")
     tandas = st.radio("11. TANDAS - Kemudahan Hab", ["Ada dan milik RapidKL", "Ada tetapi bukan milik RapidKL", "Tiada"], horizontal=True)
     surau = st.radio("12. SURAU - Kemudahan Hab", ["Ada dan milik RapidKL", "Ada tetapi bukan milik RapidKL", "Tiada"], horizontal=True)
     ruang_rehat = st.radio("13. Ruang Rehat Pemandu - Kemudahan Hub", ["Hab", "Ada Kiosk / Bilik Rehat (milik RapidKL)", "Tiada (BC rehat dalam bas / rehat di luar bas)"], horizontal=True)
-    kiosk = st.radio("14. Kiosk - Kemudahan Hub", ["Masih ada dan selesa digunakan", "Ada tetapi kurang selesa digunakan", "Tiada"], horizontal=True)
+    kiosk = st.radio("14. Kiosk - Kemudahan Hab", ["Masih ada dan selesa digunakan", "Ada tetapi kurang selesa digunakan", "Tiada"], horizontal=True)
     bumbung = st.radio("15. Kawasan Berbumbung - Kemudahan Hub", ["Ada", "Tiada", "Khemah"], horizontal=True)
 
 with col4:
