@@ -42,20 +42,21 @@ st.markdown("""
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
     }
 
-    /* Standardizing all Labels, P-tags inside labels, and specific widget headers */
+    /* Target ALL labels and p-tags inside labels to ensure dark gray uniformity */
     label[data-testid="stWidgetLabel"] p, 
     .st-emotion-cache-16296vi p, 
-    .stSelectbox label p, 
-    .stMultiSelect label p,
-    .stTextInput label p,
-    .stTextArea label p,
-    .stDateInput label p,
-    .stTimeInput label p,
-    .stRadio label p {
+    .st-emotion-cache-ue6h4q p,
+    div[data-testid="stMarkdownContainer"] p {
         font-size: 18px !important;
         font-weight: 600 !important;
         color: #3A3A3C !important;
-        opacity: 1 !important;
+        opacity: 1 !important; /* Forces visibility if it was faded */
+    }
+
+    /* Force specific widget label containers to obey the color */
+    .stSelectbox label, .stTextInput label, .stTextArea label, 
+    .stDateInput label, .stTimeInput label, .stMultiSelect label {
+        color: #3A3A3C !important;
     }
 
     .custom-spinner {
@@ -69,6 +70,7 @@ st.markdown("""
         margin-bottom: 20px;
     }
 
+    /* Radio Group Styling */
     div[role="radiogroup"] {
         background-color: #E3E3E8 !important; 
         padding: 6px !important; 
@@ -100,7 +102,7 @@ st.markdown("""
         margin: 0 !important;
     }
 
-    /* Specifically styling the text inside radio buttons to stay clear but smaller than labels */
+    /* Text INSIDE the radio buttons (Options) */
     div[role="radiogroup"] label p {
         font-size: 14px !important; 
         margin: 0 !important;
@@ -115,6 +117,7 @@ st.markdown("""
         box-shadow: 0px 4px 12px rgba(0,0,0,0.15) !important;
     }
 
+    /* Button Styling */
     div.stButton > button {
         background-color: #007AFF !important;
         color: white !important;
@@ -127,6 +130,7 @@ st.markdown("""
         width: 100%;
     }
 
+    /* Camera Input Styling */
     [data-testid="stCameraInput"] {
         border: 2px dashed #007AFF;
         border-radius: 20px; 
@@ -274,7 +278,7 @@ with col4:
     kesesakan = st.radio("19. Risiko Kesesakan - Kemudahan Hub", ["Rendah", "Sederhana", "Tinggi"], horizontal=True)
     trafik = st.radio("20. Keselamatan Trafik - Kemudahan Hub", ["Selamat", "Kurang Selamat", "Tidak Selamat"], horizontal=True)
     lain_lain = st.text_input("21. Lain - lain - Kemudahan Hub")
-    cadangan = st.radio("22. Cadangan Tindakan dari pihak pemerhati", ["Masukkan dalam APO and dibenarkan enjin hidup", "Tidak masukkan dalam APO and tidak dibenarkan enjin hidup"], horizontal=True)
+    cadangan = st.radio("22. Cadangan Tindakan dari pihak pemerhati", ["Masukkan dalam APO dan dibenarkan enjin hidup", "Tidak masukkan dalam APO dan tidak dibenarkan enjin hidup"], horizontal=True)
 
 st.subheader("📸 Media Upload")
 up_file = st.file_uploader("Capture or Upload Hub Media", type=["jpg", "png", "jpeg", "mp4"])
