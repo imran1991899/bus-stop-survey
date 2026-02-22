@@ -313,6 +313,16 @@ with col4:
     cadangan = st.radio("22. Cadangan Tindakan dari pihak pemerhati", ["Masukkan dalam APO dan dibenarkan enjin hidup", "Tidak masukkan dalam APO dan tidak dibenarkan enjin hidup"], horizontal=True)
 
 st.subheader("📸 Media Upload")
+# Look for the # --------- Media Upload --------- section in your code
+st.subheader("📸 Media Upload")
+
+# 1. Add this line to enable direct camera access from phone/PC
+cam_photo = st.camera_input("Take a photo of the Hub")
+
+# 2. Add this logic to save the camera photo to your session state
+if cam_photo:
+    st.session_state.photos.append(cam_photo)
+
 up_file = st.file_uploader("Capture or Upload Hub Media", type=["jpg", "png", "jpeg", "mp4"])
 if up_file:
     mime = mimetypes.guess_type(up_file.name)[0] or ""
