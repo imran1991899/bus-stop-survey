@@ -277,7 +277,7 @@ with col1:
 
 with col2:
     tarikh = st.date_input("4. Tarikh Penilaian", value=datetime.now(KL_TZ))
-    masa = st.time_input("5. Masa Penilaian", value=datetime.now(KL_TZ).time())
+    #masa = st.time_input("5. Masa Penilaian", value=datetime.now(KL_TZ).time())
     
     routes_val = ""
     if selected_hub:
