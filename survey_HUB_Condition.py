@@ -253,11 +253,9 @@ st.header("📋 Maklumat Asas")
 col1, col2 = st.columns(2)
 
 with col1:
-    # UPDATED: Staff ID is now a searchable selectbox
     staff_options = sorted(list(staff_dict.keys()))
     staff_id_input = st.selectbox("1. Staff ID", options=staff_options, index=None, placeholder="Pilih atau Cari No. ID")
     
-    # UPDATED: Nama Penilai logic to appear as a styled box
     nama_penilai = staff_dict.get(staff_id_input, "") if staff_id_input else ""
     st.markdown('<p style="font-size: 18px; font-weight: 600; color: #3A3A3C; margin-bottom: 5px;">Nama Penilai</p>', unsafe_allow_html=True)
     if nama_penilai:
@@ -290,7 +288,12 @@ st.divider()
 
 # --- Survey Logic ---
 maklumat_asas = st.radio("7. Maklumat Asas Hub", ["Hub Utama", "Hub sokongan", "Hentian sahaja"], horizontal=True)
+
+# Question 8 with conditional free-text logic
 status_apo = st.radio("8. Status Enjin Hidup (APO SEMASA)", ["Dibenarkan", "Tidak Dibenarkan", "Bersyarat", "Lain - lain"], horizontal=True)
+status_apo_catatan = ""
+if status_apo in ["Bersyarat", "Lain - lain"]:
+    status_apo_catatan = st.text_input("Sila nyatakan Catatan untuk Status Enjin Hidup", placeholder="Masukkan ulasan anda di sini")
 
 st.header("📋 PENILAIAN KEMUDAHAN HUB")
 col3, col4 = st.columns(2)
@@ -312,13 +315,9 @@ with col4:
     lain_lain = st.text_input("21. Lain - lain - Kemudahan Hub")
     cadangan = st.radio("22. Cadangan Tindakan dari pihak pemerhati", ["Masukkan dalam APO dan dibenarkan enjin hidup", "Tidak masukkan dalam APO dan tidak dibenarkan enjin hidup"], horizontal=True)
 
-# Look for the # --------- Media Upload --------- section in your code
+# --------- Media Upload ---------
 st.subheader("📸 Media Upload")
-
-# 1. Add this line to enable direct camera access from phone/PC
 cam_photo = st.camera_input("Take a photo of the Hub")
-
-# 2. Add this logic to save the camera photo to your session state
 if cam_photo:
     st.session_state.photos.append(cam_photo)
 
@@ -339,7 +338,10 @@ if st.button("Submit Profiling Report"):
                     url = gdrive_upload_file(add_watermark(p.getvalue(), selected_hub), f"HUB_{selected_hub}_{idx}.jpg", "image/jpeg", FOLDER_ID)
                     media_urls.append(url)
                 
-                row = [datetime.now(KL_TZ).strftime("%Y-%m-%d %H:%M:%S"), nama_penilai, depoh_val, str(tarikh), str(masa), selected_hub, routes_val, maklumat_asas, status_apo, ", ".join(fungsi_hub), catatan, tandas, surau, ruang_rehat, kiosk, bumbung, cahaya, parkir, akses, kesesakan, trafik, lain_lain, cadangan, "; ".join(media_urls)]
+                # Combine Status APO with its conditional note for the final row
+                final_status_apo = f"{status_apo} ({status_apo_catatan})" if status_apo_catatan else status_apo
+
+                row = [datetime.now(KL_TZ).strftime("%Y-%m-%d %H:%M:%S"), nama_penilai, depoh_val, str(tarikh), str(masa), selected_hub, routes_val, maklumat_asas, final_status_apo, ", ".join(fungsi_hub), catatan, tandas, surau, ruang_rehat, kiosk, bumbung, cahaya, parkir, akses, kesesakan, trafik, lain_lain, cadangan, "; ".join(media_urls)]
                 header = ["Timestamp", "Penilai", "Depot", "Tarikh", "Masa", "Hab", "Laluan", "Asas", "Status APO", "Fungsi", "Catatan", "Tandas", "Surau", "Rehat", "Kiosk", "Bumbung", "Cahaya", "Parkir", "Akses", "Kesesakan", "Trafik", "Lain-lain", "Cadangan", "Links"]
                 
                 append_row(find_or_create_gsheet("hub_profiling_responses", FOLDER_ID), row, header)
