@@ -293,7 +293,7 @@ maklumat_asas = st.radio("7. Maklumat Asas Hub", ["Hub Utama", "Hub sokongan", "
 status_apo = st.radio("8. Status Enjin Hidup (APO SEMASA)", ["Dibenarkan", "Tidak Dibenarkan", "Bersyarat", "Lain - lain"], horizontal=True)
 status_apo_catatan = ""
 if status_apo in ["Bersyarat", "Lain - lain"]:
-    status_apo_catatan = st.text_input("Sila nyatakan Catatan untuk Status Enjin Hidup", placeholder="Masukkan ulasan anda di sini")
+    status_apo_catatan = st.text_input("Catatan", placeholder="Masukkan ulasan anda di sini")
 
 st.header("📋 PENILAIAN KEMUDAHAN HUB")
 col3, col4 = st.columns(2)
