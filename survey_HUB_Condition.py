@@ -259,7 +259,7 @@ with col1:
     nama_penilai = staff_dict.get(staff_id_input, "") if staff_id_input else ""
     st.markdown('<p style="font-size: 18px; font-weight: 600; color: #3A3A3C; margin-bottom: 5px;">Nama Penilai</p>', unsafe_allow_html=True)
     if nama_penilai:
-        st.markdown(f'<div class="name-container"><span class="name-text">{nama_penilai}</span></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="name-container"><span class="name-text">Name: {nama_penilai}</span></div>', unsafe_allow_html=True)
     else:
         st.markdown('<div class="name-container"><span class="name-text" style="color: #999;">Nama akan dipaparkan secara automatik</span></div>', unsafe_allow_html=True)
 
