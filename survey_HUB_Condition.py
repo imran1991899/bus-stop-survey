@@ -1,5 +1,5 @@
 import streamlit as st
-import pandas as pd
+import pd
 from datetime import datetime
 from io import BytesIO
 import mimetypes
@@ -68,7 +68,6 @@ st.markdown("""
         font-size: 14px !important; 
         color: #444444 !important; 
         font-weight: 700 !important; 
-        text-align: center;
     }
 
     div[role="radiogroup"] label:has(input:checked) {
@@ -196,8 +195,8 @@ with col1:
 with col2:
     tarikh = st.date_input("4. Tarikh Penilaian", value=datetime.now(KL_TZ))
     
-    # FIX: Define masa in background so it can be sent to Google Sheets without an error
-    masa = datetime.now(KL_TZ).strftime("%I:%M %p") 
+    # Masa Penilaian is now hidden from UI but captured in background
+    masa = datetime.now(KL_TZ).time()
     
     routes_val = ""
     if selected_hub:
@@ -207,6 +206,7 @@ with col2:
 st.divider()
 
 # --- Survey Logic ---
+# index=None makes these unselected by default
 maklumat_asas = st.radio("7. Maklumat Asas Hub", ["Hub Utama", "Hub sokongan", "Hentian sahaja"], index=None, horizontal=True)
 
 status_apo = st.radio("8. Status Enjin Hidup (APO SEMASA)", ["Dibenarkan", "Tidak Dibenarkan", "Bersyarat", "Lain - lain"], index=None, horizontal=True)
@@ -236,8 +236,8 @@ with col4:
     kategori_hub = st.radio("23. Kategori Hub (cadangan)", [
         "Kategori A : Ada hub dan ada kemudahan",
         "Kategori B : Ada hub dan kemudahan tidak cukup",
-        "Kategori D : Tiada hub, hentian sahaja dan ada kemudahan",
-        "Kategori C : Tiada hub, hentian sahaja dan kemudahan tidak cukup"
+        "Kategori D : Tiada hub, hentian sahaja and ada kemudahan",
+        "Kategori C : Tiada hub, hentian sahaja and kemudahan tidak cukup"
     ], index=None, horizontal=False)
 
 # --------- Media Upload ---------
@@ -265,9 +265,8 @@ if st.button("Submit Profiling Report"):
                 
                 final_status_apo = f"{status_apo} ({status_apo_catatan})" if status_apo_catatan else status_apo
 
-                # 'masa' is now valid because it was defined in the background
                 row = [datetime.now(KL_TZ).strftime("%Y-%m-%d %H:%M:%S"), nama_penilai, depoh_val, str(tarikh), str(masa), selected_hub, routes_val, maklumat_asas, final_status_apo, ", ".join(fungsi_hub), catatan, tandas, surau, ruang_rehat, kiosk, bumbung, cahaya, parkir, akses, kesesakan, trafik, lain_lain, cadangan, kategori_hub, "; ".join(media_urls)]
-                header = ["Timestamp", "Penilai", "Depot", "Tarikh", "Masa", "Hab", "Laluan", "Asas", "Status APO", "Fungsi", "Catatan", "Tandas", "Surau", "Rehat", "Kiosk", "Bumbung", "Cahaya", "Parkir", "Akses", "Ksesakan", "Trafik", "Lain-lain", "Cadangan", "Kategori Hub", "Links"]
+                header = ["Timestamp", "Penilai", "Depot", "Tarikh", "Masa", "Hab", "Laluan", "Asas", "Status APO", "Fungsi", "Catatan", "Tandas", "Surau", "Rehat", "Kiosk", "Bumbung", "Cahaya", "Parkir", "Akses", "Kesesakan", "Trafik", "Lain-lain", "Cadangan", "Kategori Hub", "Links"]
                 
                 append_row(find_or_create_gsheet("hub_profiling_responses", FOLDER_ID), row, header)
                 st.success("Report Submitted Successfully!")
