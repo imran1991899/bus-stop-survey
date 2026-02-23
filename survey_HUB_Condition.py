@@ -314,6 +314,12 @@ with col4:
     trafik = st.radio("20. Keselamatan Trafik - Kemudahan Hub", ["Selamat", "Kurang Selamat", "Tidak Selamat"], horizontal=True)
     lain_lain = st.text_input("21. Lain - lain - Kemudahan Hub")
     cadangan = st.radio("22. Cadangan Tindakan dari pihak pemerhati", ["Masukkan dalam APO dan dibenarkan enjin hidup", "Tidak masukkan dalam APO dan tidak dibenarkan enjin hidup"], horizontal=True)
+    kategori_hub = st.radio("23. Kategori Hub (cadangan)", [
+        "Kategori A : Ada hub dan ada kemudahan",
+        "Kategori B : Ada hub dan kemudahan tidak cukup",
+        "Kategori D : Tiada hub, hentian sahaja dan ada kemudahan",
+        "Kategori C : Tiada hub, hentian sahaja dan kemudahan tidak cukup"
+    ], horizontal=False)
 
 # --------- Media Upload ---------
 st.subheader("📸 Media Upload")
@@ -341,8 +347,8 @@ if st.button("Submit Profiling Report"):
                 # Combine Status APO with its conditional note for the final row
                 final_status_apo = f"{status_apo} ({status_apo_catatan})" if status_apo_catatan else status_apo
 
-                row = [datetime.now(KL_TZ).strftime("%Y-%m-%d %H:%M:%S"), nama_penilai, depoh_val, str(tarikh), str(masa), selected_hub, routes_val, maklumat_asas, final_status_apo, ", ".join(fungsi_hub), catatan, tandas, surau, ruang_rehat, kiosk, bumbung, cahaya, parkir, akses, kesesakan, trafik, lain_lain, cadangan, "; ".join(media_urls)]
-                header = ["Timestamp", "Penilai", "Depot", "Tarikh", "Masa", "Hab", "Laluan", "Asas", "Status APO", "Fungsi", "Catatan", "Tandas", "Surau", "Rehat", "Kiosk", "Bumbung", "Cahaya", "Parkir", "Akses", "Kesesakan", "Trafik", "Lain-lain", "Cadangan", "Links"]
+                row = [datetime.now(KL_TZ).strftime("%Y-%m-%d %H:%M:%S"), nama_penilai, depoh_val, str(tarikh), str(masa), selected_hub, routes_val, maklumat_asas, final_status_apo, ", ".join(fungsi_hub), catatan, tandas, surau, ruang_rehat, kiosk, bumbung, cahaya, parkir, akses, kesesakan, trafik, lain_lain, cadangan, kategori_hub, "; ".join(media_urls)]
+                header = ["Timestamp", "Penilai", "Depot", "Tarikh", "Masa", "Hab", "Laluan", "Asas", "Status APO", "Fungsi", "Catatan", "Tandas", "Surau", "Rehat", "Kiosk", "Bumbung", "Cahaya", "Parkir", "Akses", "Ksesakan", "Trafik", "Lain-lain", "Cadangan", "Kategori Hub", "Links"]
                 
                 append_row(find_or_create_gsheet("hub_profiling_responses", FOLDER_ID), row, header)
                 st.success("Report Submitted Successfully!")
