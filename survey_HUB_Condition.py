@@ -326,20 +326,20 @@ with col4:
     justifikasi = st.text_area("24. Justifikasi", placeholder="Masukkan justifikasi anda di sini")
 
 # --------- Media Upload Logic ---------
-st.subheader("📸 Media Upload (Min 2, Max 5)")
+st.header("📸 Media Upload (Min 2, Max 5)")
 
-# Combined count for validation
+# Total Current Media
 total_media = len(st.session_state.photos) + len(st.session_state.videos)
 
+# Inputs (Disabled if limit reached)
 if total_media < 5:
-    cam_photo = st.camera_input("Take a photo of the Hub")
+    cam_photo = st.camera_input("Ambil Gambar Hab")
     if cam_photo:
-        # Check if already in session to avoid duplicates from re-renders
-        if cam_photo not in st.session_state.photos:
-            st.session_state.photos.append(cam_photo)
-            st.rerun()
+        # Check to prevent duplicate trigger on same interaction
+        st.session_state.photos.append(cam_photo)
+        st.rerun()
 
-    up_files = st.file_uploader("Upload Hub Media", type=["jpg", "png", "jpeg", "mp4"], accept_multiple_files=True)
+    up_files = st.file_uploader("Muat Naik Media (Imej/Video)", type=["jpg", "png", "jpeg", "mp4"], accept_multiple_files=True)
     if up_files:
         for f in up_files:
             if len(st.session_state.photos) + len(st.session_state.videos) < 5:
@@ -348,14 +348,33 @@ if total_media < 5:
                     if f not in st.session_state.videos: st.session_state.videos.append(f)
                 else:
                     if f not in st.session_state.photos: st.session_state.photos.append(f)
-
-# Display current items
-if total_media > 0:
-    st.write(f"Current Media Count: {total_media}")
-    if st.button("Clear All Media"):
-        st.session_state.photos = []
-        st.session_state.videos = []
         st.rerun()
+else:
+    st.warning("Had maksimum 5 media telah dicapai. Sila padam media sedia ada jika ingin menukar.")
+
+# --------- Visual Media Gallery ---------
+if total_media > 0:
+    st.write("### Media Preview")
+    
+    # 1. Photos Gallery
+    if st.session_state.photos:
+        cols = st.columns(5)
+        for i, photo in enumerate(st.session_state.photos):
+            with cols[i % 5]:
+                st.image(photo, use_container_width=True)
+                if st.button(f"Padam Gambar {i+1}", key=f"del_img_{i}"):
+                    st.session_state.photos.pop(i)
+                    st.rerun()
+                    
+    # 2. Videos Gallery
+    if st.session_state.videos:
+        cols_v = st.columns(5)
+        for j, video in enumerate(st.session_state.videos):
+            with cols_v[j % 5]:
+                st.video(video)
+                if st.button(f"Padam Video {j+1}", key=f"del_vid_{j}"):
+                    st.session_state.videos.pop(j)
+                    st.rerun()
 
 # --------- Submission ---------
 if st.button("Submit Profiling Report"):
@@ -367,13 +386,13 @@ if st.button("Submit Profiling Report"):
         with st.spinner("Submitting Report..."):
             try:
                 media_urls = []
+                # Photos
                 for idx, p in enumerate(st.session_state.photos):
-                    # Process photos with watermark
                     url = gdrive_upload_file(add_watermark(p.getvalue(), selected_hub), f"HUB_{selected_hub}_{idx}.jpg", "image/jpeg", FOLDER_ID)
                     media_urls.append(url)
                 
+                # Videos
                 for idx, v in enumerate(st.session_state.videos):
-                    # Upload videos directly
                     url = gdrive_upload_file(v.getvalue(), f"HUB_VIDEO_{selected_hub}_{idx}.mp4", "video/mp4", FOLDER_ID)
                     media_urls.append(url)
                 
