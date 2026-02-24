@@ -318,34 +318,63 @@ with col4:
     cadangan = st.radio("22. Cadangan Tindakan dari pihak pemerhati", ["Masukkan dalam APO dan dibenarkan enjin hidup", "Tidak masukkan dalam APO dan tidak dibenarkan enjin hidup"], index=None, horizontal=True)
     kategori_hub = st.radio("23. Kategori Hub (cadangan)", [
         "Kategori A : Ada hub dan ada kemudahan",
-        "Kategori B : Ada hub dan kemudahan tidak cukup",
+        "Kategori B : Ada hub and kemudahan tidak cukup",
         "Kategori D : Tiada hub, hentian sahaja and ada kemudahan",
         "Kategori C : Tiada hub, hentian sahaja and kemudahan tidak cukup"
     ], index=None, horizontal=False)
     
     justifikasi = st.text_area("24. Justifikasi", placeholder="Masukkan justifikasi anda di sini")
 
-# --------- Media Upload ---------
-st.subheader("📸 Media Upload")
-cam_photo = st.camera_input("Take a photo of the Hub")
-if cam_photo:
-    st.session_state.photos.append(cam_photo)
+# --------- Media Upload Logic ---------
+st.subheader("📸 Media Upload (Min 2, Max 5)")
 
-up_file = st.file_uploader("Capture or Upload Hub Media", type=["jpg", "png", "jpeg", "mp4"])
-if up_file:
-    mime = mimetypes.guess_type(up_file.name)[0] or ""
-    if "video" in mime: st.session_state.videos.append(up_file)
-    else: st.session_state.photos.append(up_file)
+# Combined count for validation
+total_media = len(st.session_state.photos) + len(st.session_state.videos)
 
+if total_media < 5:
+    cam_photo = st.camera_input("Take a photo of the Hub")
+    if cam_photo:
+        # Check if already in session to avoid duplicates from re-renders
+        if cam_photo not in st.session_state.photos:
+            st.session_state.photos.append(cam_photo)
+            st.rerun()
+
+    up_files = st.file_uploader("Upload Hub Media", type=["jpg", "png", "jpeg", "mp4"], accept_multiple_files=True)
+    if up_files:
+        for f in up_files:
+            if len(st.session_state.photos) + len(st.session_state.videos) < 5:
+                mime = mimetypes.guess_type(f.name)[0] or ""
+                if "video" in mime:
+                    if f not in st.session_state.videos: st.session_state.videos.append(f)
+                else:
+                    if f not in st.session_state.photos: st.session_state.photos.append(f)
+
+# Display current items
+if total_media > 0:
+    st.write(f"Current Media Count: {total_media}")
+    if st.button("Clear All Media"):
+        st.session_state.photos = []
+        st.session_state.videos = []
+        st.rerun()
+
+# --------- Submission ---------
 if st.button("Submit Profiling Report"):
     if not selected_hub or not nama_penilai:
         st.error("Sila masukkan Staff ID yang sah and pilih Nama Hab.")
+    elif total_media < 2:
+        st.error("Sila ambil atau muat naik sekurang-kurangnya 2 media (Gambar/Video).")
     else:
         with st.spinner("Submitting Report..."):
             try:
                 media_urls = []
                 for idx, p in enumerate(st.session_state.photos):
+                    # Process photos with watermark
                     url = gdrive_upload_file(add_watermark(p.getvalue(), selected_hub), f"HUB_{selected_hub}_{idx}.jpg", "image/jpeg", FOLDER_ID)
+                    media_urls.append(url)
+                
+                for idx, v in enumerate(st.session_state.videos):
+                    # Upload videos directly
+                    url = gdrive_upload_file(v.getvalue(), f"HUB_VIDEO_{selected_hub}_{idx}.mp4", "video/mp4", FOLDER_ID)
                     media_urls.append(url)
                 
                 final_status_apo = f"{status_apo} ({status_apo_catatan})" if status_apo_catatan else status_apo
