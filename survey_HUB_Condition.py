@@ -41,7 +41,6 @@ st.markdown("""
         color: #1D1D1F !important;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
     }
-
     label[data-testid="stWidgetLabel"] p, 
     .st-emotion-cache-16296vi p, 
     .st-emotion-cache-ue6h4q p,
@@ -55,16 +54,13 @@ st.markdown("""
         opacity: 1 !important;
         -webkit-text-fill-color: #3A3A3C !important;
     }
-
     div[role="radiogroup"] > label > div > p {
         color: #3A3A3C !important;
     }
-
     .stSelectbox label, .stTextInput label, .stTextArea label, 
     .stDateInput label, .stTimeInput label, .stMultiSelect label, .stRadio label {
         color: #3A3A3C !important;
     }
-
     .name-container {
         background-color: #E8F0FE;
         border-radius: 10px;
@@ -77,7 +73,6 @@ st.markdown("""
         font-weight: 600;
         font-size: 18px;
     }
-
     div[role="radiogroup"] {
         background-color: #E3E3E8 !important; 
         padding: 6px !important; 
@@ -91,7 +86,6 @@ st.markdown("""
         max-width: 450px; 
         min-height: 58px !important; 
     }
-
     div[role="radiogroup"] label p {
         font-size: 14px !important; 
         margin: 0 !important;
@@ -101,12 +95,10 @@ st.markdown("""
         font-weight: 700 !important; 
         text-align: center;
     }
-
     div[role="radiogroup"] label:has(input:checked) {
         background-color: #FFFFFF !important;
         box-shadow: 0px 4px 12px rgba(0,0,0,0.15) !important;
     }
-
     div.stButton > button {
         background-color: #007AFF !important;
         color: white !important;
@@ -118,7 +110,6 @@ st.markdown("""
         padding: 0 40px !important;
         width: 100%;
     }
-
     [data-testid="stCameraInput"] {
         border: 2px dashed #007AFF;
         border-radius: 20px; 
@@ -158,8 +149,8 @@ def get_authenticated_service():
             return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
         except:
             pass
-    
-    # FIXED: Store flow in session_state to maintain the PKCE 'code_verifier'
+
+    # FIXED: Use session_state to store the flow to maintain the same PKCE verifier
     if "oauth_flow" not in st.session_state:
         st.session_state.oauth_flow = Flow.from_client_secrets_file(
             CLIENT_SECRETS_FILE, 
@@ -171,14 +162,16 @@ def get_authenticated_service():
 
     if "code" in st.query_params:
         try:
-            # Use the stored flow to fetch the token
             flow.fetch_token(code=st.query_params["code"])
             creds = flow.credentials
             save_credentials(creds)
-            st.query_params.clear()
-            return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
+            st.query_params.clear() 
+            st.rerun()
         except Exception as e:
             st.error(f"Authentication failed: {e}")
+            # Reset flow on error so user can try again
+            if "oauth_flow" in st.session_state:
+                del st.session_state.oauth_flow
             st.stop()
     else:
         auth_url, _ = flow.authorization_url(prompt="consent", access_type="offline")
