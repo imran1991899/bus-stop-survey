@@ -42,7 +42,6 @@ st.markdown("""
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
     }
 
-    /* Target ALL labels, p-tags inside widgets, and markdown headers to ensure dark gray uniformity */
     label[data-testid="stWidgetLabel"] p, 
     .st-emotion-cache-16296vi p, 
     .st-emotion-cache-ue6h4q p,
@@ -57,18 +56,15 @@ st.markdown("""
         -webkit-text-fill-color: #3A3A3C !important;
     }
 
-    /* Specifically target radio button headers which often default to white/light gray */
     div[role="radiogroup"] > label > div > p {
         color: #3A3A3C !important;
     }
 
-    /* Force specific widget label containers to obey the color */
     .stSelectbox label, .stTextInput label, .stTextArea label, 
     .stDateInput label, .stTimeInput label, .stMultiSelect label, .stRadio label {
         color: #3A3A3C !important;
     }
 
-    /* Styled Container for Nama Penilai */
     .name-container {
         background-color: #E8F0FE;
         border-radius: 10px;
@@ -82,18 +78,6 @@ st.markdown("""
         font-size: 18px;
     }
 
-    .custom-spinner {
-        padding: 20px;
-        background-color: #FFF9F0;
-        border: 2px solid #FFCC80;
-        border-radius: 14px;
-        color: #E67E22;
-        text-align: center;
-        font-weight: bold;
-        margin-bottom: 20px;
-    }
-
-    /* Radio Group Styling */
     div[role="radiogroup"] {
         background-color: #E3E3E8 !important; 
         padding: 6px !important; 
@@ -108,24 +92,6 @@ st.markdown("""
         min-height: 58px !important; 
     }
 
-    [data-testid="stWidgetSelectionVisualizer"] {
-        display: none !important;
-    }
-
-    div[role="radiogroup"] label {
-        background-color: transparent !important;
-        border: none !important;
-        padding: 10px 0px !important; 
-        border-radius: 11px !important;
-        transition: all 0.2s ease-in-out !important;
-        flex: 1 !important;
-        display: flex !important;
-        justify-content: center !important;
-        align-items: center !important;
-        margin: 0 !important;
-    }
-
-    /* Text INSIDE the radio buttons (Options) */
     div[role="radiogroup"] label p {
         font-size: 14px !important; 
         margin: 0 !important;
@@ -141,7 +107,6 @@ st.markdown("""
         box-shadow: 0px 4px 12px rgba(0,0,0,0.15) !important;
     }
 
-    /* Button Styling */
     div.stButton > button {
         background-color: #007AFF !important;
         color: white !important;
@@ -154,16 +119,10 @@ st.markdown("""
         width: 100%;
     }
 
-    /* Camera Input Styling */
     [data-testid="stCameraInput"] {
         border: 2px dashed #007AFF;
         border-radius: 20px; 
         padding: 10px;
-    }
-    
-    [data-testid="stCameraInput"] video {
-        border-radius: 12px;
-        object-fit: cover;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -179,13 +138,11 @@ CLIENT_SECRETS_FILE = "client_secrets3.json"
 SCOPES = ["https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/spreadsheets"]
 
 def save_credentials(creds):
-    with open("token.pickle", "wb") as t: 
-        pickle.dump(creds, t)
+    with open("token.pickle", "wb") as t: pickle.dump(creds, t)
 
 def load_credentials():
     if os.path.exists("token.pickle"):
-        with open("token.pickle", "rb") as t: 
-            return pickle.load(t)
+        with open("token.pickle", "rb") as t: return pickle.load(t)
     return None
 
 def get_authenticated_service():
@@ -199,10 +156,10 @@ def get_authenticated_service():
             creds.refresh(Request())
             save_credentials(creds)
             return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
-        except Exception:
+        except:
             pass
-
-    # FIXED: Use session_state to store the flow to prevent 'Missing code verifier'
+    
+    # FIXED: Store flow in session_state to maintain the PKCE 'code_verifier'
     if "oauth_flow" not in st.session_state:
         st.session_state.oauth_flow = Flow.from_client_secrets_file(
             CLIENT_SECRETS_FILE, 
@@ -214,10 +171,11 @@ def get_authenticated_service():
 
     if "code" in st.query_params:
         try:
+            # Use the stored flow to fetch the token
             flow.fetch_token(code=st.query_params["code"])
             creds = flow.credentials
             save_credentials(creds)
-            st.query_params.clear() 
+            st.query_params.clear()
             return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
         except Exception as e:
             st.error(f"Authentication failed: {e}")
@@ -271,14 +229,12 @@ if "videos" not in st.session_state: st.session_state.videos = []
 # --------- Main App UI ---------
 st.title("Hub Profiling & Facility Survey")
 
-# 1. Maklumat Asas
 st.header("📋 Maklumat Asas")
 col1, col2 = st.columns(2)
 
 with col1:
     staff_options = sorted(list(staff_dict.keys()))
     staff_id_input = st.selectbox("1. Staff ID", options=staff_options, index=None, placeholder="Pilih atau Cari No. ID")
-    
     nama_penilai = staff_dict.get(staff_id_input, "") if staff_id_input else ""
     st.markdown('<p style="font-size: 18px; font-weight: 600; color: #3A3A3C; margin-bottom: 5px;">Nama Penilai</p>', unsafe_allow_html=True)
     if nama_penilai:
@@ -291,8 +247,7 @@ with col1:
         selected_hub = st.selectbox("2. Nama Hab", options=hub_list, index=None, placeholder="Pilih Nama Hab")
     else:
         selected_hub = None
-        st.error("Excel format error.")
-
+    
     depoh_val = ""
     if selected_hub:
         depoh_val = hub_df[hub_df.iloc[:, 2] == selected_hub].iloc[0, 0]
@@ -300,10 +255,7 @@ with col1:
 
 with col2:
     tarikh = st.date_input("4. Tarikh Penilaian", value=datetime.now(KL_TZ))
-    
-    # Hide masa from UI but define in background to avoid NameError
     masa = datetime.now(KL_TZ).strftime("%I:%M %p")
-    
     routes_val = ""
     if selected_hub:
         routes_val = hub_df[hub_df.iloc[:, 2] == selected_hub].iloc[0, 1]
@@ -311,10 +263,7 @@ with col2:
 
 st.divider()
 
-# --- Survey Logic ---
 maklumat_asas = st.radio("7. Maklumat Asas Hub", ["Hub Utama", "Hub sokongan", "Hentian sahaja"], index=None, horizontal=True)
-
-# Question 8 with conditional free-text logic
 status_apo = st.radio("8. Status Enjin Hidup (APO SEMASA)", ["Dibenarkan", "Tidak Dibenarkan", "Bersyarat", "Lain - lain"], index=None, horizontal=True)
 status_apo_catatan = ""
 if status_apo in ["Bersyarat", "Lain - lain"]:
@@ -345,19 +294,14 @@ with col4:
         "Kategori D : Tiada hub, hentian sahaja and ada kemudahan",
         "Kategori C : Tiada hub, hentian sahaja and kemudahan tidak cukup"
     ], index=None, horizontal=False)
-    
     justifikasi = st.text_area("24. Justifikasi", placeholder="Masukkan justifikasi anda di sini")
 
-# --------- Media Upload Logic ---------
 st.subheader("📸 Media Upload (Min 2, Max 5)")
-
-# Combined count for validation
 total_media = len(st.session_state.photos) + len(st.session_state.videos)
 
 if total_media < 5:
     cam_photo = st.camera_input("Take a photo of the Hub")
     if cam_photo:
-        # Check if already in session to avoid duplicates from re-renders
         if cam_photo not in st.session_state.photos:
             st.session_state.photos.append(cam_photo)
             st.rerun()
@@ -372,15 +316,12 @@ if total_media < 5:
                 else:
                     if f not in st.session_state.photos: st.session_state.photos.append(f)
 
-# Display current items
 if total_media > 0:
     st.write(f"Current Media Count: {total_media}")
     if st.button("Clear All Media"):
-        st.session_state.photos = []
-        st.session_state.videos = []
+        st.session_state.photos = []; st.session_state.videos = []
         st.rerun()
 
-# --------- Submission ---------
 if st.button("Submit Profiling Report"):
     if not selected_hub or not nama_penilai:
         st.error("Sila masukkan Staff ID yang sah and pilih Nama Hab.")
@@ -391,20 +332,15 @@ if st.button("Submit Profiling Report"):
             try:
                 media_urls = []
                 for idx, p in enumerate(st.session_state.photos):
-                    # Process photos with watermark
                     url = gdrive_upload_file(add_watermark(p.getvalue(), selected_hub), f"HUB_{selected_hub}_{idx}.jpg", "image/jpeg", FOLDER_ID)
                     media_urls.append(url)
-                
                 for idx, v in enumerate(st.session_state.videos):
-                    # Upload videos directly
                     url = gdrive_upload_file(v.getvalue(), f"HUB_VIDEO_{selected_hub}_{idx}.mp4", "video/mp4", FOLDER_ID)
                     media_urls.append(url)
                 
                 final_status_apo = f"{status_apo} ({status_apo_catatan})" if status_apo_catatan else status_apo
-
                 row = [datetime.now(KL_TZ).strftime("%Y-%m-%d %H:%M:%S"), nama_penilai, depoh_val, str(tarikh), str(masa), selected_hub, routes_val, maklumat_asas, final_status_apo, ", ".join(fungsi_hub), catatan, tandas, surau, ruang_rehat, kiosk, bumbung, cahaya, parkir, akses, kesesakan, trafik, lain_lain, cadangan, kategori_hub, justifikasi, "; ".join(media_urls)]
                 header = ["Timestamp", "Penilai", "Depot", "Tarikh", "Masa", "Hab", "Laluan", "Asas", "Status APO", "Fungsi", "Catatan", "Tandas", "Surau", "Rehat", "Kiosk", "Bumbung", "Cahaya", "Parkir", "Akses", "Ksesakan", "Trafik", "Lain-lain", "Cadangan", "Kategori Hub", "Justifikasi", "Links"]
-                
                 append_row(find_or_create_gsheet("hub_profiling_responses", FOLDER_ID), row, header)
                 st.success("Report Submitted Successfully!")
                 st.session_state.photos = []; st.session_state.videos = []
