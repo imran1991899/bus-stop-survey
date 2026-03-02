@@ -179,28 +179,51 @@ CLIENT_SECRETS_FILE = "client_secrets3.json"
 SCOPES = ["https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/spreadsheets"]
 
 def save_credentials(creds):
-    with open("token.pickle", "wb") as t: pickle.dump(creds, t)
+    with open("token.pickle", "wb") as t: 
+        pickle.dump(creds, t)
+
 def load_credentials():
     if os.path.exists("token.pickle"):
-        with open("token.pickle", "rb") as t: return pickle.load(t)
+        with open("token.pickle", "rb") as t: 
+            return pickle.load(t)
     return None
 
 def get_authenticated_service():
     creds = load_credentials()
+    
     if creds and creds.valid:
         return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
-    if creds and creds.expired and creds.refresh_token:
-        creds.refresh(Request()); save_credentials(creds)
-        return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
     
-    flow = Flow.from_client_secrets_file(CLIENT_SECRETS_FILE, scopes=SCOPES, redirect_uri="https://bus-stop-survey-fwaavwf7uxvxrfbjeqv9nq.streamlit.app/")
+    if creds and creds.expired and creds.refresh_token:
+        try:
+            creds.refresh(Request())
+            save_credentials(creds)
+            return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
+        except Exception:
+            pass
+
+    # FIXED: Use session_state to store the flow to prevent 'Missing code verifier'
+    if "oauth_flow" not in st.session_state:
+        st.session_state.oauth_flow = Flow.from_client_secrets_file(
+            CLIENT_SECRETS_FILE, 
+            scopes=SCOPES, 
+            redirect_uri="https://bus-stop-survey-fwaavwf7uxvxrfbjeqv9nq.streamlit.app/"
+        )
+    
+    flow = st.session_state.oauth_flow
+
     if "code" in st.query_params:
-        full_url = "https://bus-stop-survey-fwaavwf7uxvxrfbjeqv9nq.streamlit.app/?" + urlencode(st.query_params)
-        flow.fetch_token(authorization_response=full_url)
-        creds = flow.credentials; save_credentials(creds)
-        return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
+        try:
+            flow.fetch_token(code=st.query_params["code"])
+            creds = flow.credentials
+            save_credentials(creds)
+            st.query_params.clear() 
+            return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
+        except Exception as e:
+            st.error(f"Authentication failed: {e}")
+            st.stop()
     else:
-        auth_url, _ = flow.authorization_url(prompt="consent")
+        auth_url, _ = flow.authorization_url(prompt="consent", access_type="offline")
         st.markdown(f"### Authentication Required\n[Please log in with Google]({auth_url})")
         st.stop()
 
