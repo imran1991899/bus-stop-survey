@@ -191,27 +191,38 @@ def get_authenticated_service():
         except:
             pass
     
-    flow = Flow.from_client_secrets_file(CLIENT_SECRETS_FILE, scopes=SCOPES, redirect_uri="https://bus-stop-survey-fwaavwf7uxvxrfbjeqv9nq.streamlit.app/")
-    
-    # Improved check for authorization code to prevent InvalidGrantError
+    # Store flow in session state to preserve code_verifier between reruns
+    if "flow" not in st.session_state:
+        st.session_state.flow = Flow.from_client_secrets_file(
+            CLIENT_SECRETS_FILE, 
+            scopes=SCOPES, 
+            redirect_uri="https://bus-stop-survey-fwaavwf7uxvxrfbjeqv9nq.streamlit.app/"
+        )
+
     auth_code = st.query_params.get("code")
     
     if auth_code:
         try:
-            full_url = "https://bus-stop-survey-fwaavwf7uxvxrfbjeqv9nq.streamlit.app/?" + urlencode(st.query_params)
-            flow.fetch_token(authorization_response=full_url)
-            creds = flow.credentials
+            # Use the existing flow in session state to exchange the code
+            st.session_state.flow.fetch_token(code=auth_code)
+            creds = st.session_state.flow.credentials
             save_credentials(creds)
-            st.query_params.clear() # Clear code from URL to prevent reuse on rerun
+            
+            # Clean up
+            del st.session_state.flow
+            st.query_params.clear() 
             st.rerun()
         except Exception as e:
             st.error(f"Auth Error: {e}")
+            if "flow" in st.session_state: del st.session_state.flow
             st.stop()
     else:
-        auth_url, _ = flow.authorization_url(prompt="consent", access_type="offline")
+        # Create auth URL using the flow object that stays in session state
+        auth_url, _ = st.session_state.flow.authorization_url(prompt="consent", access_type="offline")
         st.markdown(f"### Authentication Required\n[Please log in with Google]({auth_url})")
         st.stop()
 
+# Initialize services
 drive_service, sheets_service = get_authenticated_service()
 
 def gdrive_upload_file(file_bytes, filename, mimetype, folder_id=None):
@@ -320,9 +331,9 @@ with col4:
     kesesakan = st.radio("19. Risiko Kesesakan - Kemudahan Hub", ["Rendah", "Sederhana", "Tinggi"], index=None, horizontal=True)
     trafik = st.radio("20. Keselamatan Trafik - Kemudahan Hub", ["Selamat", "Kurang Selamat", "Tidak Selamat"], index=None, horizontal=True)
     lain_lain = st.text_input("21. Lain - lain - Kemudahan Hub")
-    cadangan = st.radio("22. Cadangan Tindakan dari pihak pemerhati", ["Masukkan dalam APO dan dibenarkan enjin hidup", "Tidak masukkan dalam APO dan tidak dibenarkan enjin hidup"], index=None, horizontal=True)
+    cadangan = st.radio("22. Cadangan Tindakan dari pihak pemerhati", ["Masukkan dalam APO and dibenarkan enjin hidup", "Tidak masukkan dalam APO and tidak dibenarkan enjin hidup"], index=None, horizontal=True)
     kategori_hub = st.radio("23. Kategori Hub (cadangan)", [
-        "Kategori A : Ada hub dan ada kemudahan",
+        "Kategori A : Ada hub and ada kemudahan",
         "Kategori B : Ada hub and kemudahan tidak cukup",
         "Kategori D : Tiada hub, hentian sahaja and ada kemudahan",
         "Kategori C : Tiada hub, hentian sahaja and kemudahan tidak cukup"
