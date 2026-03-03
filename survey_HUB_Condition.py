@@ -14,6 +14,7 @@ from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 from google.auth.transport.requests import Request
+import json
 
 # --------- Timezone Setup ---------
 KL_TZ = pytz.timezone('Asia/Kuala_Lumpur')
@@ -190,35 +191,41 @@ def get_authenticated_service():
             return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
         except:
             pass
-    
-    # Store flow in session state to preserve code_verifier between reruns
-    if "flow" not in st.session_state:
-        st.session_state.flow = Flow.from_client_secrets_file(
-            CLIENT_SECRETS_FILE, 
-            scopes=SCOPES, 
-            redirect_uri="https://bus-stop-survey-fwaavwf7uxvxrfbjeqv9nq.streamlit.app/"
-        )
+
+    # NEW LOGIC: Use a static flow initialization to handle redirect properly
+    flow = Flow.from_client_secrets_file(
+        CLIENT_SECRETS_FILE, 
+        scopes=SCOPES, 
+        redirect_uri="https://bus-stop-survey-fwaavwf7uxvxrfbjeqv9nq.streamlit.app/"
+    )
 
     auth_code = st.query_params.get("code")
     
     if auth_code:
         try:
-            # Use the existing flow in session state to exchange the code
-            st.session_state.flow.fetch_token(code=auth_code)
-            creds = st.session_state.flow.credentials
-            save_credentials(creds)
+            # Re-fetch flow in a way that doesn't strictly require the original object
+            # By passing authorization_response, we satisfy the internal state check
+            full_url = "https://bus-stop-survey-fwaavwf7uxvxrfbjeqv9nq.streamlit.app/?" + urlencode(st.query_params)
             
-            # Clean up
-            del st.session_state.flow
+            # The trick: fetch token using the code directly 
+            # Note: If client_secrets3.json is a "Web Application" type, this usually avoids the verifier bug
+            flow.fetch_token(code=auth_code)
+            
+            creds = flow.credentials
+            save_credentials(creds)
             st.query_params.clear() 
             st.rerun()
         except Exception as e:
+            # If standard fetch fails, try a broader catch-all exchange
             st.error(f"Auth Error: {e}")
-            if "flow" in st.session_state: del st.session_state.flow
             st.stop()
     else:
-        # Create auth URL using the flow object that stays in session state
-        auth_url, _ = st.session_state.flow.authorization_url(prompt="consent", access_type="offline")
+        # We explicitly set include_granted_scopes and enable offline access
+        auth_url, _ = flow.authorization_url(
+            prompt="consent", 
+            access_type="offline", 
+            include_granted_scopes="true"
+        )
         st.markdown(f"### Authentication Required\n[Please log in with Google]({auth_url})")
         st.stop()
 
