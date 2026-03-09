@@ -10,10 +10,6 @@ import re
 from urllib.parse import urlencode
 from PIL import Image, ImageDraw, ImageFont
 import pytz 
-from google_auth_oauthlib.flow import Flow
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseUpload
-from google.auth.transport.requests import Request
 
 # --------- Timezone Setup ---------
 KL_TZ = pytz.timezone('Asia/Kuala_Lumpur')
@@ -45,13 +41,34 @@ st.markdown("""
         color: #1D1D1F !important;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
     }
+
+    /* Target ALL labels, p-tags inside widgets, and markdown headers to ensure dark gray uniformity */
     label[data-testid="stWidgetLabel"] p, 
+    .st-emotion-cache-16296vi p, 
+    .st-emotion-cache-ue6h4q p,
     div[data-testid="stMarkdownContainer"] p,
-    div[data-testid="stWidgetLabel"] {
+    div[data-testid="stWidgetLabel"],
+    .st-emotion-cache-18357p9 p,
+    .st-emotion-cache-1p05t8e p {
         font-size: 18px !important;
         font-weight: 600 !important;
         color: #3A3A3C !important;
+        opacity: 1 !important;
+        -webkit-text-fill-color: #3A3A3C !important;
     }
+
+    /* Specifically target radio button headers which often default to white/light gray */
+    div[role="radiogroup"] > label > div > p {
+        color: #3A3A3C !important;
+    }
+
+    /* Force specific widget label containers to obey the color */
+    .stSelectbox label, .stTextInput label, .stTextArea label, 
+    .stDateInput label, .stTimeInput label, .stMultiSelect label, .stRadio label {
+        color: #3A3A3C !important;
+    }
+
+    /* Styled Container for Nama Penilai */
     .name-container {
         background-color: #E8F0FE;
         border-radius: 10px;
@@ -64,92 +81,131 @@ st.markdown("""
         font-weight: 600;
         font-size: 18px;
     }
+
+    .custom-spinner {
+        padding: 20px;
+        background-color: #FFF9F0;
+        border: 2px solid #FFCC80;
+        border-radius: 14px;
+        color: #E67E22;
+        text-align: center;
+        font-weight: bold;
+        margin-bottom: 20px;
+    }
+
+    /* Radio Group Styling */
     div[role="radiogroup"] {
         background-color: #E3E3E8 !important; 
         padding: 6px !important; 
         border-radius: 14px !important;
+        gap: 8px !important;
         display: flex !important;
         flex-direction: row !important;
+        align-items: center !important;
+        margin-top: 2px !important; 
         margin-bottom: 28px !important; 
         max-width: 450px; 
+        min-height: 58px !important; 
     }
+
+    [data-testid="stWidgetSelectionVisualizer"] {
+        display: none !important;
+    }
+
+    div[role="radiogroup"] label {
+        background-color: transparent !important;
+        border: none !important;
+        padding: 10px 0px !important; 
+        border-radius: 11px !important;
+        transition: all 0.2s ease-in-out !important;
+        flex: 1 !important;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        margin: 0 !important;
+    }
+
+    /* Text INSIDE the radio buttons (Options) */
     div[role="radiogroup"] label p {
         font-size: 14px !important; 
+        margin: 0 !important;
+        padding: 0 10px !important;
+        white-space: normal !important; 
         color: #444444 !important; 
         font-weight: 700 !important; 
+        text-align: center;
     }
+
+    div[role="radiogroup"] label:has(input:checked) {
+        background-color: #FFFFFF !important;
+        box-shadow: 0px 4px 12px rgba(0,0,0,0.15) !important;
+    }
+
+    /* Button Styling */
     div.stButton > button {
         background-color: #007AFF !important;
         color: white !important;
-        height: 60px !important;
+        border: none !important;
+        height: 80px !important;
+        font-weight: 600 !important;
         border-radius: 16px !important;
+        font-size: 18px !important;
+        padding: 0 40px !important;
         width: 100%;
+    }
+
+    /* Camera Input Styling */
+    [data-testid="stCameraInput"] {
+        border: 2px dashed #007AFF;
+        border-radius: 20px; 
+        padding: 10px;
+    }
+    
+    [data-testid="stCameraInput"] video {
+        border-radius: 12px;
+        object-fit: cover;
     }
     </style>
     """, unsafe_allow_html=True)
 
 # --- Google API Setup ---
+from google_auth_oauthlib.flow import Flow
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseUpload
+from google.auth.transport.requests import Request
+
 FOLDER_ID = "1JKwlnKUVO3U74wTRu9U46ARF49dcglp7"
 CLIENT_SECRETS_FILE = "client_secrets3.json"
 SCOPES = ["https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/spreadsheets"]
-REDIRECT_URI = "https://bus-stop-survey-fwaavwf7uxvxrfbjeqv9nq.streamlit.app/"
 
 def save_credentials(creds):
-    with open("token.pickle", "wb") as t: 
-        pickle.dump(creds, t)
-
+    with open("token.pickle", "wb") as t: pickle.dump(creds, t)
 def load_credentials():
     if os.path.exists("token.pickle"):
-        with open("token.pickle", "rb") as t: 
-            return pickle.load(t)
+        with open("token.pickle", "rb") as t: return pickle.load(t)
     return None
 
 def get_authenticated_service():
     creds = load_credentials()
-    
-    # 1. Check existing credentials
     if creds and creds.valid:
         return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
-    
-    # 2. Refresh if expired
     if creds and creds.expired and creds.refresh_token:
-        try:
-            creds.refresh(Request())
-            save_credentials(creds)
-            return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
-        except:
-            pass # Fallback to re-authentication
-
-    # 3. OAuth Flow
-    flow = Flow.from_client_secrets_file(CLIENT_SECRETS_FILE, scopes=SCOPES, redirect_uri=REDIRECT_URI)
+        creds.refresh(Request()); save_credentials(creds)
+        return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
     
-    # Handle Callback from Google
+    flow = Flow.from_client_secrets_file(CLIENT_SECRETS_FILE, scopes=SCOPES, redirect_uri="https://bus-stop-survey-fwaavwf7uxvxrfbjeqv9nq.streamlit.app/")
     if "code" in st.query_params:
-        try:
-            full_url = REDIRECT_URI + "?" + urlencode(st.query_params)
-            flow.fetch_token(authorization_response=full_url)
-            creds = flow.credentials
-            save_credentials(creds)
-            
-            # --- THE FIX: Clear params to prevent InvalidGrantError on rerun ---
-            st.query_params.clear()
-            st.rerun()
-        except Exception as e:
-            st.error(f"Authentication failed: {e}")
-            st.query_params.clear()
-            st.stop()
+        full_url = "https://bus-stop-survey-fwaavwf7uxvxrfbjeqv9nq.streamlit.app/?" + urlencode(st.query_params)
+        flow.fetch_token(authorization_response=full_url)
+        creds = flow.credentials; save_credentials(creds)
+        return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
     else:
-        # Show Login Button
-        auth_url, _ = flow.authorization_url(prompt="consent", access_type="offline")
-        st.markdown("### 🔐 Authentication Required")
-        st.info("Please click the button below to log in with your Google account.")
-        st.markdown(f'<a href="{auth_url}" target="_self" style="background-color: #007AFF; color: white; padding: 15px 30px; text-decoration: none; border-radius: 10px; font-weight: bold; display: inline-block;">Login with Google</a>', unsafe_allow_html=True)
+        auth_url, _ = flow.authorization_url(prompt="consent")
+        st.markdown(f"### Authentication Required\n[Please log in with Google]({auth_url})")
         st.stop()
 
-# Initialize services
 drive_service, sheets_service = get_authenticated_service()
 
-# --- Utility Functions ---
 def gdrive_upload_file(file_bytes, filename, mimetype, folder_id=None):
     media = MediaIoBaseUpload(BytesIO(file_bytes), mimetype)
     metadata = {"name": filename}
@@ -186,10 +242,10 @@ def add_watermark(image_bytes, hub_label):
     img.save(img_byte_arr, format='JPEG', quality=90)
     return img_byte_arr.getvalue()
 
-# --------- Main App UI ---------
 if "photos" not in st.session_state: st.session_state.photos = []
 if "videos" not in st.session_state: st.session_state.videos = []
 
+# --------- Main App UI ---------
 st.title("Hub Profiling & Facility Survey")
 
 # 1. Maklumat Asas
@@ -207,97 +263,127 @@ with col1:
     else:
         st.markdown('<div class="name-container"><span class="name-text" style="color: #999;">Nama akan dipaparkan secara automatik</span></div>', unsafe_allow_html=True)
 
-    if not hub_df.empty:
+    if not hub_df.empty and hub_df.shape[1] >= 3:
         hub_list = sorted(hub_df.iloc[:, 2].dropna().unique().tolist())
         selected_hub = st.selectbox("2. Nama Hab", options=hub_list, index=None, placeholder="Pilih Nama Hab")
     else:
         selected_hub = None
+        st.error("Excel format error.")
 
-    depoh_val = hub_df[hub_df.iloc[:, 2] == selected_hub].iloc[0, 0] if selected_hub else ""
+    depoh_val = ""
+    if selected_hub:
+        depoh_val = hub_df[hub_df.iloc[:, 2] == selected_hub].iloc[0, 0]
     st.text_input("3. Pilihan Depoh (Auto)", value=str(depoh_val), disabled=True)
 
 with col2:
     tarikh = st.date_input("4. Tarikh Penilaian", value=datetime.now(KL_TZ))
+    
+    # Hide masa from UI but define in background to avoid NameError
     masa = datetime.now(KL_TZ).strftime("%I:%M %p")
-    routes_val = hub_df[hub_df.iloc[:, 2] == selected_hub].iloc[0, 1] if selected_hub else ""
+    
+    routes_val = ""
+    if selected_hub:
+        routes_val = hub_df[hub_df.iloc[:, 2] == selected_hub].iloc[0, 1]
     st.text_area("6. Laluan Bas (Auto)", value=str(routes_val), disabled=True, height=100)
 
 st.divider()
 
 # --- Survey Logic ---
 maklumat_asas = st.radio("7. Maklumat Asas Hub", ["Hub Utama", "Hub sokongan", "Hentian sahaja"], index=None, horizontal=True)
+
+# Question 8 with conditional free-text logic
 status_apo = st.radio("8. Status Enjin Hidup (APO SEMASA)", ["Dibenarkan", "Tidak Dibenarkan", "Bersyarat", "Lain - lain"], index=None, horizontal=True)
-status_apo_catatan = st.text_input("Catatan", placeholder="Masukkan ulasan anda jika bersyarat/lain-lain") if status_apo in ["Bersyarat", "Lain - lain"] else ""
+status_apo_catatan = ""
+if status_apo in ["Bersyarat", "Lain - lain"]:
+    status_apo_catatan = st.text_input("Catatan", placeholder="Masukkan ulasan anda di sini")
 
 st.header("📋 PENILAIAN KEMUDAHAN HUB")
 col3, col4 = st.columns(2)
 with col3:
     fungsi_hub = st.multiselect("9. Fungsi Hub", ["Pertukaran shif Kapten Bas", "Rehat pemandu", "Menunggu trip seterusnya", "Parkir sementara dan rehat", "Transit penumpang", "Lain - lain"], default=None)
     catatan = st.text_area("10. Catatan", placeholder="Enter your answer")
-    tandas = st.radio("11. TANDAS", ["Ada dan milik RapidKL", "Ada tetapi bukan milik RapidKL", "Tiada"], index=None, horizontal=True)
-    surau = st.radio("12. SURAU", ["Ada dan milik RapidKL", "Ada tetapi bukan milik RapidKL", "Tiada"], index=None, horizontal=True)
-    ruang_rehat = st.radio("13. Ruang Rehat Pemandu", ["Hab", "Ada Kiosk / Bilik Rehat (milik RapidKL)", "Tiada (BC rehat dalam bas / rehat di luar bas)"], index=None, horizontal=True)
-    kiosk = st.radio("14. Kiosk", ["Masih ada dan selesa digunakan", "Ada tetapi kurang selesa digunakan", "Tiada"], index=None, horizontal=True)
-    bumbung = st.radio("15. Kawasan Berbumbung", ["Ada", "Tiada", "Khemah"], index=None, horizontal=True)
+    tandas = st.radio("11. TANDAS - Kemudahan Hab", ["Ada dan milik RapidKL", "Ada tetapi bukan milik RapidKL", "Tiada"], index=None, horizontal=True)
+    surau = st.radio("12. SURAU - Kemudahan Hab", ["Ada dan milik RapidKL", "Ada tetapi bukan milik RapidKL", "Tiada"], index=None, horizontal=True)
+    ruang_rehat = st.radio("13. Ruang Rehat Pemandu - Kemudahan Hub", ["Hab", "Ada Kiosk / Bilik Rehat (milik RapidKL)", "Tiada (BC rehat dalam bas / rehat di luar bas)"], index=None, horizontal=True)
+    kiosk = st.radio("14. Kiosk - Kemudahan Hub", ["Masih ada dan selesa digunakan", "Ada tetapi kurang selesa digunakan", "Tiada"], index=None, horizontal=True)
+    bumbung = st.radio("15. Kawasan Berbumbung - Kemudahan Hub", ["Ada", "Tiada", "Khemah"], index=None, horizontal=True)
 
 with col4:
-    cahaya = st.radio("16. Cahaya Lampu", ["Mencukupi", "Kurang mencukupi", "Tidak mencukupi"], index=None, horizontal=True)
-    parkir = st.radio("17. Susun Atur / Kawasan Parkir", ["Kawasan luas", "Kawasan terhad"], index=None, horizontal=True)
-    akses = st.radio("18. Akses Keluar & Masuk", ["Baik", "Kurang baik", "Tidak baik"], index=None, horizontal=True)
-    kesesakan = st.radio("19. Risiko Kesesakan", ["Rendah", "Sederhana", "Tinggi"], index=None, horizontal=True)
-    trafik = st.radio("20. Keselamatan Trafik", ["Selamat", "Kurang Selamat", "Tidak Selamat"], index=None, horizontal=True)
-    lain_lain = st.text_input("21. Lain - lain")
-    cadangan = st.radio("22. Cadangan Tindakan", ["Masukkan dalam APO", "Tidak masukkan dalam APO"], index=None, horizontal=True)
-    kategori_hub = st.radio("23. Kategori Hub", ["Kategori A", "Kategori B", "Kategori C", "Kategori D"], index=None)
-    justifikasi = st.text_area("24. Justifikasi")
+    cahaya = st.radio("16. Cahaya Lampu - Kemudahan Hub", ["Mencukupi", "Kurang mencukupi", "Tidak mencukupi"], index=None, horizontal=True)
+    parkir = st.radio("17. Susun Atur / Kawasan Parkir - Kemudahan Hub", ["Kawasan luas", "Kawasan terhad"], index=None, horizontal=True)
+    akses = st.radio("18. Akses Keluar & Masuk - Kemudahan Hub", ["Baik", "Kurang baik", "Tidak baik"], index=None, horizontal=True)
+    kesesakan = st.radio("19. Risiko Kesesakan - Kemudahan Hub", ["Rendah", "Sederhana", "Tinggi"], index=None, horizontal=True)
+    trafik = st.radio("20. Keselamatan Trafik - Kemudahan Hub", ["Selamat", "Kurang Selamat", "Tidak Selamat"], index=None, horizontal=True)
+    lain_lain = st.text_input("21. Lain - lain - Kemudahan Hub")
+    cadangan = st.radio("22. Cadangan Tindakan dari pihak pemerhati", ["Masukkan dalam APO dan dibenarkan enjin hidup", "Tidak masukkan dalam APO dan tidak dibenarkan enjin hidup"], index=None, horizontal=True)
+    kategori_hub = st.radio("23. Kategori Hub (cadangan)", [
+        "Kategori A : Ada hub dan ada kemudahan",
+        "Kategori B : Ada hub and kemudahan tidak cukup",
+        "Kategori D : Tiada hub, hentian sahaja and ada kemudahan",
+        "Kategori C : Tiada hub, hentian sahaja and kemudahan tidak cukup"
+    ], index=None, horizontal=False)
+    
+    justifikasi = st.text_area("24. Justifikasi", placeholder="Masukkan justifikasi anda di sini")
 
-# --------- Media Upload ---------
+# --------- Media Upload Logic ---------
 st.subheader("📸 Media Upload (Min 2, Max 5)")
+
+# Combined count for validation
 total_media = len(st.session_state.photos) + len(st.session_state.videos)
 
 if total_media < 5:
     cam_photo = st.camera_input("Take a photo of the Hub")
-    if cam_photo and cam_photo not in st.session_state.photos:
-        st.session_state.photos.append(cam_photo)
-        st.rerun()
+    if cam_photo:
+        # Check if already in session to avoid duplicates from re-renders
+        if cam_photo not in st.session_state.photos:
+            st.session_state.photos.append(cam_photo)
+            st.rerun()
 
-    up_files = st.file_uploader("Upload Media", type=["jpg", "png", "jpeg", "mp4"], accept_multiple_files=True)
+    up_files = st.file_uploader("Upload Hub Media", type=["jpg", "png", "jpeg", "mp4"], accept_multiple_files=True)
     if up_files:
         for f in up_files:
             if len(st.session_state.photos) + len(st.session_state.videos) < 5:
                 mime = mimetypes.guess_type(f.name)[0] or ""
-                if "video" in mime and f not in st.session_state.videos: st.session_state.videos.append(f)
-                elif "image" in mime and f not in st.session_state.photos: st.session_state.photos.append(f)
+                if "video" in mime:
+                    if f not in st.session_state.videos: st.session_state.videos.append(f)
+                else:
+                    if f not in st.session_state.photos: st.session_state.photos.append(f)
 
+# Display current items
 if total_media > 0:
-    st.write(f"Items: {total_media}")
+    st.write(f"Current Media Count: {total_media}")
     if st.button("Clear All Media"):
-        st.session_state.photos = []; st.session_state.videos = []
+        st.session_state.photos = []
+        st.session_state.videos = []
         st.rerun()
 
 # --------- Submission ---------
 if st.button("Submit Profiling Report"):
     if not selected_hub or not nama_penilai:
-        st.error("Sila pilih ID Staf and Nama Hab.")
+        st.error("Sila masukkan Staff ID yang sah and pilih Nama Hab.")
     elif total_media < 2:
-        st.error("Sila muat naik sekurang-kurangnya 2 media.")
+        st.error("Sila ambil atau muat naik sekurang-kurangnya 2 media (Gambar/Video).")
     else:
-        with st.spinner("Submitting..."):
+        with st.spinner("Submitting Report..."):
             try:
                 media_urls = []
                 for idx, p in enumerate(st.session_state.photos):
+                    # Process photos with watermark
                     url = gdrive_upload_file(add_watermark(p.getvalue(), selected_hub), f"HUB_{selected_hub}_{idx}.jpg", "image/jpeg", FOLDER_ID)
                     media_urls.append(url)
+                
                 for idx, v in enumerate(st.session_state.videos):
+                    # Upload videos directly
                     url = gdrive_upload_file(v.getvalue(), f"HUB_VIDEO_{selected_hub}_{idx}.mp4", "video/mp4", FOLDER_ID)
                     media_urls.append(url)
-
+                
                 final_status_apo = f"{status_apo} ({status_apo_catatan})" if status_apo_catatan else status_apo
+
                 row = [datetime.now(KL_TZ).strftime("%Y-%m-%d %H:%M:%S"), nama_penilai, depoh_val, str(tarikh), str(masa), selected_hub, routes_val, maklumat_asas, final_status_apo, ", ".join(fungsi_hub), catatan, tandas, surau, ruang_rehat, kiosk, bumbung, cahaya, parkir, akses, kesesakan, trafik, lain_lain, cadangan, kategori_hub, justifikasi, "; ".join(media_urls)]
                 header = ["Timestamp", "Penilai", "Depot", "Tarikh", "Masa", "Hab", "Laluan", "Asas", "Status APO", "Fungsi", "Catatan", "Tandas", "Surau", "Rehat", "Kiosk", "Bumbung", "Cahaya", "Parkir", "Akses", "Ksesakan", "Trafik", "Lain-lain", "Cadangan", "Kategori Hub", "Justifikasi", "Links"]
                 
                 append_row(find_or_create_gsheet("hub_profiling_responses", FOLDER_ID), row, header)
-                st.success("Submitted!")
+                st.success("Report Submitted Successfully!")
                 st.session_state.photos = []; st.session_state.videos = []
                 time.sleep(2); st.rerun()
             except Exception as e:
