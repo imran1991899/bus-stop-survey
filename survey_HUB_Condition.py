@@ -37,11 +37,11 @@ def load_hub_data():
 
 hub_df = load_hub_data()
 
-# --------- CSS Styles ---------
+# --------- CSS FOR STANDARDIZED DARK GRAY TEXT ---------
 st.markdown("""
     <style>
     .stApp { background-color: #F5F5F7 !important; color: #1D1D1F !important; }
-    label p { font-size: 18px !important; font-weight: 600 !important; color: #3A3A3C !important; }
+    label[data-testid="stWidgetLabel"] p { font-size: 18px !important; font-weight: 600 !important; color: #3A3A3C !important; }
     .name-container { background-color: #E8F0FE; border-radius: 10px; padding: 12px 20px; margin-bottom: 20px; }
     .name-text { color: #1A73E8; font-weight: 600; font-size: 18px; }
     div[role="radiogroup"] { background-color: #E3E3E8 !important; padding: 6px !important; border-radius: 14px !important; display: flex !important; flex-direction: row !important; }
@@ -66,11 +66,9 @@ def load_credentials():
 def get_authenticated_service():
     creds = load_credentials()
     
-    # 1. Use existing token if valid
     if creds and creds.valid:
         return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
     
-    # 2. Refresh token if expired
     if creds and creds.expired and creds.refresh_token:
         try:
             creds.refresh(Request())
@@ -79,31 +77,35 @@ def get_authenticated_service():
         except:
             pass
 
-    # 3. Handle OAuth callback (returning from Google)
+    # Manually handle the flow to preserve the code_verifier
+    flow = Flow.from_client_secrets_file(CLIENT_SECRETS_FILE, scopes=SCOPES, redirect_uri=REDIRECT_URI)
+
     if "code" in st.query_params:
-        if "oauth_flow" not in st.session_state:
-            st.error("Session expired. Please restart login.")
-            st.button("Restart Login", on_click=lambda: st.query_params.clear())
+        if "code_verifier" in st.session_state:
+            # Reconstruct flow with the saved verifier
+            flow.code_verifier = st.session_state["code_verifier"]
+            try:
+                full_url = REDIRECT_URI + "?" + urlencode(st.query_params)
+                flow.fetch_token(authorization_response=full_url)
+                creds = flow.credentials
+                save_credentials(creds)
+                st.query_params.clear()
+                st.rerun()
+            except Exception as e:
+                st.error(f"Handshake failed: {e}. Please try again.")
+                if st.button("Restart Login"):
+                    st.query_params.clear()
+                    st.rerun()
+                st.stop()
+        else:
+            st.error("Missing session context. Please try logging in again.")
+            st.button("Back to Login", on_click=lambda: st.query_params.clear())
             st.stop()
-            
-        flow = st.session_state["oauth_flow"]
-        try:
-            full_url = REDIRECT_URI + "?" + urlencode(st.query_params)
-            flow.fetch_token(authorization_response=full_url)
-            creds = flow.credentials
-            save_credentials(creds)
-            st.query_params.clear()
-            st.rerun()
-        except Exception as e:
-            st.error(f"Login Error: {e}")
-            st.stop()
-            
-    # 4. Initiate OAuth login
     else:
-        flow = Flow.from_client_secrets_file(CLIENT_SECRETS_FILE, scopes=SCOPES, redirect_uri=REDIRECT_URI)
+        # Initial Auth request
         auth_url, _ = flow.authorization_url(prompt="consent", access_type="offline")
-        # Store flow in session state to keep the 'code_verifier'
-        st.session_state["oauth_flow"] = flow
+        # Save the verifier string (which is serializable) before redirecting
+        st.session_state["code_verifier"] = flow.code_verifier
         st.markdown(f"### Authentication Required\n[Please log in with Google]({auth_url})")
         st.stop()
 
@@ -146,7 +148,7 @@ def add_watermark(image_bytes, hub_label):
     img.save(img_byte_arr, format='JPEG', quality=90)
     return img_byte_arr.getvalue()
 
-# --------- App UI ---------
+# --------- Main App UI ---------
 if "photos" not in st.session_state: st.session_state.photos = []
 if "videos" not in st.session_state: st.session_state.videos = []
 
@@ -178,7 +180,7 @@ st.divider()
 
 maklumat_asas = st.radio("7. Maklumat Asas Hub", ["Hub Utama", "Hub sokongan", "Hentian sahaja"], index=None, horizontal=True)
 status_apo = st.radio("8. Status Enjin Hidup", ["Dibenarkan", "Tidak Dibenarkan", "Bersyarat", "Lain - lain"], index=None, horizontal=True)
-status_apo_catatan = st.text_input("Catatan") if status_apo in ["Bersyarat", "Lain - lain"] else ""
+status_apo_catatan = st.text_input("Catatan APO") if status_apo in ["Bersyarat", "Lain - lain"] else ""
 
 col3, col4 = st.columns(2)
 with col3:
@@ -215,10 +217,10 @@ if st.button("Submit Profiling Report"):
             try:
                 media_urls = []
                 for idx, p in enumerate(st.session_state.photos):
-                    url = gdrive_upload_file(add_watermark(p.getvalue(), selected_hub), f"{selected_hub}_{idx}.jpg", "image/jpeg", FOLDER_ID)
+                    url = gdrive_upload_file(add_watermark(p.getvalue(), selected_hub), f"HUB_{selected_hub}_{idx}.jpg", "image/jpeg", FOLDER_ID)
                     media_urls.append(url)
                 for idx, v in enumerate(st.session_state.videos):
-                    url = gdrive_upload_file(v.getvalue(), f"{selected_hub}_{idx}.mp4", "video/mp4", FOLDER_ID)
+                    url = gdrive_upload_file(v.getvalue(), f"HUB_VIDEO_{selected_hub}_{idx}.mp4", "video/mp4", FOLDER_ID)
                     media_urls.append(url)
 
                 final_apo = f"{status_apo} ({status_apo_catatan})" if status_apo_catatan else status_apo
@@ -226,8 +228,8 @@ if st.button("Submit Profiling Report"):
                 header = ["Timestamp", "Penilai", "Depot", "Tarikh", "Masa", "Hab", "Laluan", "Asas", "Status APO", "Links"]
                 
                 append_row(find_or_create_gsheet("hub_profiling_responses", FOLDER_ID), row, header)
-                st.success("Submitted!")
+                st.success("Submitted Successfully!")
                 st.session_state.photos = []; st.session_state.videos = []
                 time.sleep(2); st.rerun()
             except Exception as e:
-                st.error(f"Error: {e}")
+                st.error(f"Error during submission: {e}")
