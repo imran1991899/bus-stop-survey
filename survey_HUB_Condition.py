@@ -1,5 +1,4 @@
 import streamlit as st
-import pd as pd
 import pandas as pd
 from datetime import datetime
 from io import BytesIO
@@ -56,7 +55,6 @@ def load_credentials():
     return None
 
 def get_authenticated_service():
-    # 1. Check if we already have valid credentials in session or file
     if "creds" not in st.session_state:
         st.session_state.creds = load_credentials()
     
@@ -73,19 +71,15 @@ def get_authenticated_service():
     if creds and creds.valid:
         return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
 
-    # 2. If no credentials, handle the OAuth flow
     flow = Flow.from_client_secrets_file(
         CLIENT_SECRETS_FILE, scopes=SCOPES, redirect_uri=REDIRECT_URI
     )
 
-    # IMPORTANT: Check if we are returning from Google
     code = st.query_params.get("code")
     
     if code:
-        # If we have a code, we MUST have the verifier
         verifier = st.session_state.get("code_verifier")
         if not verifier:
-            # Fallback: if session was wiped, we have to restart the login
             st.warning("Session reset. Please click Login again.")
             auth_url, verifier = flow.authorization_url(prompt='consent', access_type='offline')
             st.session_state["code_verifier"] = verifier
@@ -103,7 +97,6 @@ def get_authenticated_service():
             st.error(f"Login failed: {e}")
             st.stop()
     else:
-        # Initial state: Show Login button
         auth_url, verifier = flow.authorization_url(prompt='consent', access_type='offline')
         st.session_state["code_verifier"] = verifier
         st.info("Sila log masuk untuk meneruskan.")
