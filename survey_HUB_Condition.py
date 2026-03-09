@@ -72,29 +72,42 @@ def get_authenticated_service():
     if creds and creds.valid:
         return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
 
-    # OAuth Flow
+    # --- Start OAuth Handling ---
     flow = Flow.from_client_secrets_file(
-        CLIENT_SECRETS_FILE, scopes=SCOPES, redirect_uri=REDIRECT_URI
+        CLIENT_SECRETS_FILE, 
+        scopes=SCOPES, 
+        redirect_uri=REDIRECT_URI
     )
 
+    # Check if we are returning from Google with a code
     if "code" in st.query_params:
-        try:
-            # FIX: Manually provide the verifier if it was lost in session
-            code_verifier = st.session_state.get("code_verifier")
-            flow.fetch_token(code=st.query_params["code"], code_verifier=code_verifier)
-            
-            creds = flow.credentials
-            save_credentials(creds)
-            st.session_state.creds = creds
-            st.query_params.clear()
-            st.rerun()
-        except Exception as e:
-            st.error(f"Auth Error: {e}")
+        code = st.query_params["code"]
+        
+        # We need the verifier that was generated when the user clicked 'Login'
+        if "code_verifier" in st.session_state:
+            try:
+                # Use the verifier to exchange code for token
+                flow.fetch_token(code=code, code_verifier=st.session_state["code_verifier"])
+                creds = flow.credentials
+                save_credentials(creds)
+                st.session_state.creds = creds
+                # Clear query params to prevent re-processing the same code
+                st.query_params.clear()
+                st.rerun()
+            except Exception as e:
+                st.error(f"Auth Error: {e}. Try logging in again.")
+                # If it fails, clear the verifier to allow a fresh attempt
+                if "code_verifier" in st.session_state:
+                    del st.session_state["code_verifier"]
+                st.stop()
+        else:
+            st.error("Session expired or Code Verifier lost. Please click Login again.")
             st.stop()
     else:
-        # FIX: Generate the authorization URL and the verifier explicitly
+        # Generate the auth URL and a NEW verifier
         auth_url, code_verifier = flow.authorization_url(prompt="consent", access_type="offline")
-        # Store the verifier in session so it survives the redirect
+        
+        # STORE the verifier in session state BEFORE the user leaves the page
         st.session_state["code_verifier"] = code_verifier
         
         st.info("Sila log masuk untuk meneruskan.")
@@ -144,7 +157,7 @@ def add_watermark(image_bytes, hub_label):
     now = datetime.now(KL_TZ)
     info_str = f"{now.strftime('%d/%m/%y %I:%M %p')} | {hub_label.upper()}"
     try:
-        font_sub = ImageFont.load_default() # Replace with path to .ttf if needed
+        font_sub = ImageFont.load_default()
     except:
         font_sub = ImageFont.load_default()
     draw.text((20, h - 50), info_str, font=font_sub, fill="white")
