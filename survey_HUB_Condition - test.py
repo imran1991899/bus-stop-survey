@@ -5,9 +5,6 @@ from io import BytesIO
 import mimetypes
 import time
 import os
-import pickle
-import re
-from urllib.parse import urlencode
 from PIL import Image, ImageDraw, ImageFont
 import pytz 
 from google.oauth2 import service_account
@@ -23,29 +20,21 @@ SCOPES = ["https://www.googleapis.com/auth/drive.file", "https://www.googleapis.
 st.set_page_config(page_title="Hub Profiling Survey", layout="wide")
 
 # --------- Staff Dictionary ---------
-staff_dict = {"10005475": "MOHD RIZAL BIN RAMLI", "10020779": "NUR FAEZAH BINTI HARUN", "10014181": "NORAINSYIRAH BINTI ARIFFIN", "10022768": "NORAZHA RAFFIZZI ZORKORNAINI", "10022769": "NUR HANIM HANIL", "10023845": "MUHAMMAD HAMKA BIN ROSLIM", "10002059": "MUHAMAD NIZAM BIN IBRAHIM", "10005562": "AZFAR NASRI BIN BURHAN", "10010659": "MOHD SHAFIEE BIN ABDULLAH", "10008350": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN", "10003214": "NIK MOHD FADIR BIN NIK MAT RAWI", "10016370": "AHMAD AZIM BIN ISA", "10022910": "NUR SHAHIDA BINTI MOHD TAMIJI ", "10023513": "MUHAMMAD SYAHMI BIN AZMEY", "10023273": "MOHD IDZHAM BIN ABU BAKAR", "10023577": "MOHAMAMAD NAIM MOHAMAD SAPRI", "10023853": "MUHAMAD IMRAN BIN MOHD NASRUDDIN", "10008842": "MIRAN NURSYAWALNI AMIR", "10015662": "MUHAMMAD HANDIF BIN HASHIM", "10011944": "NUR HAZIRAH BINTI NAWI"}
+staff_dict = {"10005475": "MOHD RIZAL BIN RAMLI", "10020779": "NUR FAEZAH BINTI HARUN", "10014181": "NORAINSYIRAH BINTI ARIFFIN", "10022768": "NORAZHA RAFFIZZI ZORKORNAINI", "10022769": "NUR HANIM HANIL", "10023845": "MUHAMMAD HAMKA BIN ROSLIM", "10002059": "MUHAMAD NIZAM BIN IBRAHIM", "10005562": "AZFAR NASRI BIN BURHAN", "10010659": "MOHD SHAFIEE BIN ABDULLAH", "10008350": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN", "10003214": "NIK MOHD FADIR BIN NIK MAT RAWI", "10016370": "AHMAD AZIM BIN ISA", "10022910": "NUR SHAHIDA BINTI MOHD TAMIJI ", "10023513": "MUHAMMAD SYAHMI BIN AZMEY", "10023273": "MOHD IDZHAM BIN ABU BAKAR", "10023577": "MOHAMAD NAIM MOHAMAD SAPRI", "10023853": "MUHAMAD IMRAN BIN MOHD NASRUDDIN", "10008842": "MIRAN NURSYAWALNI AMIR", "10015662": "MUHAMMAD HANDIF BIN HASHIM", "10011944": "NUR HAZIRAH BINTI NAWI"}
 
-# --------- Google API Auth (Adjusted for TOML Secrets) ---------
+# --------- Google API Auth (TOML SECRETS) ---------
 @st.cache_resource
 def get_authenticated_service():
-    # Attempt to load from Streamlit Secrets
     try:
-        if "gcp_service_account" not in st.secrets:
-            st.error("Secrets 'gcp_service_account' not found in Streamlit settings.")
-            st.stop()
-            
-        # Get dictionary from st.secrets
+        # Load credentials from st.secrets dictionary
         info = dict(st.secrets["gcp_service_account"])
-        
-        # Service Account authentication using dictionary info
-        creds = service_account.Credentials.from_service_account_info(
-            info, scopes=SCOPES)
+        creds = service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
         
         drive_service = build("drive", "v3", credentials=creds)
         sheets_service = build("sheets", "v4", credentials=creds)
         return drive_service, sheets_service
     except Exception as e:
-        st.error(f"Authentication Failed: {e}")
+        st.error(f"Authentication Error: Check your Streamlit Secrets. Details: {e}")
         st.stop()
 
 drive_service, sheets_service = get_authenticated_service()
@@ -113,7 +102,7 @@ def add_watermark(image_bytes, hub_label):
     img.save(img_byte_arr, format='JPEG', quality=85)
     return img_byte_arr.getvalue()
 
-# --------- App Main Logic ---------
+# --------- Main Logic ---------
 hub_df = load_hub_data()
 if "photos" not in st.session_state: st.session_state.photos = []
 if "videos" not in st.session_state: st.session_state.videos = []
@@ -146,7 +135,7 @@ with col2:
 
 st.divider()
 
-# --- Survey Questions ---
+# --- Survey Logic ---
 maklumat_asas = st.radio("7. Maklumat Asas Hub", ["Hub Utama", "Hub sokongan", "Hentian sahaja"], index=None, horizontal=True)
 status_apo = st.radio("8. Status Enjin Hidup (APO SEMASA)", ["Dibenarkan", "Tidak Dibenarkan", "Bersyarat", "Lain - lain"], index=None, horizontal=True)
 status_apo_catatan = st.text_input("Catatan (Jika Bersyarat/Lain)") if status_apo in ["Bersyarat", "Lain - lain"] else ""
@@ -169,14 +158,14 @@ with c4:
     kategori_hub = st.radio("23. Kategori Hub (Cadangan)", ["Kategori A", "Kategori B", "Kategori C", "Kategori D"], index=None)
     justifikasi = st.text_area("24. Justifikasi")
 
-# --- Media ---
+# --- Media Upload ---
 st.subheader("📸 Media Upload (Min 2, Max 5)")
 cam_photo = st.camera_input("Ambil Gambar")
 if cam_photo and cam_photo not in st.session_state.photos:
     st.session_state.photos.append(cam_photo)
     st.rerun()
 
-up_files = st.file_uploader("Upload Gambar/Video", type=["jpg", "png", "jpeg", "mp4"], accept_multiple_files=True)
+up_files = st.file_uploader("Upload Hub Media", type=["jpg", "png", "jpeg", "mp4"], accept_multiple_files=True)
 if up_files:
     for f in up_files:
         if (len(st.session_state.photos) + len(st.session_state.videos)) < 5:
@@ -196,7 +185,7 @@ if st.button("Submit Profiling Report"):
     elif total_m < 2:
         st.error("Upload sekurang-kurangnya 2 media!")
     else:
-        with st.spinner("Uploading to Google Drive..."):
+        with st.spinner("Submitting Report..."):
             try:
                 urls = []
                 for idx, p in enumerate(st.session_state.photos):
@@ -208,7 +197,7 @@ if st.button("Submit Profiling Report"):
                 header = ["Timestamp", "Penilai", "Depot", "Tarikh", "Masa", "Hab", "Laluan", "Asas", "Status APO", "Fungsi", "Catatan", "Tandas", "Surau", "Rehat", "Kiosk", "Bumbung", "Cahaya", "Parkir", "Ksesakan", "Kategori", "Justifikasi", "Links"]
                 
                 append_row(find_or_create_gsheet("hub_profiling_responses", FOLDER_ID), row, header)
-                st.success("Berjaya Dihantar!")
+                st.success("Report Submitted Successfully!")
                 st.session_state.photos = []; st.session_state.videos = []
                 time.sleep(2); st.rerun()
             except Exception as e:
