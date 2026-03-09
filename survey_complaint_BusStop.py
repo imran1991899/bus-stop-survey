@@ -25,13 +25,11 @@ st.markdown("""
         color: #1D1D1F !important;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
     }
-
     label[data-testid="stWidgetLabel"] p {
         font-size: 18px !important;
         font-weight: 600 !important;
         color: #3A3A3C !important;
     }
-
     .custom-spinner {
         padding: 20px;
         background-color: #FFF9F0;
@@ -42,7 +40,6 @@ st.markdown("""
         font-weight: bold;
         margin-bottom: 20px;
     }
-
     div[role="radiogroup"] {
         background-color: #E3E3E8 !important; 
         padding: 6px !important; 
@@ -56,11 +53,9 @@ st.markdown("""
         max-width: 360px; 
         min-height: 58px !important; 
     }
-
     [data-testid="stWidgetSelectionVisualizer"] {
         display: none !important;
     }
-
     div[role="radiogroup"] label {
         background-color: transparent !important;
         border: none !important;
@@ -73,7 +68,6 @@ st.markdown("""
         align-items: center !important;
         margin: 0 !important;
     }
-
     div[role="radiogroup"] label p {
         font-size: 16px !important; 
         margin: 0 !important;
@@ -82,12 +76,10 @@ st.markdown("""
         color: #444444 !important; 
         font-weight: 700 !important; 
     }
-
     div[role="radiogroup"] label:has(input:checked) {
         background-color: #FFFFFF !important;
         box-shadow: 0px 4px 12px rgba(0,0,0,0.15) !important;
     }
-
     div.stButton > button {
         background-color: #007AFF !important;
         color: white !important;
@@ -99,18 +91,15 @@ st.markdown("""
         padding: 0 40px !important;
         width: 100%;
     }
-
     [data-testid="stCameraInput"] {
         border: 2px dashed #007AFF;
         border-radius: 20px; 
         padding: 10px;
     }
-    
     [data-testid="stCameraInput"] video {
         border-radius: 12px;
         object-fit: cover;
     }
-
     [data-testid="stCameraInput"] label div {
         color: #007AFF !important;
         font-weight: bold !important;
@@ -129,34 +118,26 @@ def add_watermark(image_bytes, stop_name):
     img = Image.open(BytesIO(image_bytes)).convert("RGB")
     draw = ImageDraw.Draw(img)
     w, h = img.size
-    
     font_scale = int(w * 0.16) 
-    
     now = datetime.now(KL_TZ)
     time_str = now.strftime("%I:%M %p")
     info_str = f"{now.strftime('%d/%m/%y')} | {stop_name.upper()}"
-
     try:
         font_main = ImageFont.truetype("arialbd.ttf", font_scale)
         font_sub = ImageFont.truetype("arialbd.ttf", int(font_scale * 0.4))
     except:
         font_main = ImageFont.load_default()
         font_sub = ImageFont.load_default()
-
     margin_left = int(w * 0.02)
     margin_bottom = int(h * 0.02)
-
     sub_bbox = font_sub.getbbox(info_str)
     main_bbox = font_main.getbbox(time_str)
     sub_height = sub_bbox[3] - sub_bbox[1]
     main_height = main_bbox[3] - main_bbox[1]
-
     y_pos_sub = h - margin_bottom - sub_height
     y_pos_main = y_pos_sub - main_height - 10 
-
     draw.text((margin_left, y_pos_main), time_str, font=font_main, fill="orange")
     draw.text((margin_left, y_pos_sub), info_str, font=font_sub, fill="white")
-    
     img_byte_arr = BytesIO()
     img.save(img_byte_arr, format='JPEG', quality=95)
     return img_byte_arr.getvalue()
@@ -180,38 +161,44 @@ def load_credentials():
 def get_authenticated_service():
     creds = load_credentials()
     
+    # 1. Check if we have valid existing credentials
     if creds and creds.valid:
         return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
     
+    # 2. If expired, try to refresh in the background
     if creds and creds.expired and creds.refresh_token:
         try:
             creds.refresh(Request())
             save_credentials(creds)
             return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
         except Exception:
-            pass # If refresh fails, re-authenticate
+            # If refresh fails (e.g., revoked access), proceed to re-auth
+            pass
 
+    # 3. Handle OAuth Flow
     flow = Flow.from_client_secrets_file(CLIENT_SECRETS_FILE, scopes=SCOPES, redirect_uri=REDIRECT_URI)
     
-    # Check if we are returning from Google Auth
-    code = st.query_params.get("code")
-    
-    if code:
+    # Check if returning with code
+    if "code" in st.query_params:
         try:
-            flow.fetch_token(code=code)
+            # Exchange code for token
+            flow.fetch_token(code=st.query_params["code"])
             creds = flow.credentials
             save_credentials(creds)
-            # Clean URL to prevent re-using the code on rerun
+            # IMPORTANT: Clear params and rerun to avoid "invalid_grant" on next refresh
             st.query_params.clear()
-            return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
+            st.rerun()
         except Exception as e:
-            st.error(f"Failed to fetch token: {e}")
+            st.error(f"Auth Error: {e}")
             st.stop()
-    else:
-        auth_url, _ = flow.authorization_url(prompt="consent", access_type="offline")
-        st.markdown(f"### Authentication Required\n[Please log in with Google]({auth_url})")
-        st.stop()
+            
+    # 4. If no credentials and no code, show the login link
+    # prompt='consent' and access_type='offline' ensure we get a refresh_token
+    auth_url, _ = flow.authorization_url(prompt='consent', access_type='offline')
+    st.markdown(f"### Authentication Required\n[Please log in with Google]({auth_url})")
+    st.stop()
 
+# Initialize Services
 drive_service, sheets_service = get_authenticated_service()
 
 def gdrive_upload_file(file_bytes, filename, mimetype, folder_id=None):
@@ -238,7 +225,6 @@ def append_row(sheet_id, row, header):
 # --------- Data Preparation ---------
 routes_df = pd.read_excel("bus_data.xlsx", sheet_name="routes")
 stops_df = pd.read_excel("bus_data.xlsx", sheet_name="stops")
-
 all_available_stops = sorted(stops_df["Stop Name"].dropna().unique().tolist())
 
 try:
@@ -303,7 +289,6 @@ def render_grid_questions(q_list):
                 st.session_state.responses[q] = st.radio(label=q, options=opts, index=None, key=f"r_{q}", horizontal=True, label_visibility="collapsed")
 
 st.subheader("A. KELAKUAN KAPTEN BAS")
-
 col_bc1, col_bc2, col_bc3 = st.columns(3)
 with col_bc1:
     bc_id_input = st.number_input("BC id:", value=None, step=1, placeholder="Number only (optional)", key="bc_id_input")
