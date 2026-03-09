@@ -41,8 +41,6 @@ st.markdown("""
         color: #1D1D1F !important;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
     }
-
-    /* Target ALL labels, p-tags inside widgets, and markdown headers to ensure dark gray uniformity */
     label[data-testid="stWidgetLabel"] p, 
     .st-emotion-cache-16296vi p, 
     .st-emotion-cache-ue6h4q p,
@@ -56,19 +54,13 @@ st.markdown("""
         opacity: 1 !important;
         -webkit-text-fill-color: #3A3A3C !important;
     }
-
-    /* Specifically target radio button headers which often default to white/light gray */
     div[role="radiogroup"] > label > div > p {
         color: #3A3A3C !important;
     }
-
-    /* Force specific widget label containers to obey the color */
     .stSelectbox label, .stTextInput label, .stTextArea label, 
     .stDateInput label, .stTimeInput label, .stMultiSelect label, .stRadio label {
         color: #3A3A3C !important;
     }
-
-    /* Styled Container for Nama Penilai */
     .name-container {
         background-color: #E8F0FE;
         border-radius: 10px;
@@ -81,19 +73,6 @@ st.markdown("""
         font-weight: 600;
         font-size: 18px;
     }
-
-    .custom-spinner {
-        padding: 20px;
-        background-color: #FFF9F0;
-        border: 2px solid #FFCC80;
-        border-radius: 14px;
-        color: #E67E22;
-        text-align: center;
-        font-weight: bold;
-        margin-bottom: 20px;
-    }
-
-    /* Radio Group Styling */
     div[role="radiogroup"] {
         background-color: #E3E3E8 !important; 
         padding: 6px !important; 
@@ -107,11 +86,9 @@ st.markdown("""
         max-width: 450px; 
         min-height: 58px !important; 
     }
-
     [data-testid="stWidgetSelectionVisualizer"] {
         display: none !important;
     }
-
     div[role="radiogroup"] label {
         background-color: transparent !important;
         border: none !important;
@@ -124,8 +101,6 @@ st.markdown("""
         align-items: center !important;
         margin: 0 !important;
     }
-
-    /* Text INSIDE the radio buttons (Options) */
     div[role="radiogroup"] label p {
         font-size: 14px !important; 
         margin: 0 !important;
@@ -135,13 +110,10 @@ st.markdown("""
         font-weight: 700 !important; 
         text-align: center;
     }
-
     div[role="radiogroup"] label:has(input:checked) {
         background-color: #FFFFFF !important;
         box-shadow: 0px 4px 12px rgba(0,0,0,0.15) !important;
     }
-
-    /* Button Styling */
     div.stButton > button {
         background-color: #007AFF !important;
         color: white !important;
@@ -153,14 +125,11 @@ st.markdown("""
         padding: 0 40px !important;
         width: 100%;
     }
-
-    /* Camera Input Styling */
     [data-testid="stCameraInput"] {
         border: 2px dashed #007AFF;
         border-radius: 20px; 
         padding: 10px;
     }
-    
     [data-testid="stCameraInput"] video {
         border-radius: 12px;
         object-fit: cover;
@@ -177,53 +146,54 @@ from google.auth.transport.requests import Request
 FOLDER_ID = "1JKwlnKUVO3U74wTRu9U46ARF49dcglp7"
 CLIENT_SECRETS_FILE = "client_secrets3.json"
 SCOPES = ["https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/spreadsheets"]
+REDIRECT_URI = "https://bus-stop-survey-fwaavwf7uxvxrfbjeqv9nq.streamlit.app/"
 
 def save_credentials(creds):
     with open("token.pickle", "wb") as t: pickle.dump(creds, t)
+
 def load_credentials():
     if os.path.exists("token.pickle"):
         with open("token.pickle", "rb") as t: return pickle.load(t)
     return None
 
 def get_authenticated_service():
-    # Use session state to cache credentials to avoid re-fetching on rerun
     if "creds" in st.session_state and st.session_state.creds.valid:
         creds = st.session_state.creds
         return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
 
     creds = load_credentials()
-    
     if creds and creds.expired and creds.refresh_token:
         try:
             creds.refresh(Request())
             save_credentials(creds)
-        except Exception:
-            creds = None # Force re-auth if refresh fails
+        except:
+            creds = None
 
     if creds and creds.valid:
         st.session_state.creds = creds
         return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
-    
-    flow = Flow.from_client_secrets_file(CLIENT_SECRETS_FILE, scopes=SCOPES, redirect_uri="https://bus-stop-survey-fwaavwf7uxvxrfbjeqv9nq.streamlit.app/")
-    
+
+    # Initialize Flow
+    flow = Flow.from_client_secrets_file(CLIENT_SECRETS_FILE, scopes=SCOPES, redirect_uri=REDIRECT_URI)
+
+    # Handle the OAuth callback
     if "code" in st.query_params:
         try:
-            # We must only call fetch_token once per code.
-            full_url = "https://bus-stop-survey-fwaavwf7uxvxrfbjeqv9nq.streamlit.app/?" + urlencode(st.query_params)
-            flow.fetch_token(authorization_response=full_url)
+            code = st.query_params["code"]
+            # fetch_token with code directly to bypass internal PKCE state issues in Flow
+            flow.fetch_token(code=code)
             creds = flow.credentials
             save_credentials(creds)
             st.session_state.creds = creds
-            # Clear query params so we don't try to use the same code again on next rerun
             st.query_params.clear()
-            return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
-        except Exception as e:
-            st.error(f"Authentication failed: {e}. Please try logging in again.")
-            st.query_params.clear()
-            time.sleep(2)
             st.rerun()
+        except Exception as e:
+            st.error(f"Authentication failed: {e}")
+            st.query_params.clear()
+            st.stop()
     else:
-        auth_url, _ = flow.authorization_url(prompt="consent")
+        # Generate Auth URL - prompt="consent" ensures we get a refresh_token
+        auth_url, _ = flow.authorization_url(prompt="consent", access_type="offline")
         st.markdown(f"### Authentication Required\n[Please log in with Google]({auth_url})")
         st.stop()
 
@@ -271,14 +241,12 @@ if "videos" not in st.session_state: st.session_state.videos = []
 # --------- Main App UI ---------
 st.title("Hub Profiling & Facility Survey")
 
-# 1. Maklumat Asas
 st.header("📋 Maklumat Asas")
 col1, col2 = st.columns(2)
 
 with col1:
     staff_options = sorted(list(staff_dict.keys()))
     staff_id_input = st.selectbox("1. Staff ID", options=staff_options, index=None, placeholder="Pilih atau Cari No. ID")
-    
     nama_penilai = staff_dict.get(staff_id_input, "") if staff_id_input else ""
     st.markdown('<p style="font-size: 18px; font-weight: 600; color: #3A3A3C; margin-bottom: 5px;">Nama Penilai</p>', unsafe_allow_html=True)
     if nama_penilai:
@@ -300,10 +268,7 @@ with col1:
 
 with col2:
     tarikh = st.date_input("4. Tarikh Penilaian", value=datetime.now(KL_TZ))
-    
-    # Hide masa from UI but define in background to avoid NameError
     masa = datetime.now(KL_TZ).strftime("%I:%M %p")
-    
     routes_val = ""
     if selected_hub:
         routes_val = hub_df[hub_df.iloc[:, 2] == selected_hub].iloc[0, 1]
@@ -311,10 +276,7 @@ with col2:
 
 st.divider()
 
-# --- Survey Logic ---
 maklumat_asas = st.radio("7. Maklumat Asas Hub", ["Hub Utama", "Hub sokongan", "Hentian sahaja"], index=None, horizontal=True)
-
-# Question 8 with conditional free-text logic
 status_apo = st.radio("8. Status Enjin Hidup (APO SEMASA)", ["Dibenarkan", "Tidak Dibenarkan", "Bersyarat", "Lain - lain"], index=None, horizontal=True)
 status_apo_catatan = ""
 if status_apo in ["Bersyarat", "Lain - lain"]:
@@ -338,26 +300,21 @@ with col4:
     kesesakan = st.radio("19. Risiko Kesesakan - Kemudahan Hub", ["Rendah", "Sederhana", "Tinggi"], index=None, horizontal=True)
     trafik = st.radio("20. Keselamatan Trafik - Kemudahan Hub", ["Selamat", "Kurang Selamat", "Tidak Selamat"], index=None, horizontal=True)
     lain_lain = st.text_input("21. Lain - lain - Kemudahan Hub")
-    cadangan = st.radio("22. Cadangan Tindakan dari pihak pemerhati", ["Masukkan dalam APO and dibenarkan enjin hidup", "Tidak masukkan dalam APO and tidak dibenarkan enjin hidup"], index=None, horizontal=True)
+    cadangan = st.radio("22. Cadangan Tindakan dari pihak pemerhati", ["Masukkan dalam APO dan dibenarkan enjin hidup", "Tidak masukkan dalam APO dan tidak dibenarkan enjin hidup"], index=None, horizontal=True)
     kategori_hub = st.radio("23. Kategori Hub (cadangan)", [
         "Kategori A : Ada hub dan ada kemudahan",
         "Kategori B : Ada hub and kemudahan tidak cukup",
         "Kategori D : Tiada hub, hentian sahaja and ada kemudahan",
         "Kategori C : Tiada hub, hentian sahaja and kemudahan tidak cukup"
     ], index=None, horizontal=False)
-    
     justifikasi = st.text_area("24. Justifikasi", placeholder="Masukkan justifikasi anda di sini")
 
-# --------- Media Upload Logic ---------
 st.subheader("📸 Media Upload (Min 2, Max 5)")
-
-# Combined count for validation
 total_media = len(st.session_state.photos) + len(st.session_state.videos)
 
 if total_media < 5:
     cam_photo = st.camera_input("Take a photo of the Hub")
     if cam_photo:
-        # Check if already in session to avoid duplicates from re-renders
         if cam_photo not in st.session_state.photos:
             st.session_state.photos.append(cam_photo)
             st.rerun()
@@ -372,7 +329,6 @@ if total_media < 5:
                 else:
                     if f not in st.session_state.photos: st.session_state.photos.append(f)
 
-# Display current items
 if total_media > 0:
     st.write(f"Current Media Count: {total_media}")
     if st.button("Clear All Media"):
@@ -380,10 +336,9 @@ if total_media > 0:
         st.session_state.videos = []
         st.rerun()
 
-# --------- Submission ---------
 if st.button("Submit Profiling Report"):
     if not selected_hub or not nama_penilai:
-        st.error("Sila masukkan Staff ID yang sah and pilih Nama Hab.")
+        st.error("Sila masukkan Staff ID yang sah dan pilih Nama Hab.")
     elif total_media < 2:
         st.error("Sila ambil atau muat naik sekurang-kurangnya 2 media (Gambar/Video).")
     else:
@@ -391,17 +346,14 @@ if st.button("Submit Profiling Report"):
             try:
                 media_urls = []
                 for idx, p in enumerate(st.session_state.photos):
-                    # Process photos with watermark
                     url = gdrive_upload_file(add_watermark(p.getvalue(), selected_hub), f"HUB_{selected_hub}_{idx}.jpg", "image/jpeg", FOLDER_ID)
                     media_urls.append(url)
                 
                 for idx, v in enumerate(st.session_state.videos):
-                    # Upload videos directly
                     url = gdrive_upload_file(v.getvalue(), f"HUB_VIDEO_{selected_hub}_{idx}.mp4", "video/mp4", FOLDER_ID)
                     media_urls.append(url)
                 
                 final_status_apo = f"{status_apo} ({status_apo_catatan})" if status_apo_catatan else status_apo
-
                 row = [datetime.now(KL_TZ).strftime("%Y-%m-%d %H:%M:%S"), nama_penilai, depoh_val, str(tarikh), str(masa), selected_hub, routes_val, maklumat_asas, final_status_apo, ", ".join(fungsi_hub), catatan, tandas, surau, ruang_rehat, kiosk, bumbung, cahaya, parkir, akses, kesesakan, trafik, lain_lain, cadangan, kategori_hub, justifikasi, "; ".join(media_urls)]
                 header = ["Timestamp", "Penilai", "Depot", "Tarikh", "Masa", "Hab", "Laluan", "Asas", "Status APO", "Fungsi", "Catatan", "Tandas", "Surau", "Rehat", "Kiosk", "Bumbung", "Cahaya", "Parkir", "Akses", "Ksesakan", "Trafik", "Lain-lain", "Cadangan", "Kategori Hub", "Justifikasi", "Links"]
                 
