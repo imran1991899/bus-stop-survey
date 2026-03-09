@@ -72,44 +72,45 @@ def get_authenticated_service():
     if creds and creds.valid:
         return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
 
-    # --- Start OAuth Handling ---
+    # --- Robust OAuth Flow ---
+    # We initialize the flow every time to ensure it matches the redirect
     flow = Flow.from_client_secrets_file(
         CLIENT_SECRETS_FILE, 
         scopes=SCOPES, 
         redirect_uri=REDIRECT_URI
     )
 
-    # Check if we are returning from Google with a code
-    if "code" in st.query_params:
-        code = st.query_params["code"]
+    # Check for 'code' in URL
+    query_params = st.query_params
+    if "code" in query_params:
+        code = query_params["code"]
+        # Try to retrieve the verifier from session_state
+        # If it's missing, we fall back to a manual check or restart
+        verifier = st.session_state.get("code_verifier")
         
-        # We need the verifier that was generated when the user clicked 'Login'
-        if "code_verifier" in st.session_state:
+        if verifier:
             try:
-                # Use the verifier to exchange code for token
-                flow.fetch_token(code=code, code_verifier=st.session_state["code_verifier"])
+                flow.fetch_token(code=code, code_verifier=verifier)
                 creds = flow.credentials
                 save_credentials(creds)
                 st.session_state.creds = creds
-                # Clear query params to prevent re-processing the same code
                 st.query_params.clear()
                 st.rerun()
             except Exception as e:
-                st.error(f"Auth Error: {e}. Try logging in again.")
-                # If it fails, clear the verifier to allow a fresh attempt
-                if "code_verifier" in st.session_state:
-                    del st.session_state["code_verifier"]
+                st.error(f"Auth Error during token exchange: {e}")
                 st.stop()
         else:
-            st.error("Session expired or Code Verifier lost. Please click Login again.")
+            # If the verifier is lost, we must restart the flow
+            # This happens if the user refreshes or session clears
+            auth_url, verifier = flow.authorization_url(prompt='consent', access_type='offline')
+            st.session_state["code_verifier"] = verifier
+            st.info("Sesi tamat atau verifier hilang. Sila log masuk semula.")
+            st.link_button("Login with Google", auth_url)
             st.stop()
     else:
-        # Generate the auth URL and a NEW verifier
-        auth_url, code_verifier = flow.authorization_url(prompt="consent", access_type="offline")
-        
-        # STORE the verifier in session state BEFORE the user leaves the page
-        st.session_state["code_verifier"] = code_verifier
-        
+        # Initial login request
+        auth_url, verifier = flow.authorization_url(prompt='consent', access_type='offline')
+        st.session_state["code_verifier"] = verifier
         st.info("Sila log masuk untuk meneruskan.")
         st.link_button("Login with Google", auth_url)
         st.stop()
