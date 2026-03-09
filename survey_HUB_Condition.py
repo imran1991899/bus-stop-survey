@@ -71,18 +71,24 @@ def get_authenticated_service():
     if creds and creds.valid:
         return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
 
+    # OAuth Flow setup
     flow = Flow.from_client_secrets_file(
         CLIENT_SECRETS_FILE, scopes=SCOPES, redirect_uri=REDIRECT_URI
     )
 
+    # Check for code in URL
     code = st.query_params.get("code")
     
     if code:
+        # We try to use the verifier stored in session. 
+        # If Streamlit wiped it, we force a re-login to generate a new one.
         verifier = st.session_state.get("code_verifier")
+        
         if not verifier:
-            st.warning("Session reset. Please click Login again.")
+            # IMPORTANT: If verifier is lost, we cannot proceed. Redirect to login.
             auth_url, verifier = flow.authorization_url(prompt='consent', access_type='offline')
             st.session_state["code_verifier"] = verifier
+            st.info("Sesi dikemaskini. Sila klik butang di bawah untuk Log Masuk.")
             st.link_button("Login with Google", auth_url)
             st.stop()
         
@@ -94,9 +100,14 @@ def get_authenticated_service():
             st.query_params.clear()
             st.rerun()
         except Exception as e:
-            st.error(f"Login failed: {e}")
+            # If the code is expired or verifier is wrong
+            st.error("Ralat Log Masuk. Sila cuba lagi.")
+            auth_url, verifier = flow.authorization_url(prompt='consent', access_type='offline')
+            st.session_state["code_verifier"] = verifier
+            st.link_button("Cuba Log Masuk Semula", auth_url)
             st.stop()
     else:
+        # Initial request
         auth_url, verifier = flow.authorization_url(prompt='consent', access_type='offline')
         st.session_state["code_verifier"] = verifier
         st.info("Sila log masuk untuk meneruskan.")
