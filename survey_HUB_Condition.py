@@ -33,107 +33,22 @@ def load_hub_data():
 
 hub_df = load_hub_data()
 
-# --------- CSS FOR STANDARDIZED DARK GRAY TEXT ---------
+# --------- CSS ---------
 st.markdown("""
     <style>
-    .stApp {
-        background-color: #F5F5F7 !important;
-        color: #1D1D1F !important;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+    .stApp { background-color: #F5F5F7 !important; color: #1D1D1F !important; }
+    label[data-testid="stWidgetLabel"] p, .st-emotion-cache-16296vi p, .st-emotion-cache-ue6h4q p,
+    div[data-testid="stMarkdownContainer"] p, div[data-testid="stWidgetLabel"] {
+        font-size: 18px !important; font-weight: 600 !important; color: #3A3A3C !important;
     }
-    label[data-testid="stWidgetLabel"] p, 
-    .st-emotion-cache-16296vi p, 
-    .st-emotion-cache-ue6h4q p,
-    div[data-testid="stMarkdownContainer"] p,
-    div[data-testid="stWidgetLabel"],
-    .st-emotion-cache-18357p9 p,
-    .st-emotion-cache-1p05t8e p {
-        font-size: 18px !important;
-        font-weight: 600 !important;
-        color: #3A3A3C !important;
-        opacity: 1 !important;
-        -webkit-text-fill-color: #3A3A3C !important;
-    }
-    div[role="radiogroup"] > label > div > p {
-        color: #3A3A3C !important;
-    }
-    .stSelectbox label, .stTextInput label, .stTextArea label, 
-    .stDateInput label, .stTimeInput label, .stMultiSelect label, .stRadio label {
-        color: #3A3A3C !important;
-    }
-    .name-container {
-        background-color: #E8F0FE;
-        border-radius: 10px;
-        padding: 12px 20px;
-        margin-top: 5px;
-        margin-bottom: 20px;
-    }
-    .name-text {
-        color: #1A73E8;
-        font-weight: 600;
-        font-size: 18px;
-    }
+    .name-container { background-color: #E8F0FE; border-radius: 10px; padding: 12px 20px; margin-bottom: 20px; }
+    .name-text { color: #1A73E8; font-weight: 600; font-size: 18px; }
     div[role="radiogroup"] {
-        background-color: #E3E3E8 !important; 
-        padding: 6px !important; 
-        border-radius: 14px !important;
-        gap: 8px !important;
-        display: flex !important;
-        flex-direction: row !important;
-        align-items: center !important;
-        margin-top: 2px !important; 
-        margin-bottom: 28px !important; 
-        max-width: 450px; 
-        min-height: 58px !important; 
+        background-color: #E3E3E8 !important; padding: 6px !important; border-radius: 14px !important;
+        display: flex !important; flex-direction: row !important; margin-bottom: 28px !important; 
     }
-    [data-testid="stWidgetSelectionVisualizer"] {
-        display: none !important;
-    }
-    div[role="radiogroup"] label {
-        background-color: transparent !important;
-        border: none !important;
-        padding: 10px 0px !important; 
-        border-radius: 11px !important;
-        transition: all 0.2s ease-in-out !important;
-        flex: 1 !important;
-        display: flex !important;
-        justify-content: center !important;
-        align-items: center !important;
-        margin: 0 !important;
-    }
-    div[role="radiogroup"] label p {
-        font-size: 14px !important; 
-        margin: 0 !important;
-        padding: 0 10px !important;
-        white-space: normal !important; 
-        color: #444444 !important; 
-        font-weight: 700 !important; 
-        text-align: center;
-    }
-    div[role="radiogroup"] label:has(input:checked) {
-        background-color: #FFFFFF !important;
-        box-shadow: 0px 4px 12px rgba(0,0,0,0.15) !important;
-    }
-    div.stButton > button {
-        background-color: #007AFF !important;
-        color: white !important;
-        border: none !important;
-        height: 80px !important;
-        font-weight: 600 !important;
-        border-radius: 16px !important;
-        font-size: 18px !important;
-        padding: 0 40px !important;
-        width: 100%;
-    }
-    [data-testid="stCameraInput"] {
-        border: 2px dashed #007AFF;
-        border-radius: 20px; 
-        padding: 10px;
-    }
-    [data-testid="stCameraInput"] video {
-        border-radius: 12px;
-        object-fit: cover;
-    }
+    div[role="radiogroup"] label:has(input:checked) { background-color: #FFFFFF !important; box-shadow: 0px 4px 12px rgba(0,0,0,0.15) !important; }
+    div.stButton > button { background-color: #007AFF !important; color: white !important; height: 80px !important; width: 100%; border-radius: 16px !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -157,10 +72,12 @@ def load_credentials():
     return None
 
 def get_authenticated_service():
+    # 1. Check if creds are already in session memory
     if "creds" in st.session_state and st.session_state.creds.valid:
         creds = st.session_state.creds
         return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
 
+    # 2. Check for local token file
     creds = load_credentials()
     if creds and creds.expired and creds.refresh_token:
         try:
@@ -173,27 +90,27 @@ def get_authenticated_service():
         st.session_state.creds = creds
         return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
 
-    # Initialize Flow
-    flow = Flow.from_client_secrets_file(CLIENT_SECRETS_FILE, scopes=SCOPES, redirect_uri=REDIRECT_URI)
+    # 3. Handle OAuth Flow
+    if "flow" not in st.session_state:
+        st.session_state.flow = Flow.from_client_secrets_file(
+            CLIENT_SECRETS_FILE, scopes=SCOPES, redirect_uri=REDIRECT_URI
+        )
 
-    # Handle the OAuth callback
     if "code" in st.query_params:
         try:
-            code = st.query_params["code"]
-            # fetch_token with code directly to bypass internal PKCE state issues in Flow
-            flow.fetch_token(code=code)
-            creds = flow.credentials
+            # Use the flow stored in session to maintain the code_verifier
+            st.session_state.flow.fetch_token(code=st.query_params["code"])
+            creds = st.session_state.flow.credentials
             save_credentials(creds)
             st.session_state.creds = creds
             st.query_params.clear()
             st.rerun()
         except Exception as e:
-            st.error(f"Authentication failed: {e}")
-            st.query_params.clear()
+            st.error(f"Auth Error: {e}")
+            del st.session_state.flow # Reset flow to try again
             st.stop()
     else:
-        # Generate Auth URL - prompt="consent" ensures we get a refresh_token
-        auth_url, _ = flow.authorization_url(prompt="consent", access_type="offline")
+        auth_url, _ = st.session_state.flow.authorization_url(prompt="consent", access_type="offline")
         st.markdown(f"### Authentication Required\n[Please log in with Google]({auth_url})")
         st.stop()
 
@@ -329,13 +246,6 @@ if total_media < 5:
                 else:
                     if f not in st.session_state.photos: st.session_state.photos.append(f)
 
-if total_media > 0:
-    st.write(f"Current Media Count: {total_media}")
-    if st.button("Clear All Media"):
-        st.session_state.photos = []
-        st.session_state.videos = []
-        st.rerun()
-
 if st.button("Submit Profiling Report"):
     if not selected_hub or not nama_penilai:
         st.error("Sila masukkan Staff ID yang sah dan pilih Nama Hab.")
@@ -348,7 +258,6 @@ if st.button("Submit Profiling Report"):
                 for idx, p in enumerate(st.session_state.photos):
                     url = gdrive_upload_file(add_watermark(p.getvalue(), selected_hub), f"HUB_{selected_hub}_{idx}.jpg", "image/jpeg", FOLDER_ID)
                     media_urls.append(url)
-                
                 for idx, v in enumerate(st.session_state.videos):
                     url = gdrive_upload_file(v.getvalue(), f"HUB_VIDEO_{selected_hub}_{idx}.mp4", "video/mp4", FOLDER_ID)
                     media_urls.append(url)
@@ -356,7 +265,6 @@ if st.button("Submit Profiling Report"):
                 final_status_apo = f"{status_apo} ({status_apo_catatan})" if status_apo_catatan else status_apo
                 row = [datetime.now(KL_TZ).strftime("%Y-%m-%d %H:%M:%S"), nama_penilai, depoh_val, str(tarikh), str(masa), selected_hub, routes_val, maklumat_asas, final_status_apo, ", ".join(fungsi_hub), catatan, tandas, surau, ruang_rehat, kiosk, bumbung, cahaya, parkir, akses, kesesakan, trafik, lain_lain, cadangan, kategori_hub, justifikasi, "; ".join(media_urls)]
                 header = ["Timestamp", "Penilai", "Depot", "Tarikh", "Masa", "Hab", "Laluan", "Asas", "Status APO", "Fungsi", "Catatan", "Tandas", "Surau", "Rehat", "Kiosk", "Bumbung", "Cahaya", "Parkir", "Akses", "Ksesakan", "Trafik", "Lain-lain", "Cadangan", "Kategori Hub", "Justifikasi", "Links"]
-                
                 append_row(find_or_create_gsheet("hub_profiling_responses", FOLDER_ID), row, header)
                 st.success("Report Submitted Successfully!")
                 st.session_state.photos = []; st.session_state.videos = []
