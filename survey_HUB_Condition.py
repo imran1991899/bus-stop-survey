@@ -33,7 +33,7 @@ def load_hub_data():
 
 hub_df = load_hub_data()
 
-# --- Google API Setup ---
+# --- Google API Config ---
 FOLDER_ID = "1JKwlnKUVO3U74wTRu9U46ARF49dcglp7"
 CLIENT_SECRETS_FILE = "client_secrets3.json"
 SCOPES = ["https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/spreadsheets"]
@@ -59,11 +59,10 @@ def get_authenticated_service():
             return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
         except: pass
 
-    # Handshake Fix: Use a persistent file for the verifier
+    # Handshake logic using physical verifier file
     flow = Flow.from_client_secrets_file(CLIENT_SECRETS_FILE, scopes=SCOPES, redirect_uri=REDIRECT_URI)
     
     if "code" in st.query_params:
-        # Load the verifier from the temporary file instead of memory
         if os.path.exists("verifier.tmp"):
             with open("verifier.tmp", "r") as f:
                 flow.code_verifier = f.read()
@@ -79,21 +78,22 @@ def get_authenticated_service():
                 st.error(f"Handshake failed: {e}")
                 st.stop()
         else:
-            st.warning("Session lost. Retrying login...")
-            time.sleep(1)
+            # Fallback if session reset before code exchange
+            st.warning("Session reset. Cleaning up...")
             st.query_params.clear()
             st.rerun()
     else:
         auth_url, _ = flow.authorization_url(prompt="consent", access_type="offline")
-        # Save verifier to a physical file so it's there when you come back
+        # Save the secret verifier to a file before leaving to Google
         with open("verifier.tmp", "w") as f:
             f.write(flow.code_verifier)
-        st.markdown(f"### [🔴 Click Here to Login with Google]({auth_url})")
+        st.markdown(f'## Authentication Required')
+        st.markdown(f'[🔴 Click here to Login with Google Account]({auth_url})')
         st.stop()
 
 drive_service, sheets_service = get_authenticated_service()
 
-# --------- Upload Functions ---------
+# --------- Upload & Image Functions ---------
 def gdrive_upload(file_bytes, filename, mimetype):
     media = MediaIoBaseUpload(BytesIO(file_bytes), mimetype)
     meta = {"name": filename, "parents": [FOLDER_ID]}
@@ -115,44 +115,76 @@ def add_watermark(image_bytes, label):
     img = Image.open(BytesIO(image_bytes)).convert("RGB")
     draw = ImageDraw.Draw(img)
     txt = f"{datetime.now(KL_TZ).strftime('%d/%m/%y %H:%M')} | {label}"
-    draw.text((20, img.size[1]-40), txt, fill="white")
+    try: font = ImageFont.load_default()
+    except: font = None
+    draw.text((20, img.size[1]-40), txt, fill="white", font=font)
     buf = BytesIO()
-    img.save(buf, format="JPEG")
+    img.save(buf, format="JPEG", quality=85)
     return buf.getvalue()
 
-# --------- UI Layout ---------
-st.title("Hub Profiling Survey")
+# --------- UI Construction ---------
+st.title("Hub Profiling & Facility Survey")
 
 if "photos" not in st.session_state: st.session_state.photos = []
+if "videos" not in st.session_state: st.session_state.videos = []
 
-col1, col2 = st.columns(2)
-with col1:
-    staff_id = st.selectbox("Staff ID", options=sorted(list(staff_dict.keys())), index=None)
-    nama = staff_dict.get(staff_id, "")
-    st.info(f"Nama: {nama}" if nama else "Sila pilih Staff ID")
+st.header("📋 Maklumat Asas")
+c1, c2 = st.columns(2)
+
+with c1:
+    staff_id = st.selectbox("1. Staff ID", options=sorted(list(staff_dict.keys())), index=None)
+    nama_p = staff_dict.get(staff_id, "")
+    st.info(f"Nama: {nama_p}" if nama_p else "Sila pilih Staff ID")
     
-    hubs = sorted(hub_df.iloc[:, 2].dropna().unique().tolist()) if not hub_df.empty else []
-    sel_hub = st.selectbox("Nama Hab", options=hubs, index=None)
+    h_list = sorted(hub_df.iloc[:, 2].dropna().unique().tolist()) if not hub_df.empty else []
+    s_hub = st.selectbox("2. Nama Hab", options=h_list, index=None)
+    
+    depot_v = hub_df[hub_df.iloc[:, 2] == s_hub].iloc[0, 0] if s_hub else ""
+    st.text_input("3. Depot (Auto)", value=str(depot_v), disabled=True)
 
-with col2:
-    tarikh = st.date_input("Tarikh", value=datetime.now(KL_TZ))
-    cam = st.camera_input("Ambil Gambar Hab")
-    if cam and cam not in st.session_state.photos:
-        st.session_state.photos.append(cam)
+with c2:
+    t_date = st.date_input("4. Tarikh", value=datetime.now(KL_TZ))
+    route_v = hub_df[hub_df.iloc[:, 2] == s_hub].iloc[0, 1] if s_hub else ""
+    st.text_area("6. Laluan (Auto)", value=str(route_v), height=100, disabled=True)
+
+st.divider()
+
+# Surveys
+mak_asas = st.radio("7. Maklumat Asas Hub", ["Hub Utama", "Hub sokongan", "Hentian sahaja"], index=None, horizontal=True)
+apo_status = st.radio("8. Status Enjin Hidup", ["Dibenarkan", "Tidak Dibenarkan", "Bersyarat", "Lain-lain"], index=None, horizontal=True)
+
+st.subheader("📸 Media Upload")
+cam = st.camera_input("Ambil Gambar")
+if cam and cam not in st.session_state.photos:
+    st.session_state.photos.append(cam)
+
+up_m = st.file_uploader("Upload Video/Gambar", type=["jpg","png","mp4"], accept_multiple_files=True)
+if up_m:
+    for f in up_m:
+        if f not in st.session_state.photos and f not in st.session_state.videos:
+            if "video" in (mimetypes.guess_type(f.name)[0] or ""): st.session_state.videos.append(f)
+            else: st.session_state.photos.append(f)
 
 if st.button("Hantar Laporan"):
-    if not sel_hub or len(st.session_state.photos) < 1:
-        st.error("Sila pilih Hab dan ambil gambar.")
+    if not s_hub or not staff_id or (len(st.session_state.photos) + len(st.session_state.videos)) < 2:
+        st.error("Sila pilih Hab, Staff ID, dan muat naik sekurang-kurangnya 2 media.")
     else:
-        with st.spinner("Menghantar..."):
-            urls = []
-            for i, p in enumerate(st.session_state.photos):
-                w_img = add_watermark(p.getvalue(), sel_hub)
-                urls.append(gdrive_upload(w_img, f"{sel_hub}_{i}.jpg", "image/jpeg"))
-            
-            row = [datetime.now(KL_TZ).strftime("%Y-%m-%d %H:%M:%S"), nama, sel_hub, "; ".join(urls)]
-            append_sheet(row, ["Timestamp", "Penilai", "Hab", "Links"])
-            st.success("Berjaya!")
-            st.session_state.photos = []
-            time.sleep(2)
-            st.rerun()
+        with st.spinner("Sedang menghantar ke Google Drive..."):
+            try:
+                links = []
+                for i, p in enumerate(st.session_state.photos):
+                    w_img = add_watermark(p.getvalue(), s_hub)
+                    links.append(gdrive_upload(w_img, f"{s_hub}_{i}.jpg", "image/jpeg"))
+                for i, v in enumerate(st.session_state.videos):
+                    links.append(gdrive_upload(v.getvalue(), f"{s_hub}_V_{i}.mp4", "video/mp4"))
+                
+                final_row = [datetime.now(KL_TZ).strftime("%Y-%m-%d %H:%M:%S"), nama_p, s_hub, depot_v, mak_asas, apo_status, "; ".join(links)]
+                header = ["Timestamp", "Nama", "Hab", "Depot", "Asas", "APO", "Links"]
+                append_sheet(final_row, header)
+                
+                st.success("Laporan Berjaya Dihantar!")
+                st.session_state.photos = []; st.session_state.videos = []
+                time.sleep(2)
+                st.rerun()
+            except Exception as e:
+                st.error(f"Error: {e}")
