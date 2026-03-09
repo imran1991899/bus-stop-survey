@@ -21,6 +21,21 @@ from google.auth.transport.requests import Request
 KL_TZ = pytz.timezone('Asia/Kuala_Lumpur')
 st.set_page_config(page_title="Bus Stop Survey", layout="wide")
 
+# --------- Heartbeat & Silent Refresh (KEEP ALIVE) ---------
+def keep_alive():
+    """Keeps the session state active while the browser tab is open"""
+    if "heartbeat" not in st.session_state:
+        st.session_state.heartbeat = time.time()
+    
+    # Check every 10 minutes
+    if time.time() - st.session_state.heartbeat > 600:
+        st.session_state.heartbeat = time.time()
+        # This will show up in your Streamlit Cloud logs
+        print(f"Heartbeat: Session active for user at {datetime.now(KL_TZ)}")
+
+# Call it immediately
+keep_alive()
+
 # --------- APPLE UI GRID THEME CSS ---------
 st.markdown("""
     <style>
@@ -269,3 +284,4 @@ if st.button("Submit Survey"):
                 st.session_state.responses = {q: None for q in all_questions}
                 time.sleep(2); st.rerun()
             except Exception as e: st.error(f"Error: {e}")
+
