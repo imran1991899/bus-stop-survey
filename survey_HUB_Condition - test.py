@@ -17,28 +17,36 @@ from googleapiclient.http import MediaIoBaseUpload
 # --------- Configuration ---------
 KL_TZ = pytz.timezone('Asia/Kuala_Lumpur')
 FOLDER_ID = "1ejwc-x6Piu4jxKh03s4U52nk-YfDZZmu"
-SERVICE_ACCOUNT_FILE = "service_account.json" # Ensure this file is in your folder
 SCOPES = ["https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/spreadsheets"]
 
 # --------- Page Setup ---------
 st.set_page_config(page_title="Hub Profiling Survey", layout="wide")
 
 # --------- Staff Dictionary ---------
-staff_dict = {"10005475": "MOHD RIZAL BIN RAMLI", "10020779": "NUR FAEZAH BINTI HARUN", "10014181": "NORAINSYIRAH BINTI ARIFFIN", "10022768": "NORAZHA RAFFIZZI ZORKORNAINI", "10022769": "NUR HANIM HANIL", "10023845": "MUHAMMAD HAMKA BIN ROSLIM", "10002059": "MUHAMAD NIZAM BIN IBRAHIM", "10005562": "AZFAR NASRI BIN BURHAN", "10010659": "MOHD SHAFIEE BIN ABDULLAH", "10008350": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN", "10003214": "NIK MOHD FADIR BIN NIK MAT RAWI", "10016370": "AHMAD AZIM BIN ISA", "10022910": "NUR SHAHIDA BINTI MOHD TAMIJI ", "10023513": "MUHAMMAD SYAHMI BIN AZMEY", "10023273": "MOHD IDZHAM BIN ABU BAKAR", "10023577": "MOHAMAD NAIM MOHAMAD SAPRI", "10023853": "MUHAMAD IMRAN BIN MOHD NASRUDDIN", "10008842": "MIRAN NURSYAWALNI AMIR", "10015662": "MUHAMMAD HANDIF BIN HASHIM", "10011944": "NUR HAZIRAH BINTI NAWI"}
+staff_dict = {"10005475": "MOHD RIZAL BIN RAMLI", "10020779": "NUR FAEZAH BINTI HARUN", "10014181": "NORAINSYIRAH BINTI ARIFFIN", "10022768": "NORAZHA RAFFIZZI ZORKORNAINI", "10022769": "NUR HANIM HANIL", "10023845": "MUHAMMAD HAMKA BIN ROSLIM", "10002059": "MUHAMAD NIZAM BIN IBRAHIM", "10005562": "AZFAR NASRI BIN BURHAN", "10010659": "MOHD SHAFIEE BIN ABDULLAH", "10008350": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN", "10003214": "NIK MOHD FADIR BIN NIK MAT RAWI", "10016370": "AHMAD AZIM BIN ISA", "10022910": "NUR SHAHIDA BINTI MOHD TAMIJI ", "10023513": "MUHAMMAD SYAHMI BIN AZMEY", "10023273": "MOHD IDZHAM BIN ABU BAKAR", "10023577": "MOHAMAMAD NAIM MOHAMAD SAPRI", "10023853": "MUHAMAD IMRAN BIN MOHD NASRUDDIN", "10008842": "MIRAN NURSYAWALNI AMIR", "10015662": "MUHAMMAD HANDIF BIN HASHIM", "10011944": "NUR HAZIRAH BINTI NAWI"}
 
-# --------- Google API Auth ---------
+# --------- Google API Auth (Adjusted for TOML Secrets) ---------
 @st.cache_resource
 def get_authenticated_service():
-    if not os.path.exists(SERVICE_ACCOUNT_FILE):
-        st.error(f"Credentials file '{SERVICE_ACCOUNT_FILE}' not found.")
-        st.stop()
+    # Attempt to load from Streamlit Secrets
+    try:
+        if "gcp_service_account" not in st.secrets:
+            st.error("Secrets 'gcp_service_account' not found in Streamlit settings.")
+            st.stop()
+            
+        # Get dictionary from st.secrets
+        info = dict(st.secrets["gcp_service_account"])
         
-    creds = service_account.Credentials.from_service_account_file(
-        SERVICE_ACCOUNT_FILE, scopes=SCOPES)
-    
-    drive_service = build("drive", "v3", credentials=creds)
-    sheets_service = build("sheets", "v4", credentials=creds)
-    return drive_service, sheets_service
+        # Service Account authentication using dictionary info
+        creds = service_account.Credentials.from_service_account_info(
+            info, scopes=SCOPES)
+        
+        drive_service = build("drive", "v3", credentials=creds)
+        sheets_service = build("sheets", "v4", credentials=creds)
+        return drive_service, sheets_service
+    except Exception as e:
+        st.error(f"Authentication Failed: {e}")
+        st.stop()
 
 drive_service, sheets_service = get_authenticated_service()
 
