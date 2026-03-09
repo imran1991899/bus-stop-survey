@@ -11,12 +11,6 @@ from urllib.parse import urlencode
 from PIL import Image, ImageDraw, ImageFont
 import pytz 
 
-# Essential Google API Imports
-from google_auth_oauthlib.flow import Flow
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseUpload
-from google.auth.transport.requests import Request
-
 # --------- Timezone Setup ---------
 KL_TZ = pytz.timezone('Asia/Kuala_Lumpur')
 
@@ -124,42 +118,42 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
+# Essential Google API Imports
+from google_auth_oauthlib.flow import Flow
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseUpload
+from google.auth.transport.requests import Request
+
 # --------- Helper: MASSIVE ORANGE WATERMARK ---------
 def add_watermark(image_bytes, stop_name):
     img = Image.open(BytesIO(image_bytes)).convert("RGB")
     draw = ImageDraw.Draw(img)
     w, h = img.size
     
-    # Scale increased to 30% of width for a truly massive look
-    font_scale = int(w * 0.30) 
+    font_scale = int(w * 0.16) 
     
     now = datetime.now(KL_TZ)
     time_str = now.strftime("%I:%M %p")
     info_str = f"{now.strftime('%d/%m/%y')} | {stop_name.upper()}"
 
-    # Use Arial Bold
     try:
         font_main = ImageFont.truetype("arialbd.ttf", font_scale)
-        font_sub = ImageFont.truetype("arialbd.ttf", int(font_scale * 0.25))
+        font_sub = ImageFont.truetype("arialbd.ttf", int(font_scale * 0.4))
     except:
         font_main = ImageFont.load_default()
         font_sub = ImageFont.load_default()
 
-    # Position at bottom-left
-    margin_left = int(w * 0.03)
-    margin_bottom = int(h * 0.03)
+    margin_left = int(w * 0.02)
+    margin_bottom = int(h * 0.02)
 
-    # Get heights for stacking
     sub_bbox = font_sub.getbbox(info_str)
     main_bbox = font_main.getbbox(time_str)
     sub_height = sub_bbox[3] - sub_bbox[1]
     main_height = main_bbox[3] - main_bbox[1]
 
-    # Stacking from bottom up
     y_pos_sub = h - margin_bottom - sub_height
-    y_pos_main = y_pos_sub - main_height - int(h * 0.01)
+    y_pos_main = y_pos_sub - main_height - 10 
 
-    # Draw Time (ORANGE) and Info (WHITE)
     draw.text((margin_left, y_pos_main), time_str, font=font_main, fill="orange")
     draw.text((margin_left, y_pos_sub), info_str, font=font_sub, fill="white")
     
@@ -171,6 +165,7 @@ def add_watermark(image_bytes, stop_name):
 FOLDER_ID = "1DjtLxgyQXwgjq_N6I_-rtYcBcnWhzMGp"
 CLIENT_SECRETS_FILE = "client_secrets2.json"
 SCOPES = ["https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/spreadsheets"]
+REDIRECT_URI = "https://bus-stop-survey-99f8wusughejfcfvrvxmyl.streamlit.app/"
 
 def save_credentials(credentials):
     with open("token.pickle", "wb") as token:
@@ -184,26 +179,49 @@ def load_credentials():
 
 def get_authenticated_service():
     creds = load_credentials()
+    
+    # 1. Try to use existing valid credentials
     if creds and creds.valid:
         return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
-    if creds and creds.expired and creds.refresh_token:
-        creds.refresh(Request())
-        save_credentials(creds)
-        return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
     
-    flow = Flow.from_client_secrets_file(CLIENT_SECRETS_FILE, scopes=SCOPES, 
-                                       redirect_uri="https://bus-stop-survey-kwaazvrcnnrtfyniqjwzlc.streamlit.app/")
-    query_params = st.query_params
-    if "code" in query_params:
-        full_url = "https://bus-stop-survey-kwaazvrcnnrtfyniqjwzlc.streamlit.app/?" + urlencode(query_params)
-        flow.fetch_token(authorization_response=full_url)
-        creds = flow.credentials
-        save_credentials(creds)
+    # 2. If expired, try to refresh automatically (this is the "background" part)
+    if creds and creds.expired and creds.refresh_token:
+        try:
+            creds.refresh(Request())
+            save_credentials(creds)
+            return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
+        except Exception:
+            # Refresh token might be revoked or invalid; fall through to full login
+            pass
+
+    # 3. Handle the OAuth flow
+    flow = Flow.from_client_secrets_file(CLIENT_SECRETS_FILE, scopes=SCOPES, redirect_uri=REDIRECT_URI)
+    
+    # Check if we have the 'code' in the URL
+    params = st.query_params
+    auth_code = params.get("code")
+    
+    if auth_code:
+        try:
+            # We must exchange the code for a token
+            flow.fetch_token(code=auth_code)
+            creds = flow.credentials
+            save_credentials(creds)
+            # IMPORTANT: Clear the code from the URL so it doesn't trigger 'invalid_grant' on rerun
+            st.query_params.clear() 
+            st.rerun() # Refresh to start fresh with valid creds
+        except Exception as e:
+            # If the code was already used or expired, clear it and show login
+            st.query_params.clear()
+            auth_url, _ = flow.authorization_url(prompt="consent", access_type="offline")
+            st.markdown(f"### Authentication Error\nYour session expired. [Please log in again]({auth_url})")
+            st.stop()
     else:
-        auth_url, _ = flow.authorization_url(prompt="consent")
+        # No credentials and no code in URL: show the login button
+        # 'access_type="offline"' is critical to get a refresh_token
+        auth_url, _ = flow.authorization_url(prompt="consent", access_type="offline", include_granted_scopes="true")
         st.markdown(f"### Authentication Required\n[Please log in with Google]({auth_url})")
         st.stop()
-    return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
 
 drive_service, sheets_service = get_authenticated_service()
 
@@ -232,6 +250,8 @@ def append_row(sheet_id, row, header):
 routes_df = pd.read_excel("bus_data.xlsx", sheet_name="routes")
 stops_df = pd.read_excel("bus_data.xlsx", sheet_name="stops")
 
+all_available_stops = sorted(stops_df["Stop Name"].dropna().unique().tolist())
+
 try:
     bus_df = pd.read_excel("bus_list.xlsx", sheet_name="bus list", usecols=[1])
     bus_list = sorted(bus_df.iloc[:, 0].dropna().astype(str).unique().tolist())
@@ -239,9 +259,7 @@ except Exception as e:
     st.error(f"Error loading bus_list.xlsx: {e}")
     bus_list = []
 
-allowed_stops = sorted(["AJ106 LRT AMPANG", "DAMANSARA INTAN", "ECOSKY RESIDENCE", "FAKULTI KEJURUTERAAN (UTARA)", "FAKULTI PERNIAGAAN DAN PERAKAUNAN", "FAKULTI UNDANG-UNDANG", "KILANG PLASTIK EKSPEDISI EMAS (OPP)", "KJ477 UTAR", "KJ560 SHELL SG LONG (OPP)", "KL107 LRT MASJID JAMEK", "KL1082 SK Methodist", "KL117 BSN LEBUH AMPANG", "KL1217 ILP KUALA LUMPUR", "KL2247 KOMERSIAL KIP", "KL377 WISMA SISTEM", "KOMERSIAL BURHANUDDIN (2)", "MASJID CYBERJAYA 10", "MRT SRI DELIMA PINTU C", "PERUMAHAN TTDI", "PJ312 Medan Selera Seksyen 19", "PJ476 MASJID SULTAN ABDUL AZIZ", "PJ721 ONE UTAMA NEW WING", "PPJ384 AURA RESIDENCE", "SA12 APARTMENT BAIDURI (OPP)", "SA26 PERUMAHAN SEKSYEN 11", "SCLAND EMPORIS", "SJ602 BANDAR BUKIT PUCHONG BP1", "SMK SERI HARTAMAS", "SMK SULTAN ABD SAMAD (TIMUR)"])
-
-staff_dict = {"10005475": "MOHD RIZAL BIN RAMLI", "10020779": "NUR FAEZAH BINTI HARUN", "10014181": "NORAINSYIRAH BINTI ARIFFIN", "10022768": "NORAZHA RAFFIZZI ZORKORNAINI", "10022769": "NUR HANIM HANIL", "10023845": "MUHAMMAD HAMKA BIN ROSLIM", "10002059": "MUHAMAD NIZAM BIN IBRAHIM", "10005562": "AZFAR NASRI BIN BURHAN", "10010659": "MOHD SHAFIEE BIN ABDULLAH", "10008350": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN", "10003214": "NIK MOHD FADIR BIN NIK MAT RAWI", "10016370": "AHMAD AZIM BIN ISA", "10022910": "NUR SHAHIDA BINTI MOHD TAMIJI ", "10023513": "MUHAMMAD SYAHMI BIN AZMEY", "10023273": "MOHD IDZHAM BIN ABU BAKAR", "10023577": "MOHAMAD NAIM MOHAMAD SAPRI", "10023853": "MUHAMAD IMRAN BIN MOHD NASRUDDIN", "10008842": "MIRAN NURSYAWALNI AMIR", "10015662": "MUHAMMAD HANIF BIN HASHIM", "10011944": "NUR HAZIRAH BINTI NAWI"}
+staff_dict = {"10005475": "MOHD RIZAL BIN RAMLI", "10020779": "NUR FAEZAH BINTI HARUN", "10014181": "NORAINSYIRAH BINTI ARIFFIN", "10022768": "NORAZHA RAFFIZZI ZORKORNAINI", "10022769": "NUR HANIM HANIL", "10023845": "MUHAMMAD HAMKA BIN ROSLIM", "10002059": "MUHAMAD NIZAM BIN IBRAHIM", "10005562": "AZFAR NASRI BIN BURHAN", "10010659": "MOHD SHAFIEE BIN ABDULLAH", "10008350": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN", "10003214": "NIK MOHD FADIR BIN NIK MAT RAWI", "10016370": "AHMAD AZIM BIN ISA", "10022910": "NUR SHAHIDA BINTI MOHD TAMIJI ", "10023513": "MUHAMMAD SYAHMI BIN AZMEY", "10023273": "MOHD IDZHAM BIN ABU BAKAR", "10023577": "MOHAMAD NAIM MOHAMAD SAPRI", "10023853": "MUHAMAD IMRAN BIN MOHD NASRUDDIN", "10008842": "MIRAN NURSYAWALNI AMIR", "10015662": "MUHAMMAD HANDIF BIN HASHIM", "10011944": "NUR HAZIRAH BINTI NAWI"}
 
 if "saved_staff_id" not in st.session_state: st.session_state.saved_staff_id = None
 if "saved_stop" not in st.session_state: st.session_state.saved_stop = None
@@ -268,8 +286,8 @@ with col_staff:
         st.session_state.saved_staff_id = staff_id
 
 with col_stop:
-    stop = st.selectbox("📍 Bus Stop", allowed_stops, 
-                        index=allowed_stops.index(st.session_state.saved_stop) if st.session_state.saved_stop in allowed_stops else None, 
+    stop = st.selectbox("📍 Bus Stop", all_available_stops, 
+                        index=all_available_stops.index(st.session_state.saved_stop) if st.session_state.saved_stop in all_available_stops else None, 
                         placeholder="Pilih Hentian Bas...", key="stop_select")
     current_route, current_depot = "", ""
     if stop:
@@ -286,7 +304,6 @@ def render_grid_questions(q_list):
         with col1:
             q = q_list[i]
             st.markdown(f"**{q}**")
-            # Removed NA choice for Section A
             opts = ["Yes", "No", "NA"] if "NA" in q else ["Yes", "No"]
             st.session_state.responses[q] = st.radio(label=q, options=opts, index=None, key=f"r_{q}", horizontal=True, label_visibility="collapsed")
         if i + 1 < len(q_list):
@@ -297,7 +314,15 @@ def render_grid_questions(q_list):
                 st.session_state.responses[q] = st.radio(label=q, options=opts, index=None, key=f"r_{q}", horizontal=True, label_visibility="collapsed")
 
 st.subheader("A. KELAKUAN KAPTEN BAS")
-selected_bus = st.selectbox("🚌 Pilih No. Bas", options=bus_list, index=None, placeholder="Pilih no pendaftaran bas...", key="bus_select")
+
+col_bc1, col_bc2, col_bc3 = st.columns(3)
+with col_bc1:
+    bc_id_input = st.number_input("BC id:", value=None, step=1, placeholder="Number only (optional)", key="bc_id_input")
+with col_bc2:
+    selected_bus = st.selectbox("🚌 Pilih No. Bas:", options=bus_list, index=None, placeholder="Is a must...", key="bus_select")
+with col_bc3:
+    bus_speed = st.number_input("Kelajuan Bas (km/h):", min_value=0, max_value=120, value=None, step=1, placeholder="Number only (optional)", key="bus_speed_input")
+
 render_grid_questions(questions_a)
 st.divider()
 
@@ -308,7 +333,9 @@ st.session_state.responses["Ada Penumpang?"] = has_passengers
 
 if has_passengers != "Yes":
     for q in questions_c: st.session_state.responses[q] = "No Passenger"
-# Sub-questions removed as per request
+else:
+    for q in questions_c: 
+        if st.session_state.responses[q] == "No Passenger": st.session_state.responses[q] = None
 st.divider()
 
 st.subheader("B. KEADAAN HENTIAN BAS")
@@ -388,7 +415,18 @@ if st.button("Submit Survey"):
             row_data = [final_ts, staff_id, staff_dict[staff_id], current_depot, current_route, stop, selected_bus] + \
                         [st.session_state.responses[q] for q in all_questions] + ["; ".join(media_urls)]
             
+            while len(row_data) < 30:
+                row_data.append("")
+            
+            row_data.insert(30, bus_speed if bus_speed is not None else "")
+            row_data.insert(31, bc_id_input if bc_id_input is not None else "")
+            
             header_data = ["Timestamp", "Staff ID", "Staff Name", "Depot", "Route", "Bus Stop", "Bus Register No"] + all_questions + ["Media Links"]
+            while len(header_data) < 30:
+                header_data.append("")
+            header_data.insert(30, "Kelajuan Bas (km/h)")
+            header_data.insert(31, "BC ID")
+
             append_row(find_or_create_gsheet("survey_responses", FOLDER_ID), row_data, header_data)
             
             saving_placeholder.empty() 
@@ -401,7 +439,7 @@ if st.button("Submit Survey"):
             st.session_state.saved_stop = None
 
             for key in list(st.session_state.keys()):
-                if key.startswith("r_") or key in ["has_pax", "bus_select", "staff_id_select", "stop_select"]:
+                if key.startswith("r_") or key in ["has_pax", "bus_select", "staff_id_select", "stop_select", "bc_id_input", "bus_speed_input"]:
                     del st.session_state[key]
             
             time.sleep(2)
