@@ -165,6 +165,7 @@ def add_watermark(image_bytes, stop_name):
 FOLDER_ID = "1DjtLxgyQXwgjq_N6I_-rtYcBcnWhzMGp"
 CLIENT_SECRETS_FILE = "client_secrets2.json"
 SCOPES = ["https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/spreadsheets"]
+REDIRECT_URI = "https://bus-stop-survey-99f8wusughejfcfvrvxmyl.streamlit.app/"
 
 def save_credentials(credentials):
     with open("token.pickle", "wb") as token:
@@ -178,26 +179,38 @@ def load_credentials():
 
 def get_authenticated_service():
     creds = load_credentials()
+    
     if creds and creds.valid:
         return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
-    if creds and creds.expired and creds.refresh_token:
-        creds.refresh(Request())
-        save_credentials(creds)
-        return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
     
-    flow = Flow.from_client_secrets_file(CLIENT_SECRETS_FILE, scopes=SCOPES, 
-                                       redirect_uri="https://bus-stop-survey-99f8wusughejfcfvrvxmyl.streamlit.app/")
-    query_params = st.query_params
-    if "code" in query_params:
-        full_url = "https://bus-stop-survey-99f8wusughejfcfvrvxmyl.streamlit.app/?" + urlencode(query_params)
-        flow.fetch_token(authorization_response=full_url)
-        creds = flow.credentials
-        save_credentials(creds)
+    if creds and creds.expired and creds.refresh_token:
+        try:
+            creds.refresh(Request())
+            save_credentials(creds)
+            return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
+        except Exception:
+            pass # If refresh fails, re-authenticate
+
+    flow = Flow.from_client_secrets_file(CLIENT_SECRETS_FILE, scopes=SCOPES, redirect_uri=REDIRECT_URI)
+    
+    # Check if we are returning from Google Auth
+    code = st.query_params.get("code")
+    
+    if code:
+        try:
+            flow.fetch_token(code=code)
+            creds = flow.credentials
+            save_credentials(creds)
+            # Clean URL to prevent re-using the code on rerun
+            st.query_params.clear()
+            return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
+        except Exception as e:
+            st.error(f"Failed to fetch token: {e}")
+            st.stop()
     else:
-        auth_url, _ = flow.authorization_url(prompt="consent")
+        auth_url, _ = flow.authorization_url(prompt="consent", access_type="offline")
         st.markdown(f"### Authentication Required\n[Please log in with Google]({auth_url})")
         st.stop()
-    return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
 
 drive_service, sheets_service = get_authenticated_service()
 
@@ -226,7 +239,6 @@ def append_row(sheet_id, row, header):
 routes_df = pd.read_excel("bus_data.xlsx", sheet_name="routes")
 stops_df = pd.read_excel("bus_data.xlsx", sheet_name="stops")
 
-# Pull stops dynamically from Excel to fix missing stops like KL2081
 all_available_stops = sorted(stops_df["Stop Name"].dropna().unique().tolist())
 
 try:
@@ -263,7 +275,6 @@ with col_staff:
         st.session_state.saved_staff_id = staff_id
 
 with col_stop:
-    # Changed from allowed_stops to all_available_stops to show everything from Excel
     stop = st.selectbox("📍 Bus Stop", all_available_stops, 
                         index=all_available_stops.index(st.session_state.saved_stop) if st.session_state.saved_stop in all_available_stops else None, 
                         placeholder="Pilih Hentian Bas...", key="stop_select")
@@ -295,12 +306,10 @@ st.subheader("A. KELAKUAN KAPTEN BAS")
 
 col_bc1, col_bc2, col_bc3 = st.columns(3)
 with col_bc1:
-    # Fixed Warning: removed format="%d" and added step=1
     bc_id_input = st.number_input("BC id:", value=None, step=1, placeholder="Number only (optional)", key="bc_id_input")
 with col_bc2:
     selected_bus = st.selectbox("🚌 Pilih No. Bas:", options=bus_list, index=None, placeholder="Is a must...", key="bus_select")
 with col_bc3:
-    # Fixed Warning: removed format="%d" and added step=1
     bus_speed = st.number_input("Kelajuan Bas (km/h):", min_value=0, max_value=120, value=None, step=1, placeholder="Number only (optional)", key="bus_speed_input")
 
 render_grid_questions(questions_a)
