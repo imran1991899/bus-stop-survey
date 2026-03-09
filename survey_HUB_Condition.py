@@ -73,25 +73,30 @@ def get_authenticated_service():
         return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
 
     # OAuth Flow
-    if "flow" not in st.session_state:
-        st.session_state.flow = Flow.from_client_secrets_file(
-            CLIENT_SECRETS_FILE, scopes=SCOPES, redirect_uri=REDIRECT_URI
-        )
+    flow = Flow.from_client_secrets_file(
+        CLIENT_SECRETS_FILE, scopes=SCOPES, redirect_uri=REDIRECT_URI
+    )
 
     if "code" in st.query_params:
         try:
-            st.session_state.flow.fetch_token(code=st.query_params["code"])
-            creds = st.session_state.flow.credentials
+            # FIX: Manually provide the verifier if it was lost in session
+            code_verifier = st.session_state.get("code_verifier")
+            flow.fetch_token(code=st.query_params["code"], code_verifier=code_verifier)
+            
+            creds = flow.credentials
             save_credentials(creds)
             st.session_state.creds = creds
             st.query_params.clear()
             st.rerun()
         except Exception as e:
             st.error(f"Auth Error: {e}")
-            del st.session_state.flow
             st.stop()
     else:
-        auth_url, _ = st.session_state.flow.authorization_url(prompt="consent", access_type="offline")
+        # FIX: Generate the authorization URL and the verifier explicitly
+        auth_url, code_verifier = flow.authorization_url(prompt="consent", access_type="offline")
+        # Store the verifier in session so it survives the redirect
+        st.session_state["code_verifier"] = code_verifier
+        
         st.info("Sila log masuk untuk meneruskan.")
         st.link_button("Login with Google", auth_url)
         st.stop()
