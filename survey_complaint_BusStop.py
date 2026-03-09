@@ -25,13 +25,11 @@ st.markdown("""
         color: #1D1D1F !important;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
     }
-
     label[data-testid="stWidgetLabel"] p {
         font-size: 18px !important;
         font-weight: 600 !important;
         color: #3A3A3C !important;
     }
-
     .custom-spinner {
         padding: 20px;
         background-color: #FFF9F0;
@@ -42,7 +40,6 @@ st.markdown("""
         font-weight: bold;
         margin-bottom: 20px;
     }
-
     div[role="radiogroup"] {
         background-color: #E3E3E8 !important; 
         padding: 6px !important; 
@@ -56,11 +53,9 @@ st.markdown("""
         max-width: 360px; 
         min-height: 58px !important; 
     }
-
     [data-testid="stWidgetSelectionVisualizer"] {
         display: none !important;
     }
-
     div[role="radiogroup"] label {
         background-color: transparent !important;
         border: none !important;
@@ -73,7 +68,6 @@ st.markdown("""
         align-items: center !important;
         margin: 0 !important;
     }
-
     div[role="radiogroup"] label p {
         font-size: 16px !important; 
         margin: 0 !important;
@@ -82,12 +76,10 @@ st.markdown("""
         color: #444444 !important; 
         font-weight: 700 !important; 
     }
-
     div[role="radiogroup"] label:has(input:checked) {
         background-color: #FFFFFF !important;
         box-shadow: 0px 4px 12px rgba(0,0,0,0.15) !important;
     }
-
     div.stButton > button {
         background-color: #007AFF !important;
         color: white !important;
@@ -99,21 +91,14 @@ st.markdown("""
         padding: 0 40px !important;
         width: 100%;
     }
-
     [data-testid="stCameraInput"] {
         border: 2px dashed #007AFF;
         border-radius: 20px; 
         padding: 10px;
     }
-    
     [data-testid="stCameraInput"] video {
         border-radius: 12px;
         object-fit: cover;
-    }
-
-    [data-testid="stCameraInput"] label div {
-        color: #007AFF !important;
-        font-weight: bold !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -129,34 +114,26 @@ def add_watermark(image_bytes, stop_name):
     img = Image.open(BytesIO(image_bytes)).convert("RGB")
     draw = ImageDraw.Draw(img)
     w, h = img.size
-    
     font_scale = int(w * 0.16) 
-    
     now = datetime.now(KL_TZ)
     time_str = now.strftime("%I:%M %p")
     info_str = f"{now.strftime('%d/%m/%y')} | {stop_name.upper()}"
-
     try:
         font_main = ImageFont.truetype("arialbd.ttf", font_scale)
         font_sub = ImageFont.truetype("arialbd.ttf", int(font_scale * 0.4))
     except:
         font_main = ImageFont.load_default()
         font_sub = ImageFont.load_default()
-
     margin_left = int(w * 0.02)
     margin_bottom = int(h * 0.02)
-
     sub_bbox = font_sub.getbbox(info_str)
     main_bbox = font_main.getbbox(time_str)
     sub_height = sub_bbox[3] - sub_bbox[1]
     main_height = main_bbox[3] - main_bbox[1]
-
     y_pos_sub = h - margin_bottom - sub_height
     y_pos_main = y_pos_sub - main_height - 10 
-
     draw.text((margin_left, y_pos_main), time_str, font=font_main, fill="orange")
     draw.text((margin_left, y_pos_sub), info_str, font=font_sub, fill="white")
-    
     img_byte_arr = BytesIO()
     img.save(img_byte_arr, format='JPEG', quality=95)
     return img_byte_arr.getvalue()
@@ -180,46 +157,38 @@ def load_credentials():
 def get_authenticated_service():
     creds = load_credentials()
     
-    # 1. Try to use existing valid credentials
     if creds and creds.valid:
         return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
     
-    # 2. If expired, try to refresh automatically (this is the "background" part)
     if creds and creds.expired and creds.refresh_token:
         try:
             creds.refresh(Request())
             save_credentials(creds)
             return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
         except Exception:
-            # Refresh token might be revoked or invalid; fall through to full login
             pass
 
-    # 3. Handle the OAuth flow
+    # Re-initialize flow
+    # We use state="1" to provide a consistent handshake even if session resets
     flow = Flow.from_client_secrets_file(CLIENT_SECRETS_FILE, scopes=SCOPES, redirect_uri=REDIRECT_URI)
     
-    # Check if we have the 'code' in the URL
-    params = st.query_params
-    auth_code = params.get("code")
+    auth_code = st.query_params.get("code")
     
     if auth_code:
         try:
-            # We must exchange the code for a token
+            # FIX: Using the flow object created in this rerun to fetch token
             flow.fetch_token(code=auth_code)
             creds = flow.credentials
             save_credentials(creds)
-            # IMPORTANT: Clear the code from the URL so it doesn't trigger 'invalid_grant' on rerun
             st.query_params.clear() 
-            st.rerun() # Refresh to start fresh with valid creds
+            st.rerun()
         except Exception as e:
-            # If the code was already used or expired, clear it and show login
             st.query_params.clear()
-            auth_url, _ = flow.authorization_url(prompt="consent", access_type="offline")
-            st.markdown(f"### Authentication Error\nYour session expired. [Please log in again]({auth_url})")
+            auth_url, _ = flow.authorization_url(prompt="consent", access_type="offline", state="1")
+            st.markdown(f"### Session Reset\n[Please click here to log in again]({auth_url})")
             st.stop()
     else:
-        # No credentials and no code in URL: show the login button
-        # 'access_type="offline"' is critical to get a refresh_token
-        auth_url, _ = flow.authorization_url(prompt="consent", access_type="offline", include_granted_scopes="true")
+        auth_url, _ = flow.authorization_url(prompt="consent", access_type="offline", state="1")
         st.markdown(f"### Authentication Required\n[Please log in with Google]({auth_url})")
         st.stop()
 
@@ -249,14 +218,12 @@ def append_row(sheet_id, row, header):
 # --------- Data Preparation ---------
 routes_df = pd.read_excel("bus_data.xlsx", sheet_name="routes")
 stops_df = pd.read_excel("bus_data.xlsx", sheet_name="stops")
-
 all_available_stops = sorted(stops_df["Stop Name"].dropna().unique().tolist())
 
 try:
     bus_df = pd.read_excel("bus_list.xlsx", sheet_name="bus list", usecols=[1])
     bus_list = sorted(bus_df.iloc[:, 0].dropna().astype(str).unique().tolist())
-except Exception as e:
-    st.error(f"Error loading bus_list.xlsx: {e}")
+except:
     bus_list = []
 
 staff_dict = {"10005475": "MOHD RIZAL BIN RAMLI", "10020779": "NUR FAEZAH BINTI HARUN", "10014181": "NORAINSYIRAH BINTI ARIFFIN", "10022768": "NORAZHA RAFFIZZI ZORKORNAINI", "10022769": "NUR HANIM HANIL", "10023845": "MUHAMMAD HAMKA BIN ROSLIM", "10002059": "MUHAMAD NIZAM BIN IBRAHIM", "10005562": "AZFAR NASRI BIN BURHAN", "10010659": "MOHD SHAFIEE BIN ABDULLAH", "10008350": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN", "10003214": "NIK MOHD FADIR BIN NIK MAT RAWI", "10016370": "AHMAD AZIM BIN ISA", "10022910": "NUR SHAHIDA BINTI MOHD TAMIJI ", "10023513": "MUHAMMAD SYAHMI BIN AZMEY", "10023273": "MOHD IDZHAM BIN ABU BAKAR", "10023577": "MOHAMAD NAIM MOHAMAD SAPRI", "10023853": "MUHAMAD IMRAN BIN MOHD NASRUDDIN", "10008842": "MIRAN NURSYAWALNI AMIR", "10015662": "MUHAMMAD HANDIF BIN HASHIM", "10011944": "NUR HAZIRAH BINTI NAWI"}
@@ -314,7 +281,6 @@ def render_grid_questions(q_list):
                 st.session_state.responses[q] = st.radio(label=q, options=opts, index=None, key=f"r_{q}", horizontal=True, label_visibility="collapsed")
 
 st.subheader("A. KELAKUAN KAPTEN BAS")
-
 col_bc1, col_bc2, col_bc3 = st.columns(3)
 with col_bc1:
     bc_id_input = st.number_input("BC id:", value=None, step=1, placeholder="Number only (optional)", key="bc_id_input")
@@ -342,7 +308,6 @@ st.subheader("B. KEADAAN HENTIAN BAS")
 render_grid_questions(questions_b)
 st.divider()
 
-# --------- Media Section ---------
 st.subheader("📸 Media Upload (3 Items Required)")
 current_media_count = len(st.session_state.photos) + len(st.session_state.videos)
 
@@ -383,7 +348,6 @@ if st.session_state.photos or st.session_state.videos:
 
 st.divider()
 
-# --------- Submit Logic ---------
 if st.button("Submit Survey"):
     total_media = len(st.session_state.photos) + len(st.session_state.videos)
     check_responses = [st.session_state.responses[q] for q in questions_a + ["Ada Penumpang?"] + questions_b]
@@ -398,8 +362,8 @@ if st.button("Submit Survey"):
             now_kl = datetime.now(KL_TZ)
             timestamp_str = now_kl.strftime("%Y%m%d_%H%M%S")
             safe_stop_name = re.sub(r'[^a-zA-Z0-9]', '_', stop)
-            
             media_urls = []
+
             for idx, p in enumerate(st.session_state.photos):
                 processed_bytes = add_watermark(p.getvalue(), stop)
                 url = gdrive_upload_file(processed_bytes, f"{safe_stop_name}_{timestamp_str}_IMG_{idx+1}.jpg", "image/jpeg", FOLDER_ID)
@@ -415,15 +379,12 @@ if st.button("Submit Survey"):
             row_data = [final_ts, staff_id, staff_dict[staff_id], current_depot, current_route, stop, selected_bus] + \
                         [st.session_state.responses[q] for q in all_questions] + ["; ".join(media_urls)]
             
-            while len(row_data) < 30:
-                row_data.append("")
-            
+            while len(row_data) < 30: row_data.append("")
             row_data.insert(30, bus_speed if bus_speed is not None else "")
             row_data.insert(31, bc_id_input if bc_id_input is not None else "")
             
             header_data = ["Timestamp", "Staff ID", "Staff Name", "Depot", "Route", "Bus Stop", "Bus Register No"] + all_questions + ["Media Links"]
-            while len(header_data) < 30:
-                header_data.append("")
+            while len(header_data) < 30: header_data.append("")
             header_data.insert(30, "Kelajuan Bas (km/h)")
             header_data.insert(31, "BC ID")
 
