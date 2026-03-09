@@ -186,19 +186,42 @@ def load_credentials():
     return None
 
 def get_authenticated_service():
-    creds = load_credentials()
-    if creds and creds.valid:
+    # Use session state to cache credentials to avoid re-fetching on rerun
+    if "creds" in st.session_state and st.session_state.creds.valid:
+        creds = st.session_state.creds
         return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
+
+    creds = load_credentials()
+    
     if creds and creds.expired and creds.refresh_token:
-        creds.refresh(Request()); save_credentials(creds)
+        try:
+            creds.refresh(Request())
+            save_credentials(creds)
+        except Exception:
+            creds = None # Force re-auth if refresh fails
+
+    if creds and creds.valid:
+        st.session_state.creds = creds
         return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
     
     flow = Flow.from_client_secrets_file(CLIENT_SECRETS_FILE, scopes=SCOPES, redirect_uri="https://bus-stop-survey-fwaavwf7uxvxrfbjeqv9nq.streamlit.app/")
+    
     if "code" in st.query_params:
-        full_url = "https://bus-stop-survey-fwaavwf7uxvxrfbjeqv9nq.streamlit.app/?" + urlencode(st.query_params)
-        flow.fetch_token(authorization_response=full_url)
-        creds = flow.credentials; save_credentials(creds)
-        return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
+        try:
+            # We must only call fetch_token once per code.
+            full_url = "https://bus-stop-survey-fwaavwf7uxvxrfbjeqv9nq.streamlit.app/?" + urlencode(st.query_params)
+            flow.fetch_token(authorization_response=full_url)
+            creds = flow.credentials
+            save_credentials(creds)
+            st.session_state.creds = creds
+            # Clear query params so we don't try to use the same code again on next rerun
+            st.query_params.clear()
+            return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
+        except Exception as e:
+            st.error(f"Authentication failed: {e}. Please try logging in again.")
+            st.query_params.clear()
+            time.sleep(2)
+            st.rerun()
     else:
         auth_url, _ = flow.authorization_url(prompt="consent")
         st.markdown(f"### Authentication Required\n[Please log in with Google]({auth_url})")
@@ -315,7 +338,7 @@ with col4:
     kesesakan = st.radio("19. Risiko Kesesakan - Kemudahan Hub", ["Rendah", "Sederhana", "Tinggi"], index=None, horizontal=True)
     trafik = st.radio("20. Keselamatan Trafik - Kemudahan Hub", ["Selamat", "Kurang Selamat", "Tidak Selamat"], index=None, horizontal=True)
     lain_lain = st.text_input("21. Lain - lain - Kemudahan Hub")
-    cadangan = st.radio("22. Cadangan Tindakan dari pihak pemerhati", ["Masukkan dalam APO dan dibenarkan enjin hidup", "Tidak masukkan dalam APO dan tidak dibenarkan enjin hidup"], index=None, horizontal=True)
+    cadangan = st.radio("22. Cadangan Tindakan dari pihak pemerhati", ["Masukkan dalam APO and dibenarkan enjin hidup", "Tidak masukkan dalam APO and tidak dibenarkan enjin hidup"], index=None, horizontal=True)
     kategori_hub = st.radio("23. Kategori Hub (cadangan)", [
         "Kategori A : Ada hub dan ada kemudahan",
         "Kategori B : Ada hub and kemudahan tidak cukup",
