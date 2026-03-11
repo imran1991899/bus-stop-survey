@@ -1,4 +1,4 @@
-name: Keep App Awake
+name: mainBusStopProfilingAwake
 
 on:
   schedule:
