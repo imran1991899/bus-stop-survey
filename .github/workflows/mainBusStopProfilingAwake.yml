@@ -13,7 +13,7 @@ jobs:
         run: |
           # The -I flag gets the Header. The -L flag follows redirects (303/302).
           # We add a timestamp to the URL to bypass any caching.
-          RESPONSE=$(curl -I -L -s "https://bus-stop-survey-dpl6qeby3stuvpiexjhovk.streamlit.app/?t=$(date +%s)" | head -n 1)
+          RESPONSE=$(curl -I -L -s "https://bus-stop-survey-dpl6qeby3stuvpiexjhovk.streamlit.app?t=$(date +%s)" | head -n 1)
           echo "Status: $RESPONSE"
           
       - name: Log Activity
