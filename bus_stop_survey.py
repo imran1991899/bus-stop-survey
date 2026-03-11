@@ -37,71 +37,73 @@ SCOPES = [
 ]
 
 CLIENT_SECRETS_FILE = 'client_secrets.json'
+# Ensure this matches your Streamlit Cloud URL exactly
+REDIRECT_URI = 'https://bus-stop-survey-dpl6qeby3stuvpiexjhovk.streamlit.app/'
 
 def save_credentials(credentials):
     with open('token.pickle', 'wb') as token:
         pickle.dump(credentials, token)
 
 def load_credentials():
-    creds = None
     if os.path.exists('token.pickle'):
         with open('token.pickle', 'rb') as token:
-            creds = pickle.load(token)
-    return creds
+            return pickle.load(token)
+    return None
 
 def get_authenticated_service():
     creds = load_credentials()
+    
+    # 1. Valid credentials exist
     if creds and creds.valid:
-        drive_service = build('drive', 'v3', credentials=creds)
-        sheets_service = build('sheets', 'v4', credentials=creds)
-        return drive_service, sheets_service
+        return build('drive', 'v3', credentials=creds), build('sheets', 'v4', credentials=creds)
 
+    # 2. Expired but refreshable
     if creds and creds.expired and creds.refresh_token:
-        creds.refresh(Request())
-        save_credentials(creds)
-        drive_service = build('drive', 'v3', credentials=creds)
-        sheets_service = build('sheets', 'v4', credentials=creds)
-        return drive_service, sheets_service
+        try:
+            creds.refresh(Request())
+            save_credentials(creds)
+            return build('drive', 'v3', credentials=creds), build('sheets', 'v4', credentials=creds)
+        except Exception:
+            pass
 
-    if "oauth_flow" not in st.session_state:
-        flow = Flow.from_client_secrets_file(
-            CLIENT_SECRETS_FILE,
-            scopes=SCOPES,
-            redirect_uri='https://bus-stop-survey-dpl6qeby3stuvpiexjhovk.streamlit.app/'
-        )
-        st.session_state.oauth_flow = flow
-    else:
-        flow = st.session_state.oauth_flow
-
+    # 3. Handle OAuth Handshake
+    flow = Flow.from_client_secrets_file(CLIENT_SECRETS_FILE, scopes=SCOPES, redirect_uri=REDIRECT_URI)
+    
     query_params = st.query_params
 
     if "code" in query_params:
-        try:
-            base_url = st.runtime.scriptrunner.get_script_run_ctx().session_info.app_url
-        except Exception:
-            base_url = 'https://bus-stop-survey-dpl6qeby3stuvpiexjhovk.streamlit.app/'
-
-        flat_params = {k: v[0] if isinstance(v, list) else v for k, v in query_params.items()}
-        full_url = base_url
-        if flat_params:
-            full_url += "?" + urlencode(flat_params)
-
-        try:
-            flow.fetch_token(authorization_response=full_url)
-            creds = flow.credentials
-            save_credentials(creds)
-            del st.session_state.oauth_flow
-        except Exception as e:
-            st.error(f"Authentication failed: {e}")
-            st.stop()
+        # Check for the verifier file saved before redirect
+        if os.path.exists("verifier.tmp"):
+            with open("verifier.tmp", "r") as f:
+                flow.code_verifier = f.read()
+            try:
+                # Reconstruct the response URL for the library
+                full_url = REDIRECT_URI + "?" + urlencode(query_params)
+                flow.fetch_token(authorization_response=full_url)
+                save_credentials(flow.credentials)
+                
+                # Cleanup
+                if os.path.exists("verifier.tmp"):
+                    os.remove("verifier.tmp")
+                
+                st.query_params.clear()
+                st.rerun()
+            except Exception as e:
+                st.error(f"Handshake failed: {e}")
+                st.stop()
+        else:
+            st.warning("Session verifier lost. Restarting login...")
+            time.sleep(2)
+            st.query_params.clear()
+            st.rerun()
     else:
-        auth_url, _ = flow.authorization_url(prompt='consent')
-        st.markdown(f"[Authenticate here]({auth_url})")
+        # Initial step: Generate Auth URL and save verifier to disk
+        auth_url, _ = flow.authorization_url(prompt='consent', access_type="offline", include_granted_scopes="true")
+        with open("verifier.tmp", "w") as f:
+            f.write(flow.code_verifier)
+        
+        st.markdown(f"### Authentication Required\n[🔴 Click Here to Login with Google]({auth_url})")
         st.stop()
-
-    drive_service = build('drive', 'v3', credentials=creds)
-    sheets_service = build('sheets', 'v4', credentials=creds)
-    return drive_service, sheets_service
 
 # --------- Google API Setup ---------
 drive_service, sheets_service = get_authenticated_service()
@@ -200,7 +202,6 @@ for key, default in {
     if key not in st.session_state:
         st.session_state[key] = default
 
-# Function to handle radio state changes instantly
 def handle_ground_status_change():
     st.session_state.ground_status = st.session_state.temp_ground_status
     if st.session_state.ground_status == "Tiada Isu":
@@ -262,8 +263,6 @@ activity_category = st.selectbox("5️⃣ Categorizing Activities", activity_opt
     index=activity_options.index(st.session_state.activity_category) if st.session_state.activity_category in activity_options else 0)
 st.session_state.activity_category = activity_category
 
-# --------- Specific Situational Conditions Logic ---------
-
 if activity_category == "1. On Board in the Bus":
     onboard_options = ["1. Tiada penumpang menunggu", "2. Tiada isyarat (penumpang tidak menahan bas)", "3. Tidak berhenti/memperlahankan bas", "4. Salah tempat menunggu", "5. Bas penuh", "6. Mengejar masa waybill (punctuality)", "7. Kesesakan lalu lintas", "8. Kekeliruan laluan oleh pemandu baru", "9. Terdapat laluan tutup atas sebab tertentu (baiki jalan, pokok tumbang, lawatan delegasi)", "10. Hentian terlalu hampir simpang masuk", "11. Hentian berdekatan dengan traffic light", "12. Other (Please specify below)", "13. Remarks"]
     
@@ -282,8 +281,6 @@ if activity_category == "1. On Board in the Bus":
 
 elif activity_category == "2. On Ground Location":
     st.markdown("6️⃣ Ground Assessment")
-    
-    # Use key and on_change to prevent jumpy UI
     ground_status_options = ["", "Tiada Isu", "Isu"]
     st.radio(
         "Is there an issue?", 
@@ -306,12 +303,10 @@ elif activity_category == "2. On Ground Location":
             else:
                 st.session_state.specific_conditions.discard(opt)
 
-# Handle 'Other' text area
 if any("Other" in s for s in st.session_state.specific_conditions):
     other_text = st.text_area("📝 Please describe 'Other' (min 2 words)", height=150, value=st.session_state.other_text)
     st.session_state.other_text = other_text
 
-# --------- Photo Section ---------
 st.markdown("7️⃣ Add up to 5 Photos")
 if len(st.session_state.photos) < 5:
     photo = st.camera_input(f"📷 Take Photo #{len(st.session_state.photos) + 1}")
@@ -335,13 +330,11 @@ if st.session_state.photos:
         st.session_state.photos.pop(to_delete)
         st.rerun()
 
-# 8. Daytime/Nighttime Dropdown
 time_options = ["", "Daytime", "Nighttime"]
 current_time_val = st.session_state.time_of_day if st.session_state.time_of_day in time_options else ""
 selected_time = st.selectbox("8️⃣ Daytime / Nighttime", time_options, index=time_options.index(current_time_val))
 st.session_state.time_of_day = selected_time
 
-# --------- Submit ---------
 with st.form(key="submit_form"):
     submit = st.form_submit_button("✅ Submit Survey")
     if submit:
@@ -355,9 +348,7 @@ with st.form(key="submit_form"):
             st.warning("❗ Please provide an assessment in Section 6.")
         else:
             try:
-                # UPDATED: Using MALAYSIA_ZONE for the timestamp
                 timestamp = datetime.now(MALAYSIA_ZONE).strftime("%Y-%m-%d %H:%M:%S")
-                
                 photo_links = []
                 for idx, img in enumerate(st.session_state.photos):
                     content = img.getvalue() if hasattr(img, "getvalue") else img.read()
@@ -366,27 +357,20 @@ with st.form(key="submit_form"):
                     photo_links.append(link)
 
                 cond_list = list(st.session_state.specific_conditions)
-                
                 row = [
                     timestamp, staff_id, selected_depot, selected_route, 
                     selected_stop, condition, activity_category, 
                     "; ".join(cond_list), "; ".join(photo_links),
                     "", "", "", "", st.session_state.time_of_day
                 ]
-                
                 header = ["Timestamp", "Staff ID", "Depot", "Route", "Bus Stop", "Condition", "Activity", "Situational Conditions", "Photos", "Empty1", "Empty2", "Empty3", "Empty4", "Day/Night"]
 
                 gsheet_id = find_or_create_gsheet("survey_responses", FOLDER_ID)
                 append_row_to_gsheet(gsheet_id, row, header)
 
                 st.session_state.update({"activity_category": "", "specific_conditions": set(), "ground_status": "", "other_text": "", "photos": [], "show_success": True, "time_of_day": None})
+                st.success("Form Submitted Successfully!")
+                time.sleep(2)
                 st.rerun()
             except Exception as e:
-                st.error(f"❌ Failed to submit: {e}")
-
-if st.session_state.get("show_success", False):
-    st.success("✅ Submission complete!")
-    time.sleep(2)
-    st.session_state["show_success"] = False
-
-st.components.v1.html("""<script>setInterval(() => {fetch('/_stcore/health');}, 300000);</script>""", height=0)
+                st.error(f"Error during submission: {e}")
