@@ -1,0 +1,20 @@
+name: Keep App Awake2
+
+on:
+  schedule:
+    - cron: '0 */3 * * *' # Runs every 6 hours
+  workflow_dispatch:      # Allows you to click a button to test it manually
+
+jobs:
+  ping_app:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Ping to Streamlit
+        run: |
+          # The -I flag gets the Header. The -L flag follows redirects (303/302).
+          # We add a timestamp to the URL to bypass any caching.
+          RESPONSE=$(curl -I -L -s "https://bus-stop-survey-dpl6qeby3stuvpiexjhovk.streamlit.app//?t=$(date +%s)" | head -n 1)
+          echo "Status: $RESPONSE"
+          
+      - name: Log Activity
+        run: echo "Ping sent at $(date)"
