@@ -2,7 +2,7 @@ name: Keep App Awake2
 
 on:
   schedule:
-    - cron: '0 */10 * * *' # Runs every 6 hours
+    - cron: '0 */6 * * *' # Runs every 6 hours
   workflow_dispatch:      # Allows you to click a button to test it manually
 
 jobs:
