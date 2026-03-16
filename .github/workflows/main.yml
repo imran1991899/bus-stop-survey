@@ -3,7 +3,7 @@ name: Keep App Awake Stealth
 on:
   schedule:
     - cron: '0 * * * *' # Triggers every hour to check if it should ping
-  workflow_dispatch:      # Allows you to click a button to test it manually
+  workflow_dispatch:      # Manual trigger for testing
 
 jobs:
   ping_app:
@@ -12,12 +12,12 @@ jobs:
       - name: Random Probability Gate
         id: gate
         run: |
-          # Generates a random number 1, 2, or 3
-          # This creates the variety in intervals (sometimes 1hr, 3hr, etc.)
+          # Generate a random number 1, 2, or 3
+          # This creates the variety in intervals (sometimes 1hr, sometimes 3hr+)
           CHANCE=$(( ( RANDOM % 3 ) + 1 ))
           if [ "$CHANCE" -eq 1 ]; then
             echo "run_ping=true" >> $GITHUB_OUTPUT
-            echo "Decision: The dice rolled 1. Proceeding with ping."
+            echo "Decision: The dice rolled 1. Sending ping."
           else
             echo "run_ping=false" >> $GITHUB_OUTPUT
             echo "Decision: Skipping this hour to vary pattern."
@@ -28,18 +28,15 @@ jobs:
         run: |
           # 1. Random delay (1 to 15 minutes) so pings don't happen at :00 sharp
           DELAY=$(( ( RANDOM % 900 ) + 1 ))
-          echo "Waiting $DELAY seconds before sending request..."
+          echo "Waiting $DELAY seconds before pinging..."
           sleep $DELAY
           
-          # 2. Perform the ping with Browser Headers to avoid bot detection
-          # -I: Get headers only
-          # -L: Follow redirects
-          # -H: Spoof a real Windows Chrome browser
-          RESPONSE=$(curl -I -L -s \
+          # 2. Perform the ping with Browser Headers
+          # We use a common Chrome User-Agent and a fake Referer (Google)
+          curl -I -L -s \
             -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
             -H "Accept-Language: en-US,en;q=0.9" \
             -H "Referer: https://www.google.com/" \
-            "https://bus-stop-survey-99f8wusughejfcfvrvxmyl.streamlit.app/?t=$(date +%s)" | head -n 1)
+            "https://bus-stop-survey-dpl6qeby3stuvpiexjhovk.streamlit.app/?t=$(date +%s)" | head -n 20
           
-          echo "Status: $RESPONSE"
           echo "Ping completed at $(date)"
