@@ -9,14 +9,22 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Instant Stealth Ping
+      - name: Check App Status
         run: |
-          # We removed -L to prevent the redirect loop (Error 47)
-          # We use --head to just "knock on the door" without downloading the whole page
-          
-          curl -s --head \
+          # We capture the HTTP status code (e.g., 200, 302)
+          # -o /dev/null hides the body, but -w prints the status code
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --head \
             -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36" \
             -H "Referer: https://www.google.com/" \
-            "https://bus-stop-survey-dpl6qeby3stuvpiexjhovk.streamlit.app/" > /dev/null
-          
-          echo "Ping sent successfully at $(date). App is being kept awake."
+            "https://bus-stop-survey-dpl6qeby3stuvpiexjhovk.streamlit.app/")
+
+          echo "Server Response Code: $STATUS"
+
+          if [ "$STATUS" -eq 200 ] || [ "$STATUS" -eq 302 ]; then
+            echo "✅ SUCCESS: The app is awake and responding!"
+          elif [ "$STATUS" -eq 000 ]; then
+            echo "❌ ERROR: Could not connect to the server at all."
+            exit 1
+          else
+            echo "⚠️ WARNING: The app returned code $STATUS. It might be sleeping or erroring."
+          fi
