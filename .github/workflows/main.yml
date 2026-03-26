@@ -1,42 +1,31 @@
-name: Keep App Awake Stealth
+name: Stealth Keep-Alive
 
 on:
   schedule:
-    - cron: '0 * * * *' # Triggers every hour to check if it should ping
-  workflow_dispatch:      # Manual trigger for testing
+    - cron: '0 * * * *' # Triggers at the top of every hour
+  workflow_dispatch:
 
 jobs:
-  ping_app:
+  ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Random Probability Gate
-        id: gate
+      - name: Wait for Random Minute (25, 35, or 45)
         run: |
-          # Generate a random number 1, 2, or 3
-          # This creates the variety in intervals (sometimes 1hr, sometimes 3hr+)
-          CHANCE=$(( ( RANDOM % 3 ) + 1 ))
-          if [ "$CHANCE" -eq 1 ]; then
-            echo "run_ping=true" >> $GITHUB_OUTPUT
-            echo "Decision: The dice rolled 1. Sending ping."
-          else
-            echo "run_ping=false" >> $GITHUB_OUTPUT
-            echo "Decision: Skipping this hour to vary pattern."
-          fi
+          # 1. Choose one of the three target minutes
+          MINUTES=(25 35 45)
+          TARGET_MIN=${MINUTES[$RANDOM % ${#MINUTES[@]}]}
+          
+          # 2. Calculate seconds to sleep (Minute * 60)
+          # We add a few extra random seconds (1-30) so it's not exactly :00
+          SLEEP_SECONDS=$(( (TARGET_MIN * 60) + (RANDOM % 30) ))
+          
+          echo "Targeting the ${TARGET_MIN}th minute. Sleeping for $SLEEP_SECONDS seconds..."
+          sleep $SLEEP_SECONDS
 
-      - name: Stealth Ping to Streamlit
-        if: steps.gate.outputs.run_ping == 'true'
-        run: |
-          # 1. Random delay (1 to 15 minutes) so pings don't happen at :00 sharp
-          DELAY=$(( ( RANDOM % 900 ) + 1 ))
-          echo "Waiting $DELAY seconds before pinging..."
-          sleep $DELAY
-          
-          # 2. Perform the ping with Browser Headers
-          # We use a common Chrome User-Agent and a fake Referer (Google)
-          curl -I -L -s \
-            -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
-            -H "Accept-Language: en-US,en;q=0.9" \
+          # 3. Execute the Stealth Ping
+          curl -s -L \
+            -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36" \
             -H "Referer: https://www.google.com/" \
-             "https://bus-stop-survey-dpl6qeby3stuvpiexjhovk.streamlit.app/?state=HxBK6diBD8maX9FMVT7VrZX9xLTsg6&iss=https://accounts.google.com&code=4/0AfrIepB31O8kYV23igKSLezvh5ZzykjaZaLjfXnjvJ9c120UdKPVWF7F3oKAdeQDTXVMkg&scope=https://www.googleapis.com/auth/drive.file%20https://www.googleapis.com/auth/spreadsheets" | head -n 20
-          
-          echo "Ping completed at $(date)"
+            "https://bus-stop-survey-dpl6qeby3stuvpiexjhovk.streamlit.app/" > /dev/null
+
+          echo "Ping sent at $(date)"
