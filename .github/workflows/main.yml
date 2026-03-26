@@ -11,14 +11,12 @@ jobs:
     steps:
       - name: Instant Stealth Ping
         run: |
-          # --max-redirs 100: Fixes Error 47
-          # --retry 3: Retries if the server is momentarily busy
-          # -f: Fails silently so your logs stay clean
+          # We removed -L to prevent the redirect loop (Error 47)
+          # We use --head to just "knock on the door" without downloading the whole page
           
-          curl -s -L --max-redirs 100 -f \
+          curl -s --head \
             -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36" \
             -H "Referer: https://www.google.com/" \
-            -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8" \
             "https://bus-stop-survey-dpl6qeby3stuvpiexjhovk.streamlit.app/" > /dev/null
           
-          echo "Ping successful at $(date)"
+          echo "Ping sent successfully at $(date). App is being kept awake."
