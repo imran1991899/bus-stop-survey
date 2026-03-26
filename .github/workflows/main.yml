@@ -2,30 +2,21 @@ name: Stealth Keep-Alive
 
 on:
   schedule:
-    - cron: '0 * * * *' # Triggers at the top of every hour
+    # Pick ONE of these and delete the others, or GitHub will run all three.
+    # - cron: '25 * * * *'  # Runs at :25 every hour
+    # - cron: '35 * * * *'  # Runs at :35 every hour
+    - cron: '45 * * * *'    # Runs at :45 every hour
   workflow_dispatch:
 
 jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Wait for Random Minute (25, 35, or 45)
+      - name: Instant Stealth Ping
         run: |
-          # 1. Choose one of the three target minutes
-          MINUTES=(25 35 45)
-          TARGET_MIN=${MINUTES[$RANDOM % ${#MINUTES[@]}]}
-          
-          # 2. Calculate seconds to sleep (Minute * 60)
-          # We add a few extra random seconds (1-30) so it's not exactly :00
-          SLEEP_SECONDS=$(( (TARGET_MIN * 60) + (RANDOM % 30) ))
-          
-          echo "Targeting the ${TARGET_MIN}th minute. Sleeping for $SLEEP_SECONDS seconds..."
-          sleep $SLEEP_SECONDS
-
-          # 3. Execute the Stealth Ping
           curl -s -L \
             -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36" \
             -H "Referer: https://www.google.com/" \
             "https://bus-stop-survey-dpl6qeby3stuvpiexjhovk.streamlit.app/" > /dev/null
-
-          echo "Ping sent at $(date)"
+          
+          echo "Ping sent instantly at $(date)"
