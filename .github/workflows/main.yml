@@ -2,10 +2,7 @@ name: Stealth Keep-Alive
 
 on:
   schedule:
-    # Pick ONE of these and delete the others, or GitHub will run all three.
-    # - cron: '25 * * * *'  # Runs at :25 every hour
-    # - cron: '35 * * * *'  # Runs at :35 every hour
-    - cron: '45 * * * *'    # Runs at :45 every hour
+    - cron: '45 * * * *' 
   workflow_dispatch:
 
 jobs:
@@ -14,9 +11,14 @@ jobs:
     steps:
       - name: Instant Stealth Ping
         run: |
-          curl -s -L \
+          # --max-redirs 100: Fixes Error 47
+          # --retry 3: Retries if the server is momentarily busy
+          # -f: Fails silently so your logs stay clean
+          
+          curl -s -L --max-redirs 100 -f \
             -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36" \
             -H "Referer: https://www.google.com/" \
+            -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8" \
             "https://bus-stop-survey-dpl6qeby3stuvpiexjhovk.streamlit.app/" > /dev/null
           
-          echo "Ping sent instantly at $(date)"
+          echo "Ping successful at $(date)"
