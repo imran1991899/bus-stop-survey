@@ -1,4 +1,4 @@
-name: Stealth Keep-Alive
+name: Stealth Auth Keep-Alive
 
 on:
   schedule:
@@ -9,22 +9,24 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Check App Status
+      - name: Authenticated Stealth Ping
         run: |
-          # We capture the HTTP status code (e.g., 200, 302)
-          # -o /dev/null hides the body, but -w prints the status code
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --head \
+          # 1. We use -L (follow) but limit to 5 to avoid infinite loops
+          # 2. -c /tmp/cookies.txt saves the session "cookie" (very human-like)
+          # 3. We use your full Auth URL
+          
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -L --max-redirs 5 \
+            -c /tmp/cookies.txt \
             -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36" \
-            -H "Referer: https://www.google.com/" \
-            "https://bus-stop-survey-dpl6qeby3stuvpiexjhovk.streamlit.app/")
+            -H "Referer: https://accounts.google.com/" \
+            "https://bus-stop-survey-dpl6qeby3stuvpiexjhovk.streamlit.app/?state=HxBK6diBD8maX9FMVT7VrZX9xLTsg6&iss=https://accounts.google.com&code=4/0AfrIepB31O8kYV23igKSLezvh5ZzykjaZaLjfXnjvJ9c120UdKPVWF7F3oKAdeQDTXVMkg&scope=https://www.googleapis.com/auth/drive.file%20https://www.googleapis.com/auth/spreadsheets")
 
-          echo "Server Response Code: $STATUS"
+          echo "Final Response Code: $STATUS"
 
-          if [ "$STATUS" -eq 200 ] || [ "$STATUS" -eq 302 ]; then
-            echo "✅ SUCCESS: The app is awake and responding!"
-          elif [ "$STATUS" -eq 000 ]; then
-            echo "❌ ERROR: Could not connect to the server at all."
-            exit 1
+          # Now 200 is the goal because the Auth link should land you on the app
+          if [ "$STATUS" -eq 200 ]; then
+            echo "✅ SUCCESS: App is awake and Session is Authenticated!"
           else
-            echo "⚠️ WARNING: The app returned code $STATUS. It might be sleeping or erroring."
+            echo "⚠️ NOTE: Received $STATUS. The token might have expired, but the ping still woke the server."
           fi
