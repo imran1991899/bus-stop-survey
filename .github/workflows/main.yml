@@ -2,7 +2,7 @@ name: Stealth Auth Keep-Alive
 
 on:
   schedule:
-    - cron: '45 * * * *' 
+    - cron: '35 * * * *' 
   workflow_dispatch:
 
 jobs:
