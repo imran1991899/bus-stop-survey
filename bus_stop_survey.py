@@ -352,13 +352,7 @@ with st.form(key="submit_form"):
                 photo_links = []
                 for idx, img in enumerate(st.session_state.photos):
                 content = img.getvalue() if hasattr(img, "getvalue") else img.read()
-    
-                # Sanitize the stop name to remove characters that might break file paths (optional but recommended)
-                clean_stop_name = "".join([c for c in selected_stop if c.isalnum() or c in (' ', '_', '-')]).strip()
-    
-                # New filename format: [Timestamp]_[Stop Name]_photo[Number].jpg
-                filename = f"{timestamp}_{clean_stop_name}_photo{idx+1}.jpg"
-    
+                filename = f"{timestamp}_photo{idx+1}.jpg" # <--- THIS LINE
                 link, _ = gdrive_upload_file(content, filename, "image/jpeg", FOLDER_ID)
                 photo_links.append(link)
 
