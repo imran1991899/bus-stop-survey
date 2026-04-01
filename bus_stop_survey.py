@@ -350,11 +350,21 @@ with st.form(key="submit_form"):
             try:
                 timestamp = datetime.now(MALAYSIA_ZONE).strftime("%Y-%m-%d %H:%M:%S")
                 photo_links = []
+                # --- CORRECTED BLOCK ---
+                photo_links = []
                 for idx, img in enumerate(st.session_state.photos):
-                content = img.getvalue() if hasattr(img, "getvalue") else img.read()
-                filename = f"{timestamp}_photo{idx+1}.jpg"
-                link, _ = gdrive_upload_file(content, filename, "image/jpeg", FOLDER_ID)
-                photo_links.append(link)
+                    # These lines MUST be indented more than the 'for' above
+                    content = img.getvalue() if hasattr(img, "getvalue") else img.read()
+                    
+                    # Sanitize the stop name (removes characters like / or : that break filenames)
+                    clean_stop = "".join([c for c in selected_stop if c.isalnum() or c in (' ', '_', '-')]).strip()
+                    
+                    # This creates the new filename format you wanted
+                    filename = f"{timestamp}_{clean_stop}_photo{idx+1}.jpg"
+                    
+                    link, _ = gdrive_upload_file(content, filename, "image/jpeg", FOLDER_ID)
+                    photo_links.append(link)
+                # --- END OF BLOCK ---
                 
                 cond_list = list(st.session_state.specific_conditions)
                 row = [
