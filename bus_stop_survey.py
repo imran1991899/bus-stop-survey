@@ -355,7 +355,7 @@ with st.form(key="submit_form"):
                 filename = f"{timestamp}_photo{idx+1}.jpg" # <--- THIS LINE
                 link, _ = gdrive_upload_file(content, filename, "image/jpeg", FOLDER_ID)
                 photo_links.append(link)
-
+                
                 cond_list = list(st.session_state.specific_conditions)
                 row = [
                     timestamp, staff_id, selected_depot, selected_route, 
