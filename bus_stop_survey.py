@@ -352,7 +352,7 @@ with st.form(key="submit_form"):
                 photo_links = []
                 for idx, img in enumerate(st.session_state.photos):
                 content = img.getvalue() if hasattr(img, "getvalue") else img.read()
-                filename = f"{timestamp}_photo{idx+1}.jpg" # <--- THIS LINE
+                filename = f"{timestamp}_photo{idx+1}.jpg"
                 link, _ = gdrive_upload_file(content, filename, "image/jpeg", FOLDER_ID)
                 photo_links.append(link)
                 
