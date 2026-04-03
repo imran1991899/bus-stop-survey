@@ -2,7 +2,7 @@ name: Stealth Auth Keep-Alive
 
 on:
   schedule:
-    - cron: '47 * * * *' # Random minute to look human
+    - cron: '47 * * * *' 
   workflow_dispatch:
 
 jobs:
@@ -12,6 +12,8 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      # We add a step to ensure the browsers are fully installed 
+      # and the environment is clean
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
@@ -28,14 +30,14 @@ jobs:
           import time
           import random
           from playwright.sync_api import sync_playwright
-          # FIX: Import the function specifically to avoid 'module not callable' error
-          from playwright_stealth import stealth
+          import playwright_stealth # Use direct import
 
           def run_stealth_session():
               with sync_playwright() as p:
+                  # Launching Chromium
                   browser = p.chromium.launch(headless=True)
                   
-                  # Set a very standard screen size and user agent
+                  # Set a very standard browser context
                   context = browser.new_context(
                       user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
                       viewport={'width': 1920, 'height': 1080}
@@ -43,37 +45,37 @@ jobs:
                   
                   page = context.new_page()
                   
-                  # Apply stealth patches
-                  stealth(page)
+                  # FIX: Explicitly call the function from the module 
+                  # to avoid 'module is not callable' error
+                  playwright_stealth.stealth(page)
 
-                  # Random initial wait to simulate someone typing/clicking
-                  time.sleep(random.uniform(3, 8))
+                  # Random initial wait to simulate human thinking
+                  time.sleep(random.uniform(3, 7))
 
                   print("🚀 Navigating to Streamlit app...")
                   
                   try:
-                      # Long timeout for cold starts
+                      # 90s timeout to allow for Streamlit 'Cold Boots'
                       page.goto("https://bus-stop-survey-dpl6qeby3stuvpiexjhovk.streamlit.app/", 
                                 wait_until="networkidle", 
                                 timeout=90000)
                       
-                      # Human interaction 1: Small wait
-                      time.sleep(5)
+                      # Wait for the app container to exist
+                      page.wait_for_selector("div.stApp", timeout=30000)
                       
-                      # Human interaction 2: Scroll down to trigger lazy loading/WebSockets
+                      # Human-like interaction: Scroll
                       print("🖱️ Simulating human scroll...")
-                      page.mouse.wheel(0, 400)
-                      time.sleep(random.uniform(2, 4))
+                      page.mouse.wheel(0, 500)
+                      time.sleep(random.uniform(2, 5))
                       
-                      # Check if loaded
                       title = page.title()
                       print(f"✅ Success! Page Title: {title}")
                       
-                      # Final wait to ensure Streamlit's WebSocket heartbeat completes
+                      # Stay on page for 10s to let the WebSocket 'Keep-Alive' register
                       time.sleep(10)
                       
                   except Exception as e:
-                      print(f"❌ Error: {str(e)}")
+                      print(f"❌ Error occurred: {str(e)}")
                   finally:
                       browser.close()
 
