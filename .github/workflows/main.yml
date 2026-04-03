@@ -1,4 +1,4 @@
-name: Stealth Auth Keep-Alive
+name: Streamlit Keep-Alive
 
 on:
   schedule:
@@ -12,73 +12,69 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # We add a step to ensure the browsers are fully installed 
-      # and the environment is clean
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
 
-      - name: Install Dependencies
+      - name: Install Playwright
         run: |
-          pip install playwright playwright-stealth
+          pip install playwright
           playwright install chromium
 
-      - name: Run Stealth Session
+      - name: Run Human-Like Session
         run: |
           python - <<EOF
           import time
           import random
           from playwright.sync_api import sync_playwright
-          import playwright_stealth # Use direct import
 
-          def run_stealth_session():
+          def run_session():
               with sync_playwright() as p:
-                  # Launching Chromium
+                  # We launch a real Chromium browser
                   browser = p.chromium.launch(headless=True)
                   
-                  # Set a very standard browser context
+                  # We manually set a Human-like User Agent and Screen Size
+                  # This replaces the need for the 'stealth' library
                   context = browser.new_context(
                       user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-                      viewport={'width': 1920, 'height': 1080}
+                      viewport={'width': 1920, 'height': 1080},
+                      device_scale_factor=1,
                   )
                   
                   page = context.new_page()
-                  
-                  # FIX: Explicitly call the function from the module 
-                  # to avoid 'module is not callable' error
-                  playwright_stealth.stealth(page)
 
-                  # Random initial wait to simulate human thinking
-                  time.sleep(random.uniform(3, 7))
+                  # 1. Random delay before navigating
+                  time.sleep(random.uniform(2, 5))
 
                   print("🚀 Navigating to Streamlit app...")
                   
                   try:
-                      # 90s timeout to allow for Streamlit 'Cold Boots'
+                      # 2. Go to the URL and wait for the network to be quiet
                       page.goto("https://bus-stop-survey-dpl6qeby3stuvpiexjhovk.streamlit.app/", 
                                 wait_until="networkidle", 
                                 timeout=90000)
                       
-                      # Wait for the app container to exist
-                      page.wait_for_selector("div.stApp", timeout=30000)
+                      # 3. Wait specifically for the Streamlit App to render
+                      page.wait_for_selector(".stApp", timeout=30000)
                       
-                      # Human-like interaction: Scroll
-                      print("🖱️ Simulating human scroll...")
+                      # 4. Mimic human activity (Mouse wheel scroll)
+                      # This tells Streamlit 'Someone is actually looking at this'
+                      print("🖱️ Simulating human interaction...")
                       page.mouse.wheel(0, 500)
-                      time.sleep(random.uniform(2, 5))
+                      time.sleep(3)
+                      page.mouse.wheel(0, -200)
                       
-                      title = page.title()
-                      print(f"✅ Success! Page Title: {title}")
+                      print(f"✅ Success! Page Title: {page.title()}")
                       
-                      # Stay on page for 10s to let the WebSocket 'Keep-Alive' register
-                      time.sleep(10)
+                      # 5. Stay for 15 seconds so the server records a full 'Session'
+                      time.sleep(15)
                       
                   except Exception as e:
-                      print(f"❌ Error occurred: {str(e)}")
+                      print(f"❌ Error: {str(e)}")
                   finally:
                       browser.close()
 
           if __name__ == "__main__":
-              run_stealth_session()
+              run_session()
           EOF
