@@ -2,10 +2,8 @@ name: Stealth Auth Keep-Alive
 
 on:
   schedule:
-    # Runs at minute 43 of every hour. 
-    # Using a "random" minute helps avoid being flagged as a predictable bot.
-    - cron: '43 * * * *'
-  workflow_dispatch: # Allows you to run it manually from the "Actions" tab
+    - cron: '47 * * * *' # Random minute to look human
+  workflow_dispatch:
 
 jobs:
   ping_streamlit:
@@ -19,61 +17,63 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Install Stealth Tools
+      - name: Install Dependencies
         run: |
           pip install playwright playwright-stealth
           playwright install chromium
 
-      - name: Run Human-Mimic Session
+      - name: Run Stealth Session
         run: |
           python - <<EOF
           import time
           import random
           from playwright.sync_api import sync_playwright
+          # FIX: Import the function specifically to avoid 'module not callable' error
           from playwright_stealth import stealth
 
           def run_stealth_session():
               with sync_playwright() as p:
-                  # Use a very common, modern User Agent
                   browser = p.chromium.launch(headless=True)
+                  
+                  # Set a very standard screen size and user agent
                   context = browser.new_context(
                       user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-                      viewport={'width': 1280, 'height': 720}
+                      viewport={'width': 1920, 'height': 1080}
                   )
                   
                   page = context.new_page()
-
-                  # This is the "Magic" that hides the Playwright/Bot signature
+                  
+                  # Apply stealth patches
                   stealth(page)
 
-                  # Random pause before starting (Human-like jitter)
-                  time.sleep(random.uniform(2, 7))
+                  # Random initial wait to simulate someone typing/clicking
+                  time.sleep(random.uniform(3, 8))
 
                   print("🚀 Navigating to Streamlit app...")
                   
                   try:
-                      # 90 second timeout is safer for 'cold starts' (waking up from sleep)
+                      # Long timeout for cold starts
                       page.goto("https://bus-stop-survey-dpl6qeby3stuvpiexjhovk.streamlit.app/", 
                                 wait_until="networkidle", 
                                 timeout=90000)
                       
-                      # Wait for the Streamlit 'stApp' container to load
-                      page.wait_for_selector(".stApp", timeout=20000)
+                      # Human interaction 1: Small wait
+                      time.sleep(5)
                       
-                      # Mimic human behavior: Scroll down, then back up slightly
-                      print("🖱️ Simulating human interaction (scrolling)...")
-                      page.mouse.wheel(0, 600)
-                      time.sleep(random.uniform(1, 3))
-                      page.mouse.wheel(0, -150)
+                      # Human interaction 2: Scroll down to trigger lazy loading/WebSockets
+                      print("🖱️ Simulating human scroll...")
+                      page.mouse.wheel(0, 400)
+                      time.sleep(random.uniform(2, 4))
                       
-                      print(f"✅ Success! Page Loaded. Title: {page.title()}")
+                      # Check if loaded
+                      title = page.title()
+                      print(f"✅ Success! Page Title: {title}")
                       
-                      # Crucial: Keep the tab open for 15s to let the WebSocket heartbeat 
-                      # tell the Streamlit server that the session is active.
-                      time.sleep(15)
+                      # Final wait to ensure Streamlit's WebSocket heartbeat completes
+                      time.sleep(10)
                       
                   except Exception as e:
-                      print(f"❌ Error during session: {str(e)}")
+                      print(f"❌ Error: {str(e)}")
                   finally:
                       browser.close()
 
