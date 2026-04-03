@@ -2,31 +2,69 @@ name: Stealth Auth Keep-Alive
 
 on:
   schedule:
-    - cron: '20 * * * *' 
+    # Runs at a random-looking interval to avoid "heartbeat" detection
+    - cron: '37 * * * *' 
   workflow_dispatch:
 
 jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Authenticated Stealth Ping
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install Stealth Dependencies
         run: |
-          # 1. We use -L (follow) but limit to 5 to avoid infinite loops
-          # 2. -c /tmp/cookies.txt saves the session "cookie" (very human-like)
-          # 3. We use your full Auth URL
-          
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            -L --max-redirs 5 \
-            -c /tmp/cookies.txt \
-            -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36" \
-            -H "Referer: https://accounts.google.com/" \
-            "https://bus-stop-survey-dpl6qeby3stuvpiexjhovk.streamlit.app/")
+          pip install playwright playwright-stealth
+          playwright install chromium
 
-          echo "Final Response Code: $STATUS"
+      - name: Execute Human-Like Session
+        run: |
+          python - <<EOF
+          import time
+          import random
+          from playwright.sync_api import sync_playwright
+          from playwright_stealth import stealth_sync
 
-          # Now 200 is the goal because the Auth link should land you on the app
-          if [ "$STATUS" -eq 200 ]; then
-            echo "✅ SUCCESS: App is awake and Session is Authenticated!"
-          else
-            echo "⚠️ NOTE: Received $STATUS. The token might have expired, but the ping still woke the server."
-          fi
+          def run():
+              with sync_playwright() as p:
+                  # Launching a real browser
+                  browser = p.chromium.launch(headless=True)
+                  
+                  # Create a browser context with a real-world User-Agent
+                  context = browser.new_context(
+                      user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+                      viewport={'width': 1920, 'height': 1080}
+                  )
+
+                  page = context.new_page()
+                  
+                  # Apply stealth plugin to hide Playwright fingerprint
+                  stealth_sync(page)
+
+                  # Random delay to mimic human behavior
+                  time.sleep(random.uniform(1, 5))
+
+                  print("Navigating to Streamlit App...")
+                  # Increase timeout to 60s in case the app is waking up from cold sleep
+                  page.goto("https://bus-stop-survey-dpl6qeby3stuvpiexjhovk.streamlit.app/", wait_until="networkidle", timeout=60000)
+
+                  # Simulate a mouse scroll to trigger 'active' status
+                  page.mouse.wheel(0, 500)
+                  time.sleep(2)
+                  
+                  print(f"Success! Reached: {page.title()}")
+                  
+                  # Keep session open for 10 seconds to ensure WebSocket connection is stable
+                  time.sleep(10)
+                  
+                  browser.close()
+
+          if __name__ == "__main__":
+              run()
+          EOF
