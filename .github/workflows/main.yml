@@ -2,7 +2,7 @@ name: Stealth Auth Keep-Alive
 
 on:
   schedule:
-    - cron: '35 * * * *' 
+    - cron: '20 * * * *' 
   workflow_dispatch:
 
 jobs:
@@ -20,7 +20,7 @@ jobs:
             -c /tmp/cookies.txt \
             -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36" \
             -H "Referer: https://accounts.google.com/" \
-            "https://bus-stop-survey-dpl6qeby3stuvpiexjhovk.streamlit.app/?state=HxBK6diBD8maX9FMVT7VrZX9xLTsg6&iss=https://accounts.google.com&code=4/0AfrIepB31O8kYV23igKSLezvh5ZzykjaZaLjfXnjvJ9c120UdKPVWF7F3oKAdeQDTXVMkg&scope=https://www.googleapis.com/auth/drive.file%20https://www.googleapis.com/auth/spreadsheets")
+            "https://bus-stop-survey-dpl6qeby3stuvpiexjhovk.streamlit.app/")
 
           echo "Final Response Code: $STATUS"
 
