@@ -2,69 +2,81 @@ name: Stealth Auth Keep-Alive
 
 on:
   schedule:
-    # Runs at a random-looking interval to avoid "heartbeat" detection
-    - cron: '37 * * * *' 
-  workflow_dispatch:
+    # Runs at minute 43 of every hour. 
+    # Using a "random" minute helps avoid being flagged as a predictable bot.
+    - cron: '43 * * * *'
+  workflow_dispatch: # Allows you to run it manually from the "Actions" tab
 
 jobs:
-  ping:
+  ping_streamlit:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
 
-      - name: Install Stealth Dependencies
+      - name: Install Stealth Tools
         run: |
           pip install playwright playwright-stealth
           playwright install chromium
 
-      - name: Execute Human-Like Session
+      - name: Run Human-Mimic Session
         run: |
           python - <<EOF
           import time
           import random
           from playwright.sync_api import sync_playwright
-          from playwright_stealth import stealth_sync
+          from playwright_stealth import stealth
 
-          def run():
+          def run_stealth_session():
               with sync_playwright() as p:
-                  # Launching a real browser
+                  # Use a very common, modern User Agent
                   browser = p.chromium.launch(headless=True)
-                  
-                  # Create a browser context with a real-world User-Agent
                   context = browser.new_context(
                       user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-                      viewport={'width': 1920, 'height': 1080}
+                      viewport={'width': 1280, 'height': 720}
                   )
-
+                  
                   page = context.new_page()
-                  
-                  # Apply stealth plugin to hide Playwright fingerprint
-                  stealth_sync(page)
 
-                  # Random delay to mimic human behavior
-                  time.sleep(random.uniform(1, 5))
+                  # This is the "Magic" that hides the Playwright/Bot signature
+                  stealth(page)
 
-                  print("Navigating to Streamlit App...")
-                  # Increase timeout to 60s in case the app is waking up from cold sleep
-                  page.goto("https://bus-stop-survey-dpl6qeby3stuvpiexjhovk.streamlit.app/", wait_until="networkidle", timeout=60000)
+                  # Random pause before starting (Human-like jitter)
+                  time.sleep(random.uniform(2, 7))
 
-                  # Simulate a mouse scroll to trigger 'active' status
-                  page.mouse.wheel(0, 500)
-                  time.sleep(2)
+                  print("🚀 Navigating to Streamlit app...")
                   
-                  print(f"Success! Reached: {page.title()}")
-                  
-                  # Keep session open for 10 seconds to ensure WebSocket connection is stable
-                  time.sleep(10)
-                  
-                  browser.close()
+                  try:
+                      # 90 second timeout is safer for 'cold starts' (waking up from sleep)
+                      page.goto("https://bus-stop-survey-dpl6qeby3stuvpiexjhovk.streamlit.app/", 
+                                wait_until="networkidle", 
+                                timeout=90000)
+                      
+                      # Wait for the Streamlit 'stApp' container to load
+                      page.wait_for_selector(".stApp", timeout=20000)
+                      
+                      # Mimic human behavior: Scroll down, then back up slightly
+                      print("🖱️ Simulating human interaction (scrolling)...")
+                      page.mouse.wheel(0, 600)
+                      time.sleep(random.uniform(1, 3))
+                      page.mouse.wheel(0, -150)
+                      
+                      print(f"✅ Success! Page Loaded. Title: {page.title()}")
+                      
+                      # Crucial: Keep the tab open for 15s to let the WebSocket heartbeat 
+                      # tell the Streamlit server that the session is active.
+                      time.sleep(15)
+                      
+                  except Exception as e:
+                      print(f"❌ Error during session: {str(e)}")
+                  finally:
+                      browser.close()
 
           if __name__ == "__main__":
-              run()
+              run_stealth_session()
           EOF
