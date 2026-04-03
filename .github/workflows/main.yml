@@ -2,7 +2,7 @@ name: Streamlit Keep-Alive
 
 on:
   schedule:
-    - cron: '47 * * * *' 
+    - cron: '30 * * * *' 
   workflow_dispatch:
 
 jobs:
@@ -31,47 +31,42 @@ jobs:
 
           def run_session():
               with sync_playwright() as p:
-                  # We launch a real Chromium browser
                   browser = p.chromium.launch(headless=True)
-                  
-                  # We manually set a Human-like User Agent and Screen Size
-                  # This replaces the need for the 'stealth' library
                   context = browser.new_context(
                       user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-                      viewport={'width': 1920, 'height': 1080},
-                      device_scale_factor=1,
+                      viewport={'width': 1920, 'height': 1080}
                   )
-                  
                   page = context.new_page()
 
-                  # 1. Random delay before navigating
-                  time.sleep(random.uniform(2, 5))
-
-                  print("🚀 Navigating to Streamlit app...")
+                  print("🚀 Navigating to Streamlit app (Waking up server)...")
                   
                   try:
-                      # 2. Go to the URL and wait for the network to be quiet
+                      # Increased timeout to 2 minutes (120000ms) for slow cold starts
                       page.goto("https://bus-stop-survey-dpl6qeby3stuvpiexjhovk.streamlit.app/", 
-                                wait_until="networkidle", 
-                                timeout=90000)
+                                wait_until="load", 
+                                timeout=120000)
                       
-                      # 3. Wait specifically for the Streamlit App to render
-                      page.wait_for_selector(".stApp", timeout=30000)
+                      # Wait up to 60 seconds for the actual app content to appear
+                      print("⏳ Waiting for app content to render...")
+                      page.wait_for_selector("div", timeout=60000) 
                       
-                      # 4. Mimic human activity (Mouse wheel scroll)
-                      # This tells Streamlit 'Someone is actually looking at this'
-                      print("🖱️ Simulating human interaction...")
+                      # Short pause for stability
+                      time.sleep(5)
+                      
+                      # Interaction: Scroll down and up
                       page.mouse.wheel(0, 500)
-                      time.sleep(3)
+                      time.sleep(2)
                       page.mouse.wheel(0, -200)
                       
-                      print(f"✅ Success! Page Title: {page.title()}")
+                      print(f"✅ Success! Current Title: {page.title()}")
                       
-                      # 5. Stay for 15 seconds so the server records a full 'Session'
-                      time.sleep(15)
+                      # Stay active for 20 seconds to ensure the heartbeat is sent
+                      time.sleep(20)
                       
                   except Exception as e:
                       print(f"❌ Error: {str(e)}")
+                      # Debug: Print the page content if it fails
+                      print("DEBUG: Current Page Title was:", page.title())
                   finally:
                       browser.close()
 
