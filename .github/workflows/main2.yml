@@ -1,42 +1,75 @@
-name: Keep App Awake Stealth2
+name: Streamlit Keep-Alive2
 
 on:
   schedule:
-    - cron: '0 * * * *' # Triggers every hour to check if it should ping
-  workflow_dispatch:      # Manual trigger for testing
+    - cron: '30 * * * *' 
+  workflow_dispatch:
 
 jobs:
-  ping_app:
+  ping_streamlit:
     runs-on: ubuntu-latest
     steps:
-      - name: Random Probability Gate
-        id: gate
-        run: |
-          # Generate a random number 1, 2, or 3
-          # This creates the variety in intervals (sometimes 1hr, sometimes 3hr+)
-          CHANCE=$(( ( RANDOM % 3 ) + 1 ))
-          if [ "$CHANCE" -eq 1 ]; then
-            echo "run_ping=true" >> $GITHUB_OUTPUT
-            echo "Decision: The dice rolled 1. Sending ping."
-          else
-            echo "run_ping=false" >> $GITHUB_OUTPUT
-            echo "Decision: Skipping this hour to vary pattern."
-          fi
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-      - name: Stealth Ping to Streamlit
-        if: steps.gate.outputs.run_ping == 'true'
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install Playwright
         run: |
-          # 1. Random delay (1 to 15 minutes) so pings don't happen at :00 sharp
-          DELAY=$(( ( RANDOM % 900 ) + 1 ))
-          echo "Waiting $DELAY seconds before pinging..."
-          sleep $DELAY
-          
-          # 2. Perform the ping with Browser Headers
-          # We use a common Chrome User-Agent and a fake Referer (Google)
-          curl -I -L -s \
-            -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
-            -H "Accept-Language: en-US,en;q=0.9" \
-            -H "Referer: https://www.google.com/" \
-            "https://bus-stop-survey-99f8wusughejfcfvrvxmyl.streamlit.app/?state=z3pFeAM1LQbgQ4nf1CQTWNU78Wov0K&?t=$(date +%s)" | head -n 20
-          
-          echo "Ping completed at $(date)"
+          pip install playwright
+          playwright install chromium
+
+      - name: Run Human-Like Session
+        run: |
+          python - <<EOF
+          import time
+          import random
+          from playwright.sync_api import sync_playwright
+
+          def run_session():
+              with sync_playwright() as p:
+                  browser = p.chromium.launch(headless=True)
+                  context = browser.new_context(
+                      user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+                      viewport={'width': 1920, 'height': 1080}
+                  )
+                  page = context.new_page()
+
+                  print("🚀 Navigating to Streamlit app (Waking up server)...")
+                  
+                  try:
+                      # Increased timeout to 2 minutes (120000ms) for slow cold starts
+                      page.goto("https://bus-stop-survey-99f8wusughejfcfvrvxmyl.streamlit.app/", 
+                                wait_until="load", 
+                                timeout=120000)
+                      
+                      # Wait up to 60 seconds for the actual app content to appear
+                      print("⏳ Waiting for app content to render...")
+                      page.wait_for_selector("div", timeout=60000) 
+                      
+                      # Short pause for stability
+                      time.sleep(5)
+                      
+                      # Interaction: Scroll down and up
+                      page.mouse.wheel(0, 500)
+                      time.sleep(2)
+                      page.mouse.wheel(0, -200)
+                      
+                      print(f"✅ Success! Current Title: {page.title()}")
+                      
+                      # Stay active for 20 seconds to ensure the heartbeat is sent
+                      time.sleep(20)
+                      
+                  except Exception as e:
+                      print(f"❌ Error: {str(e)}")
+                      # Debug: Print the page content if it fails
+                      print("DEBUG: Current Page Title was:", page.title())
+                  finally:
+                      browser.close()
+
+          if __name__ == "__main__":
+              run_session()
+          EOF
