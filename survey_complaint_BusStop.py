@@ -189,11 +189,45 @@ with col_staff:
 
 with col_stop:
     stop = st.selectbox("📍 Bus Stop", all_available_stops, index=None, placeholder="Pilih Hentian Bas...", key="stop_select")
+    
+    # Initialize variables
     current_route, current_depot = "", ""
+    company_context = None
+    
     if stop:
+        # 1. Look up all candidate route numbers for the selected stop from the stops worksheet
         matched_stop_data = stops_df[stops_df["Stop Name"] == stop]
-        current_route = " / ".join(map(str, matched_stop_data["Route Number"].unique()))
-        current_depot = " / ".join(map(str, routes_df[routes_df["Route Number"].isin(matched_stop_data["Route Number"].unique())]["Depot"].unique()))
+        candidate_routes = matched_stop_data["Route Number"].unique()
+        
+        # 2. Query matching records from the routes worksheet
+        matched_routes_data = routes_df[routes_df["Route Number"].isin(candidate_routes)]
+        
+        if not matched_routes_data.empty:
+            # Check Column C for operating company context (RPG vs RKL)
+            # Assuming Column C is the 3rd column (index 2) or explicitly named 'Company'/'Operating Unit'
+            # If your column has a specific header name, replace iloc[:, 2] with routes_df["Your_Column_Name"]
+            companies = matched_routes_data.iloc[:, 2].dropna().unique()
+            
+            # If both exist or specifically targeted, prioritize or filter based on context
+            if "RPG" in companies and "RKL" in companies:
+                # Add UI picker context if a stop belongs to both company domains
+                company_context = st.radio("Select Operating Region:", options=["RKL", "RPG"], horizontal=True)
+            elif len(companies) > 0:
+                company_context = companies[0]
+                
+            # Filter routes dataset down based on selected or resolved region context
+            if company_context:
+                filtered_routes_data = matched_routes_data[matched_routes_data.iloc[:, 2] == company_context]
+            else:
+                filtered_routes_data = matched_routes_data
+                
+            # Extract final precise routes and depots cleanly without mixed cross-region pollution
+            current_route = " / ".join(map(str, filtered_routes_data["Route Number"].unique()))
+            current_depot = " / ".join(map(str, filtered_routes_data["Depot"].unique()))
+            
+        # Display localized region info underneath selector for operational clarity
+        if company_context:
+            st.caption(f"Region Filter Applied: **{company_context}** | Depot: {current_depot}")
 
 st.divider()
 
@@ -284,4 +318,3 @@ if st.button("Submit Survey"):
                 st.session_state.responses = {q: None for q in all_questions}
                 time.sleep(2); st.rerun()
             except Exception as e: st.error(f"Error: {e}")
-
