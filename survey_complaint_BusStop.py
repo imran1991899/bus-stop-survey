@@ -306,11 +306,11 @@ if st.button("Submit Survey"):
                 
                 # Align columns for spreadsheet
                 while len(row) < 30: row.append("")
-                row.insert(30, speed or ""); row.insert(31, bc_id or "")
+                row.insert(30, speed or ""); row.insert(33, bc_id or "")
                 
                 header = ["Timestamp", "Staff ID", "Name", "Depot", "Route", "Stop", "Bus"] + all_questions + ["Links"]
                 while len(header) < 30: header.append("")
-                header.insert(30, "Speed"); header.insert(31, "BC ID")
+                header.insert(30, "Speed"); header.insert(33, "BC ID")
 
                 append_row(find_or_create_gsheet("survey_responses", FOLDER_ID), row, header)
                 st.success("Submitted!")
