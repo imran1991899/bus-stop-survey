@@ -179,81 +179,28 @@ CLIENT_SECRETS_FILE = "client_secrets3.json"
 SCOPES = ["https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/spreadsheets"]
 
 def save_credentials(creds):
-    st.session_state["google_creds"] = creds
-    try:
-        with open("token.pickle", "wb") as t: 
-            pickle.dump(creds, t)
-    except Exception as e:
-        # Fallback if local file write is denied or fails
-        pass
-
+    with open("token.pickle", "wb") as t: pickle.dump(creds, t)
 def load_credentials():
-    if "google_creds" in st.session_state:
-        return st.session_state["google_creds"]
     if os.path.exists("token.pickle"):
-        try:
-            with open("token.pickle", "rb") as t: 
-                creds = pickle.load(t)
-                st.session_state["google_creds"] = creds
-                return creds
-        except Exception:
-            pass
+        with open("token.pickle", "rb") as t: return pickle.load(t)
     return None
 
 def get_authenticated_service():
     creds = load_credentials()
-    
     if creds and creds.valid:
         return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
-        
     if creds and creds.expired and creds.refresh_token:
-        try:
-            creds.refresh(Request())
-            save_credentials(creds)
-            return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
-        except Exception:
-            # If refresh fails, clear invalid credentials to avoid a redirect loop
-            if "google_creds" in st.session_state:
-                del st.session_state["google_creds"]
-            if os.path.exists("token.pickle"):
-                try:
-                    os.remove("token.pickle")
-                except:
-                    pass
+        creds.refresh(Request()); save_credentials(creds)
+        return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
     
-    flow = Flow.from_client_secrets_file(
-        CLIENT_SECRETS_FILE, 
-        scopes=SCOPES, 
-        redirect_uri="https://bus-stop-survey-fwaavwf7uxvxrfbjeqv9nq.streamlit.app/"
-    )
-    
-    # Process code if present in the URL parameters
+    flow = Flow.from_client_secrets_file(CLIENT_SECRETS_FILE, scopes=SCOPES, redirect_uri="https://bus-stop-survey-fwaavwf7uxvxrfbjeqv9nq.streamlit.app/")
     if "code" in st.query_params:
-        try:
-            full_url = "https://bus-stop-survey-fwaavwf7uxvxrfbjeqv9nq.streamlit.app/?" + urlencode(st.query_params)
-            flow.fetch_token(authorization_response=full_url)
-            creds = flow.credentials
-            save_credentials(creds)
-            
-            # Clean parameters instantly from URL so a page-reload doesn't reuse the expired auth code
-            st.query_params.clear()
-            st.rerun()
-        except Exception as e:
-            # Reset query parameter and credentials state on error to break loops
-            st.query_params.clear()
-            if "google_creds" in st.session_state:
-                del st.session_state["google_creds"]
-            if os.path.exists("token.pickle"):
-                try:
-                    os.remove("token.pickle")
-                except:
-                    pass
-            st.error("Authentication failed or session expired. Please log in again using the link below.")
-            time.sleep(3)
-            st.rerun()
+        full_url = "https://bus-stop-survey-fwaavwf7uxvxrfbjeqv9nq.streamlit.app/?" + urlencode(st.query_params)
+        flow.fetch_token(authorization_response=full_url)
+        creds = flow.credentials; save_credentials(creds)
+        return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
     else:
-        # Prompt user to authorize if no valid credentials or query code exist
-        auth_url, _ = flow.authorization_url(prompt="consent", access_type="offline")
+        auth_url, _ = flow.authorization_url(prompt="consent")
         st.markdown(f"### Authentication Required\n[Please log in with Google]({auth_url})")
         st.stop()
 
