@@ -7,6 +7,8 @@ import time
 import os
 import pickle
 import re
+import json
+import requests
 from urllib.parse import urlencode
 from PIL import Image, ImageDraw, ImageFont
 import pytz 
@@ -169,56 +171,94 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # --- Google API Setup ---
-from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
 
 FOLDER_ID = "1JKwlnKUVO3U74wTRu9U46ARF49dcglp7"
 CLIENT_SECRETS_FILE = "client_secrets3.json"
 SCOPES = ["https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/spreadsheets"]
 
 def save_credentials(creds):
-    with open("token.pickle", "wb") as t: pickle.dump(creds, t)
+    with open("token.pickle", "wb") as t:
+        pickle.dump(creds, t)
+
 def load_credentials():
     if os.path.exists("token.pickle"):
-        with open("token.pickle", "rb") as t: return pickle.load(t)
+        try:
+            with open("token.pickle", "rb") as t: 
+                return pickle.load(t)
+        except Exception:
+            return None
     return None
 
 def get_authenticated_service():
     creds = load_credentials()
+    
     if creds and creds.valid:
         return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
+        
     if creds and creds.expired and creds.refresh_token:
-        creds.refresh(Request()); save_credentials(creds)
-        return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
+        try:
+            creds.refresh(Request())
+            save_credentials(creds)
+            return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
+        except Exception:
+            pass
+
+    # Load parameters directly out of the config file
+    with open(CLIENT_SECRETS_FILE, "r") as f:
+        client_config = json.load(f)
+    
+    # Check if the structure uses "web" or "installed" type keys
+    type_key = "web" if "web" in client_config else "installed"
+    cfg = client_config[type_key]
     
     redirect_uri = "https://bus-stop-survey-fwaavwf7uxvxrfbjeqv9nq.streamlit.app/"
-    flow = Flow.from_client_secrets_file(CLIENT_SECRETS_FILE, scopes=SCOPES, redirect_uri=redirect_uri)
-    
+
     if "code" in st.query_params:
-        full_url = redirect_uri + "?" + urlencode(st.query_params)
-        # Load the code_verifier we stored in session state when authorizing
-        code_verifier = st.session_state.get("oauth_code_verifier")
-        try:
-            flow.fetch_token(authorization_response=full_url, code_verifier=code_verifier)
-            creds = flow.credentials; save_credentials(creds)
-            # Clear verifier and code to prevent reuse
-            if "oauth_code_verifier" in st.session_state:
-                del st.session_state["oauth_code_verifier"]
-            st.query_params.clear()
+        auth_code = st.query_params["code"]
+        st.query_params.clear()
+        
+        # Standard raw HTTP POST request to exchange the raw auth token code. 
+        # This completely skips and ignores PKCE/code verifier requirements.
+        payload = {
+            "code": auth_code,
+            "client_id": cfg["client_id"],
+            "client_secret": cfg["client_secret"],
+            "redirect_uri": redirect_uri,
+            "grant_type": "authorization_code"
+        }
+        
+        response = requests.post(cfg["token_uri"], data=payload)
+        if response.status_code == 200:
+            token_data = response.json()
+            creds = Credentials(
+                token=token_data.get("access_token"),
+                refresh_token=token_data.get("refresh_token"),
+                token_uri=cfg["token_uri"],
+                client_id=cfg["client_id"],
+                client_secret=cfg["client_secret"],
+                scopes=SCOPES
+            )
+            save_credentials(creds)
             st.rerun()
-        except Exception as e:
-            st.query_params.clear()
-            if "oauth_code_verifier" in st.session_state:
-                del st.session_state["oauth_code_verifier"]
-            st.error(f"Authentication failed/expired: {e}. Retrying...")
-            time.sleep(2)
+        else:
+            st.error(f"OAuth Authentication error: {response.text}")
+            time.sleep(3)
             st.rerun()
     else:
-        auth_url, _ = flow.authorization_url(prompt="consent", access_type="offline")
-        # Store the dynamically generated code_verifier inside the session state
-        st.session_state["oauth_code_verifier"] = flow.code_verifier
+        # Generate absolute explicit basic verification login link
+        auth_params = {
+            "response_type": "code",
+            "client_id": cfg["client_id"],
+            "redirect_uri": redirect_uri,
+            "scope": " ".join(SCOPES),
+            "access_type": "offline",
+            "prompt": "consent"
+        }
+        auth_url = f"{cfg['auth_uri']}?{urlencode(auth_params)}"
         st.markdown(f"### Authentication Required\n[Please log in with Google]({auth_url})")
         st.stop()
 
