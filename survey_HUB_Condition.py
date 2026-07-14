@@ -179,25 +179,47 @@ CLIENT_SECRETS_FILE = "client_secrets3.json"
 SCOPES = ["https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/spreadsheets"]
 
 def save_credentials(creds):
-    with open("token.pickle", "wb") as t: pickle.dump(creds, t)
+    st.session_state["google_creds"] = creds
+    try:
+        with open("token.pickle", "wb") as t: 
+            pickle.dump(creds, t)
+    except Exception as e:
+        # Fallback if local file write is denied or fails
+        pass
+
 def load_credentials():
+    if "google_creds" in st.session_state:
+        return st.session_state["google_creds"]
     if os.path.exists("token.pickle"):
-        with open("token.pickle", "rb") as t: return pickle.load(t)
+        try:
+            with open("token.pickle", "rb") as t: 
+                creds = pickle.load(t)
+                st.session_state["google_creds"] = creds
+                return creds
+        except Exception:
+            pass
     return None
 
 def get_authenticated_service():
     creds = load_credentials()
+    
     if creds and creds.valid:
         return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
+        
     if creds and creds.expired and creds.refresh_token:
         try:
             creds.refresh(Request())
             save_credentials(creds)
             return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
         except Exception:
-            # If refreshing failed, clear bad credentials and force re-auth
+            # If refresh fails, clear invalid credentials to avoid a redirect loop
+            if "google_creds" in st.session_state:
+                del st.session_state["google_creds"]
             if os.path.exists("token.pickle"):
-                os.remove("token.pickle")
+                try:
+                    os.remove("token.pickle")
+                except:
+                    pass
     
     flow = Flow.from_client_secrets_file(
         CLIENT_SECRETS_FILE, 
@@ -205,7 +227,7 @@ def get_authenticated_service():
         redirect_uri="https://bus-stop-survey-fwaavwf7uxvxrfbjeqv9nq.streamlit.app/"
     )
     
-    # Process code if present in the parameters
+    # Process code if present in the URL parameters
     if "code" in st.query_params:
         try:
             full_url = "https://bus-stop-survey-fwaavwf7uxvxrfbjeqv9nq.streamlit.app/?" + urlencode(st.query_params)
@@ -213,18 +235,24 @@ def get_authenticated_service():
             creds = flow.credentials
             save_credentials(creds)
             
-            # CRITICAL: Clean parameters instantly from URL so a page-reload doesn't reuse the expired auth code
+            # Clean parameters instantly from URL so a page-reload doesn't reuse the expired auth code
             st.query_params.clear()
             st.rerun()
         except Exception as e:
-            # If fetch_token fails (InvalidGrantError), clear URL parameters and token cache, then notify user to re-authenticate
+            # Reset query parameter and credentials state on error to break loops
             st.query_params.clear()
+            if "google_creds" in st.session_state:
+                del st.session_state["google_creds"]
             if os.path.exists("token.pickle"):
-                os.remove("token.pickle")
-            st.error("Authentication session expired or is invalid. Please try logging in again.")
-            time.sleep(2)
+                try:
+                    os.remove("token.pickle")
+                except:
+                    pass
+            st.error("Authentication failed or session expired. Please log in again using the link below.")
+            time.sleep(3)
             st.rerun()
     else:
+        # Prompt user to authorize if no valid credentials or query code exist
         auth_url, _ = flow.authorization_url(prompt="consent", access_type="offline")
         st.markdown(f"### Authentication Required\n[Please log in with Google]({auth_url})")
         st.stop()
