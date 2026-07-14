@@ -18,7 +18,28 @@ KL_TZ = pytz.timezone('Asia/Kuala_Lumpur')
 st.set_page_config(page_title="Hub Profiling Survey", layout="wide")
 
 # --------- Staff Dictionary ---------
-staff_dict = {"10005475": "MOHD RIZAL BIN RAMLI", "10020779": "NUR FAEZAH BINTI HARUN", "10014181": "NORAINSYIRAH BINTI ARIFFIN", "10022768": "NORAZHA RAFFIZZI ZORKORNAINI", "10022769": "NUR HANIM HANIL", "10023845": "MUHAMMAD HAMKA BIN ROSLIM", "10002059": "MUHAMAD NIZAM BIN IBRAHIM", "10005562": "AZFAR NASRI BIN BURHAN", "10010659": "MOHD SHAFIEE BIN ABDULLAH", "10008350": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN", "10003214": "NIK MOHD FADIR BIN NIK MAT RAWI", "10016370": "AHMAD AZIM BIN ISA", "10022910": "NUR SHAHIDA BINTI MOHD TAMIJI ", "10023513": "MUHAMMAD SYAHMI BIN AZMEY", "10023273": "MOHD IDZHAM BIN ABU BAKAR", "10023577": "MOHAMAD NAIM MOHAMAD SAPRI", "10023853": "MUHAMAD IMRAN BIN MOHD NASRUDDIN", "10008842": "MIRAN NURSYAWALNI AMIR", "10015662": "MUHAMMAD HANDIF BIN HASHIM", "10011944": "NUR HAZIRAH BINTI NAWI"}
+staff_dict = {
+    "10005475": "MOHD RIZAL BIN RAMLI", 
+    "10020779": "NUR FAEZAH BINTI HARUN", 
+    "10014181": "NORAINSYIRAH BINTI ARIFFIN", 
+    "10022768": "NORAZHA RAFFIZZI ZORKORNAINI", 
+    "10022769": "NUR HANIM HANIL", 
+    "10023845": "MUHAMMAD HAMKA BIN ROSLIM", 
+    "10002059": "MUHAMAD NIZAM BIN IBRAHIM", 
+    "10005562": "AZFAR NASRI BIN BURHAN", 
+    "10010659": "MOHD SHAFIEE BIN ABDULLAH", 
+    "10008350": "MUHAMMAD MUSTAQIM BIN FAZIT OSMAN", 
+    "10003214": "NIK MOHD FADIR BIN NIK MAT RAWI", 
+    "10016370": "AHMAD AZIM BIN ISA", 
+    "10022910": "NUR SHAHIDA BINTI MOHD TAMIJI ", 
+    "10023513": "MUHAMMAD SYAHMI BIN AZMEY", 
+    "10023273": "MOHD IDZHAM BIN ABU BAKAR", 
+    "10023577": "MOHAMAD NAIM MOHAMAD SAPRI", 
+    "10023853": "MUHAMAD IMRAN BIN MOHD NASRUDDIN", 
+    "10008842": "MIRAN NURSYAWALNI AMIR", 
+    "10015662": "MUHAMMAD HANDIF BIN HASHIM", 
+    "10011944": "NUR HAZIRAH BINTI NAWI"
+}
 
 # --------- Load External Data ---------
 @st.cache_data
@@ -169,55 +190,100 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # --- Google API Setup ---
-from google_auth_oauthlib.flow import Flow
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseUpload
-from google.auth.transport.requests import Request
-
 FOLDER_ID = "1JKwlnKUVO3U74wTRu9U46ARF49dcglp7"
 CLIENT_SECRETS_FILE = "client_secrets3.json"
+REDIRECT_URI = "https://bus-stop-survey-fwaavwf7uxvxrfbjeqv9nq.streamlit.app/"
 SCOPES = ["https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/spreadsheets"]
 
 def save_credentials(creds):
-    with open("token.pickle", "wb") as t: pickle.dump(creds, t)
+    with open("token.pickle", "wb") as t: 
+        pickle.dump(creds, t)
+
 def load_credentials():
     if os.path.exists("token.pickle"):
-        with open("token.pickle", "rb") as t: return pickle.load(t)
+        with open("token.pickle", "rb") as t: 
+            return pickle.load(t)
     return None
 
 def get_authenticated_service():
     creds = load_credentials()
+    
+    # 1. Valid credentials exist
     if creds and creds.valid:
         return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
-    if creds and creds.expired and creds.refresh_token:
-        creds.refresh(Request()); save_credentials(creds)
-        return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
     
-    flow = Flow.from_client_secrets_file(CLIENT_SECRETS_FILE, scopes=SCOPES, redirect_uri="https://bus-stop-survey-fwaavwf7uxvxrfbjeqv9nq.streamlit.app/")
-    if "code" in st.query_params:
-        full_url = "https://bus-stop-survey-fwaavwf7uxvxrfbjeqv9nq.streamlit.app/?" + urlencode(st.query_params)
-        flow.fetch_token(authorization_response=full_url)
-        creds = flow.credentials; save_credentials(creds)
-        return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
+    # 2. Expired but refreshable
+    if creds and creds.expired and creds.refresh_token:
+        try:
+            creds.refresh(Request())
+            save_credentials(creds)
+            return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
+        except Exception:
+            pass
+            
+    # 3. Handle OAuth Handshake
+    flow = Flow.from_client_secrets_file(CLIENT_SECRETS_FILE, scopes=SCOPES, redirect_uri=REDIRECT_URI)
+    query_params = st.query_params
+
+    if "code" in query_params:
+        # Check for the verifier file saved before redirect
+        if os.path.exists("verifier.tmp"):
+            with open("verifier.tmp", "r") as f:
+                flow.code_verifier = f.read()
+            try:
+                # Reconstruct response URL safely
+                full_url = REDIRECT_URI + "?" + urlencode(query_params)
+                flow.fetch_token(authorization_response=full_url)
+                save_credentials(flow.credentials)
+                
+                # Cleanup verifier temp file
+                if os.path.exists("verifier.tmp"):
+                    os.remove("verifier.tmp")
+                
+                st.query_params.clear()
+                st.rerun()
+            except Exception as e:
+                st.error(f"Handshake failed: {e}")
+                st.stop()
+        else:
+            st.warning("Session verifier lost. Restarting login...")
+            time.sleep(2)
+            st.query_params.clear()
+            st.rerun()
     else:
-        auth_url, _ = flow.authorization_url(prompt="consent")
-        st.markdown(f"### Authentication Required\n[Please log in with Google]({auth_url})")
+        # Save verifier to disk first, then build the Auth URL
+        auth_url, _ = flow.authorization_url(prompt="consent", access_type="offline", include_granted_scopes="true")
+        with open("verifier.tmp", "w") as f:
+            f.write(flow.code_verifier)
+            
+        st.markdown(f"### Authentication Required\n[🔴 Click Here to Login with Google]({auth_url})")
         st.stop()
 
+# Initialize Google Authenticated APIs
 drive_service, sheets_service = get_authenticated_service()
 
 def gdrive_upload_file(file_bytes, filename, mimetype, folder_id=None):
     media = MediaIoBaseUpload(BytesIO(file_bytes), mimetype)
     metadata = {"name": filename}
-    if folder_id: metadata["parents"] = [folder_id]
-    uploaded = drive_service.files().create(body=metadata, media_body=media, fields="id, webViewLink", supportsAllDrives=True).execute()
+    if folder_id: 
+        metadata["parents"] = [folder_id]
+    uploaded = drive_service.files().create(
+        body=metadata, 
+        media_body=media, 
+        fields="id, webViewLink", 
+        supportsAllDrives=True
+    ).execute()
     return uploaded["webViewLink"]
 
 def find_or_create_gsheet(name, folder_id):
     query = f"'{folder_id}' in parents and name='{name}' and mimeType='application/vnd.google-apps.spreadsheet'"
     res = drive_service.files().list(q=query, fields="files(id)").execute()
-    if res.get("files"): return res["files"][0]["id"]
-    file = drive_service.files().create(body={"name": name, "mimeType": "application/vnd.google-apps.spreadsheet", "parents": [folder_id]}, fields="id").execute()
+    if res.get("files"): 
+        return res["files"][0]["id"]
+    file = drive_service.files().create(
+        body={"name": name, "mimeType": "application/vnd.google-apps.spreadsheet", "parents": [folder_id]}, 
+        fields="id"
+    ).execute()
     return file["id"]
 
 def append_row(sheet_id, row, header):
@@ -242,8 +308,10 @@ def add_watermark(image_bytes, hub_label):
     img.save(img_byte_arr, format='JPEG', quality=90)
     return img_byte_arr.getvalue()
 
-if "photos" not in st.session_state: st.session_state.photos = []
-if "videos" not in st.session_state: st.session_state.videos = []
+if "photos" not in st.session_state: 
+    st.session_state.photos = []
+if "videos" not in st.session_state: 
+    st.session_state.videos = []
 
 # --------- Main App UI ---------
 st.title("Hub Profiling & Facility Survey")
@@ -278,7 +346,7 @@ with col1:
 with col2:
     tarikh = st.date_input("4. Tarikh Penilaian", value=datetime.now(KL_TZ))
     
-    # Hide masa from UI but define in background to avoid NameError
+    # Hide masa from UI but define in background
     masa = datetime.now(KL_TZ).strftime("%I:%M %p")
     
     routes_val = ""
@@ -328,63 +396,147 @@ with col4:
 # --------- Media Upload Logic ---------
 st.subheader("📸 Media Upload (Min 2, Max 5)")
 
-# Combined count for validation
-total_media = len(st.session_state.photos) + len(st.session_state.videos)
-
-if total_media < 5:
-    cam_photo = st.camera_input("Take a photo of the Hub")
-    if cam_photo:
-        # Check if already in session to avoid duplicates from re-renders
-        if cam_photo not in st.session_state.photos:
-            st.session_state.photos.append(cam_photo)
-            st.rerun()
-
-    up_files = st.file_uploader("Upload Hub Media", type=["jpg", "png", "jpeg", "mp4"], accept_multiple_files=True)
-    if up_files:
-        for f in up_files:
-            if len(st.session_state.photos) + len(st.session_state.videos) < 5:
-                mime = mimetypes.guess_type(f.name)[0] or ""
-                if "video" in mime:
-                    if f not in st.session_state.videos: st.session_state.videos.append(f)
-                else:
-                    if f not in st.session_state.photos: st.session_state.photos.append(f)
-
-# Display current items
-if total_media > 0:
-    st.write(f"Current Media Count: {total_media}")
-    if st.button("Clear All Media"):
-        st.session_state.photos = []
-        st.session_state.videos = []
+# Input components for Media
+cam_photo = st.camera_input("Take a photo of the Hub")
+if cam_photo:
+    # Append camera input photo securely if not already present
+    if cam_photo not in st.session_state.photos:
+        st.session_state.photos.append(cam_photo)
         st.rerun()
 
-# --------- Submission ---------
-if st.button("Submit Profiling Report"):
-    if not selected_hub or not nama_penilai:
-        st.error("Sila masukkan Staff ID yang sah and pilih Nama Hab.")
-    elif total_media < 2:
-        st.error("Sila ambil atau muat naik sekurang-kurangnya 2 media (Gambar/Video).")
-    else:
-        with st.spinner("Submitting Report..."):
-            try:
-                media_urls = []
-                for idx, p in enumerate(st.session_state.photos):
-                    # Process photos with watermark
-                    url = gdrive_upload_file(add_watermark(p.getvalue(), selected_hub), f"HUB_{selected_hub}_{idx}.jpg", "image/jpeg", FOLDER_ID)
-                    media_urls.append(url)
-                
-                for idx, v in enumerate(st.session_state.videos):
-                    # Upload videos directly
-                    url = gdrive_upload_file(v.getvalue(), f"HUB_VIDEO_{selected_hub}_{idx}.mp4", "video/mp4", FOLDER_ID)
-                    media_urls.append(url)
-                
-                final_status_apo = f"{status_apo} ({status_apo_catatan})" if status_apo_catatan else status_apo
+up_files = st.file_uploader("Upload Hub Media", type=["jpg", "png", "jpeg", "mp4"], accept_multiple_files=True)
+if up_files:
+    for f in up_files:
+        total_media = len(st.session_state.photos) + len(st.session_state.videos)
+        if total_media < 5:
+            # Check mime-type to differentiate photos and videos
+            mime = mimetypes.guess_type(f.name)[0]
+            if mime and "video" in mime:
+                if f not in st.session_state.videos:
+                    st.session_state.videos.append(f)
+            else:
+                if f not in st.session_state.photos:
+                    st.session_state.photos.append(f)
+                    
+# Display saved media with deletion action
+if st.session_state.photos or st.session_state.videos:
+    st.write("---")
+    st.subheader("🖼️ Managed Uploaded Assets")
+    
+    # Manage Photo deletions
+    for idx, p in enumerate(st.session_state.photos):
+        col_img, col_act = st.columns([6, 1])
+        col_img.image(p, caption=f"Photo #{idx + 1}", width=350)
+        if col_act.button(f"🗑️ Delete Photo {idx + 1}", key=f"del_photo_{idx}"):
+            st.session_state.photos.pop(idx)
+            st.rerun()
+            
+    # Manage Video deletions
+    for idx, v in enumerate(st.session_state.videos):
+        col_vid, col_act = st.columns([6, 1])
+        col_vid.video(v, format="video/mp4")
+        if col_act.button(f"🗑️ Delete Video {idx + 1}", key=f"del_video_{idx}"):
+            st.session_state.videos.pop(idx)
+            st.rerun()
 
-                row = [datetime.now(KL_TZ).strftime("%Y-%m-%d %H:%M:%S"), nama_penilai, depoh_val, str(tarikh), str(masa), selected_hub, routes_val, maklumat_asas, final_status_apo, ", ".join(fungsi_hub), catatan, tandas, surau, ruang_rehat, kiosk, bumbung, cahaya, parkir, akses, kesesakan, trafik, lain_lain, cadangan, kategori_hub, justifikasi, "; ".join(media_urls)]
-                header = ["Timestamp", "Penilai", "Depot", "Tarikh", "Masa", "Hab", "Laluan", "Asas", "Status APO", "Fungsi", "Catatan", "Tandas", "Surau", "Rehat", "Kiosk", "Bumbung", "Cahaya", "Parkir", "Akses", "Ksesakan", "Trafik", "Lain-lain", "Cadangan", "Kategori Hub", "Justifikasi", "Links"]
+# --------- Submission Form Block ---------
+st.write("---")
+with st.form(key="final_submission_form"):
+    submit_button = st.form_submit_button("✅ Submit Hub Survey")
+    if submit_button:
+        total_media_count = len(st.session_state.photos) + len(st.session_state.videos)
+        
+        # Form Validation Guardrails
+        if not staff_id_input:
+            st.warning("❗ Sila pilih Staff ID anda.")
+        elif not selected_hub:
+            st.warning("❗ Sila pilih Nama Hab.")
+        elif not maklumat_asas:
+            st.warning("❗ Sila jawab soalan 7 (Maklumat Asas Hub).")
+        elif not status_apo:
+            st.warning("❗ Sila jawab soalan 8 (Status Enjin Hidup).")
+        elif total_media_count < 2:
+            st.warning(f"❗ Sila upload sekurang-kurangnya 2 media assets (Anda sekarang mempunyai: {total_media_count}).")
+        elif total_media_count > 5:
+            st.warning(f"❗ Had maksimum media ialah 5 assets (Anda sekarang mempunyai: {total_media_count}).")
+        else:
+            try:
+                # Setup custom progress indicator
+                st.markdown('<div class="custom-spinner">Processing and uploading data... Please do not close the window.</div>', unsafe_allow_html=True)
                 
-                append_row(find_or_create_gsheet("hub_profiling_responses", FOLDER_ID), row, header)
-                st.success("Report Submitted Successfully!")
-                st.session_state.photos = []; st.session_state.videos = []
-                time.sleep(2); st.rerun()
+                timestamp = datetime.now(KL_TZ).strftime("%Y-%m-%d %H:%M:%S")
+                clean_hub_name = re.sub(r'[^a-zA-Z0-9_\s-]', '', selected_hub).strip().replace(" ", "_")
+                
+                media_links = []
+                
+                # Process and Watermark Photos
+                for idx, img in enumerate(st.session_state.photos):
+                    raw_bytes = img.getvalue() if hasattr(img, "getvalue") else img.read()
+                    processed_bytes = add_watermark(raw_bytes, selected_hub)
+                    filename = f"{timestamp.replace(':', '-')}_{clean_hub_name}_photo{idx+1}.jpg"
+                    link = gdrive_upload_file(processed_bytes, filename, "image/jpeg", FOLDER_ID)
+                    media_links.append(link)
+                
+                # Process Videos (no watermark is applied to raw video files)
+                for idx, vid in enumerate(st.session_state.videos):
+                    raw_bytes = vid.getvalue() if hasattr(vid, "getvalue") else vid.read()
+                    filename = f"{timestamp.replace(':', '-')}_{clean_hub_name}_video{idx+1}.mp4"
+                    link = gdrive_upload_file(raw_bytes, filename, "video/mp4", FOLDER_ID)
+                    media_links.append(link)
+
+                # Prepare payload
+                fungsi_hub_str = "; ".join(fungsi_hub) if fungsi_hub else ""
+                survey_row = [
+                    timestamp,
+                    staff_id_input,
+                    nama_penilai,
+                    selected_hub,
+                    str(depoh_val),
+                    tarikh.strftime("%Y-%m-%d"),
+                    masa,
+                    str(routes_val),
+                    maklumat_asas,
+                    status_apo,
+                    status_apo_catatan,
+                    fungsi_hub_str,
+                    catatan,
+                    tandas,
+                    surau,
+                    ruang_rehat,
+                    kiosk,
+                    bumbung,
+                    cahaya,
+                    parkir,
+                    akses,
+                    kesesakan,
+                    trafik,
+                    lain_lain,
+                    cadangan,
+                    kategori_hub,
+                    justifikasi,
+                    "; ".join(media_links)
+                ]
+                
+                survey_headers = [
+                    "Timestamp", "Staff ID", "Nama Penilai", "Nama Hub", "Depoh", 
+                    "Tarikh Penilaian", "Masa", "Laluan Bas", "Maklumat Asas Hub", 
+                    "Status APO", "Catatan Status APO", "Fungsi Hub", "Catatan", 
+                    "Tandas", "Surau", "Ruang Rehat", "Kiosk", "Kawasan Berbumbung", 
+                    "Cahaya Lampu", "Kawasan Parkir", "Akses Keluar Masuk", 
+                    "Risiko Kesesakan", "Keselamatan Trafik", "Lain-lain", 
+                    "Cadangan Tindakan", "Kategori Hub", "Justifikasi", "Media Uploads"
+                ]
+
+                # Find or Create target Spreadsheet & write data
+                gsheet_id = find_or_create_gsheet("survey_responses", FOLDER_ID)
+                append_row(gsheet_id, survey_row, survey_headers)
+                
+                # Complete the flow successfully
+                st.success("🎉 Borang Hub Profiling berjaya dihantar!")
+                st.session_state.photos = []
+                st.session_state.videos = []
+                time.sleep(2.5)
+                st.rerun()
+                
             except Exception as e:
-                st.error(f"Error: {e}")
+                st.error(f"Error semasa menghantar borang: {e}")
