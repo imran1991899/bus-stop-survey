@@ -190,17 +190,42 @@ def get_authenticated_service():
     if creds and creds.valid:
         return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
     if creds and creds.expired and creds.refresh_token:
-        creds.refresh(Request()); save_credentials(creds)
-        return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
+        try:
+            creds.refresh(Request())
+            save_credentials(creds)
+            return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
+        except Exception:
+            # If refreshing failed, clear bad credentials and force re-auth
+            if os.path.exists("token.pickle"):
+                os.remove("token.pickle")
     
-    flow = Flow.from_client_secrets_file(CLIENT_SECRETS_FILE, scopes=SCOPES, redirect_uri="https://bus-stop-survey-fwaavwf7uxvxrfbjeqv9nq.streamlit.app/")
+    flow = Flow.from_client_secrets_file(
+        CLIENT_SECRETS_FILE, 
+        scopes=SCOPES, 
+        redirect_uri="https://bus-stop-survey-fwaavwf7uxvxrfbjeqv9nq.streamlit.app/"
+    )
+    
+    # Process code if present in the parameters
     if "code" in st.query_params:
-        full_url = "https://bus-stop-survey-fwaavwf7uxvxrfbjeqv9nq.streamlit.app/?" + urlencode(st.query_params)
-        flow.fetch_token(authorization_response=full_url)
-        creds = flow.credentials; save_credentials(creds)
-        return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
+        try:
+            full_url = "https://bus-stop-survey-fwaavwf7uxvxrfbjeqv9nq.streamlit.app/?" + urlencode(st.query_params)
+            flow.fetch_token(authorization_response=full_url)
+            creds = flow.credentials
+            save_credentials(creds)
+            
+            # CRITICAL: Clean parameters instantly from URL so a page-reload doesn't reuse the expired auth code
+            st.query_params.clear()
+            st.rerun()
+        except Exception as e:
+            # If fetch_token fails (InvalidGrantError), clear URL parameters and token cache, then notify user to re-authenticate
+            st.query_params.clear()
+            if os.path.exists("token.pickle"):
+                os.remove("token.pickle")
+            st.error("Authentication session expired or is invalid. Please try logging in again.")
+            time.sleep(2)
+            st.rerun()
     else:
-        auth_url, _ = flow.authorization_url(prompt="consent")
+        auth_url, _ = flow.authorization_url(prompt="consent", access_type="offline")
         st.markdown(f"### Authentication Required\n[Please log in with Google]({auth_url})")
         st.stop()
 
