@@ -179,28 +179,61 @@ CLIENT_SECRETS_FILE = "client_secrets3.json"
 SCOPES = ["https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/spreadsheets"]
 
 def save_credentials(creds):
-    with open("token.pickle", "wb") as t: pickle.dump(creds, t)
+    with open("token.pickle", "wb") as t: 
+        pickle.dump(creds, t)
+
 def load_credentials():
     if os.path.exists("token.pickle"):
-        with open("token.pickle", "rb") as t: return pickle.load(t)
+        try:
+            with open("token.pickle", "rb") as t: 
+                return pickle.load(t)
+        except Exception:
+            return None
     return None
 
 def get_authenticated_service():
     creds = load_credentials()
+    
+    # 1. Check if we already have valid credentials loaded
     if creds and creds.valid:
         return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
+        
+    # 2. Check if credentials exist but are expired (attempt silent refresh)
     if creds and creds.expired and creds.refresh_token:
-        creds.refresh(Request()); save_credentials(creds)
-        return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
+        try:
+            creds.refresh(Request())
+            save_credentials(creds)
+            return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
+        except Exception:
+            # If refresh fails (e.g. revoked access), proceed to re-authorization
+            pass
+
+    # 3. Setup the OAuth Flow
+    redirect_uri = "https://bus-stop-survey-fwaavwf7uxvxrfbjeqv9nq.streamlit.app/"
+    flow = Flow.from_client_secrets_file(CLIENT_SECRETS_FILE, scopes=SCOPES, redirect_uri=redirect_uri)
     
-    flow = Flow.from_client_secrets_file(CLIENT_SECRETS_FILE, scopes=SCOPES, redirect_uri="https://bus-stop-survey-fwaavwf7uxvxrfbjeqv9nq.streamlit.app/")
+    # 4. Handle incoming OAuth redirect code
     if "code" in st.query_params:
-        full_url = "https://bus-stop-survey-fwaavwf7uxvxrfbjeqv9nq.streamlit.app/?" + urlencode(st.query_params)
-        flow.fetch_token(authorization_response=full_url)
-        creds = flow.credentials; save_credentials(creds)
-        return build("drive", "v3", credentials=creds), build("sheets", "v4", credentials=creds)
+        # Reconstruct the exact redirect URL needed for verification
+        full_url = redirect_uri + "?" + urlencode(st.query_params)
+        try:
+            flow.fetch_token(authorization_response=full_url)
+            creds = flow.credentials
+            save_credentials(creds)
+            
+            # CRITICAL FIX: Instantly clear query parameters and trigger rerun.
+            # This wipes "?code=..." from the URL bar so next execution flow skips this code block.
+            st.query_params.clear()
+            st.rerun()
+        except Exception as e:
+            # If token exchange fails (due to code expiry or already spent code), clean the UI and reset
+            st.query_params.clear()
+            st.error(f"Authentication failed/expired: {e}. Retrying authentication...")
+            time.sleep(2)
+            st.rerun()
     else:
-        auth_url, _ = flow.authorization_url(prompt="consent")
+        # 5. Initiate OAuth Flow (display login link)
+        auth_url, _ = flow.authorization_url(prompt="consent", access_type="offline")
         st.markdown(f"### Authentication Required\n[Please log in with Google]({auth_url})")
         st.stop()
 
