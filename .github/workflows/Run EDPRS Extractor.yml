@@ -30,7 +30,7 @@ jobs:
           DB_PASS: ${{ secrets.DB_PASS }}
           DB_NAME: ${{ secrets.DB_NAME }}
           DB_PORT: ${{ secrets.DB_PORT }}
-        run: python main.py
+        run: !updateGsheet.py
 
       - name: Commit and Push Generated Excel to Repository
         run: |
